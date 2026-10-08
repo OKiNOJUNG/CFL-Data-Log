@@ -37,7 +37,7 @@ const state = {
   customSeries: [], // Sandbox multi-axis series
   charts: {},
   slideIndex: 1,
-  totalSlides: 5,
+  totalSlides: 6,
   dataRecordSort: { field: 'tank', dir: 'asc' }
 };
 
@@ -672,7 +672,7 @@ window.openAddFeedLogModal = function(editId = null) {
     }
   }
 
-  if (titleEl) titleEl.textContent = '📋 เพิ่มบันทึก Feed อาหาร (Attachment 1)';
+  if (titleEl) titleEl.textContent = '📋 เพิ่มบันทึก Feed อาหาร (Feeding Log)';
   const now = new Date();
   const dateStr = `${now.getDate()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getFullYear().toString().slice(2)} ${now.getHours().toString().padStart(2,'0')}:00`;
   document.getElementById('feed-log-datetime').value = dateStr;
@@ -1300,7 +1300,7 @@ window.loadCDWExampleData = function() {
 
   calcCDWFromInputs();
   if (window.labAudio) window.labAudio.playSuccess();
-  showToast('โหลดข้อมูลตัวอย่างจาก Attachment 4 เรียบร้อย', 'info');
+  showToast('โหลดข้อมูลตัวอย่าง Cell Dry Weight เรียบร้อย', 'info');
 };
 
 window.saveCDWToCurrentSample = function() {
@@ -2083,7 +2083,7 @@ function renderDataRecordTable() {
         <td><strong><span style="color: ${tankDef.color};">●</span> ${s.tank}</strong></td>
         <td><strong>${s.time} h</strong></td>
         <td>${s.brix !== undefined ? s.brix : '-'}</td>
-        <td><strong>${s.sugarConvert !== undefined ? s.sugarConvert : '-'}</strong></td>
+        <td><strong>${s.sugarConvert !== undefined && s.sugarConvert !== null ? Number(s.sugarConvert).toFixed(3) : '-'}</strong></td>
         <td>${s.sucrose !== undefined ? s.sucrose : '-'}</td>
         <td>${s.glucose !== undefined ? s.glucose : '-'}</td>
         <td>${s.fructose !== undefined ? s.fructose : '-'}</td>
@@ -2181,7 +2181,7 @@ window.editDataRecordRow = function(tank, time, projectId) {
       s.sucrose = val.suc;
       s.glucose = val.glu;
       s.fructose = val.fru;
-      s.sugarConvert = val.suc + val.glu + val.fru;
+      s.sugarConvert = parseFloat((val.suc + val.glu + val.fru).toFixed(3));
       if (!isNaN(val.gly)) s.glycerol = val.gly;
       if (!isNaN(val.cdw)) s.cellDryWeight = val.cdw;
 
@@ -2622,28 +2622,45 @@ function setupPresentationDeck() {
   document.getElementById('btn-export-pdf')?.addEventListener('click', () => window.print());
 }
 
-function openPresentationModal() {
+window.openPresentationModal = function() {
   state.slideIndex = 1;
   updateSlideContent();
-  document.getElementById('presentation-modal').classList.add('open');
-  window.labAudio.playSuccess();
-}
+  const modal = document.getElementById('presentation-modal');
+  if (modal) {
+    modal.classList.add('open');
+    modal.style.display = 'flex';
+  }
+  if (typeof pushAppState === 'function') pushAppState('presentation');
+  if (window.labAudio) window.labAudio.playSuccess();
+};
 
-function closePresentationModal() {
-  document.getElementById('presentation-modal').classList.remove('open');
-  window.labAudio.playClick();
-}
+window.closePresentationModal = function() {
+  const modal = document.getElementById('presentation-modal');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.style.display = 'none';
+  }
+  if (window.labAudio) window.labAudio.playClick();
+};
+
+window.handlePresentationBackdropClick = function(event) {
+  if (event.target && event.target.id === 'presentation-modal') {
+    window.closePresentationModal();
+  }
+};
 
 function navigateSlide(direction) {
   state.slideIndex = Math.max(1, Math.min(state.totalSlides, state.slideIndex + direction));
-  window.labAudio.playClick();
+  if (window.labAudio) window.labAudio.playClick();
   updateSlideContent();
 }
 
 function updateSlideContent() {
-  document.getElementById('slide-counter-badge').textContent = `Slide ${state.slideIndex} of ${state.totalSlides}`;
+  const counterEl = document.getElementById('slide-counter-badge');
+  if (counterEl) counterEl.textContent = `Slide ${state.slideIndex} of ${state.totalSlides}`;
   const container = document.getElementById('slide-inner-content');
-  const project = state.projects.find(p => p.id === state.currentProjectId);
+  if (!container) return;
+  const project = state.projects.find(p => p.id === state.currentProjectId) || state.projects[0];
 
   if (state.slideIndex === 1) {
     container.innerHTML = `
@@ -2652,54 +2669,101 @@ function updateSlideContent() {
           Mitr Phol Biotech Research & Development
         </span>
         <h1 style="font-size: 2rem; color: #0a2540; margin: 16px 0;">รายงานสรุปผลการทดลองการหมักชีวภาพต่อเนื่อง</h1>
-        <h3 style="color: #475569; font-weight: 500;">Batch: ${project.batchMediumNo} | Experiment: ${project.experimentNo}</h3>
+        <h3 style="color: #475569; font-weight: 500;">Batch: ${project.batchMediumNo || '-'} | Experiment: ${project.experimentNo || '-'}</h3>
         
         <div style="max-width: 650px; margin: 30px auto; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; text-align: left;">
-          <p><strong>• สภาวะการทดลอง (Condition):</strong> ${project.conditionText}</p>
-          <p>• <strong>สัดส่วน Feed Culture:</strong> ${project.conditionParams.feedCulture}</p>
-          <p>• <strong>สายพันธุ์ยีสต์ (Seed):</strong> ${project.seed}</p>
-          <p>• <strong>นักวิจัยผู้รับผิดชอบ:</strong> ${project.ownerName}</p>
-          <p>• <strong>วันที่เริ่มการทดลอง:</strong> ${project.date}</p>
+          <p><strong>• สภาวะการทดลอง (Condition):</strong> ${project.conditionText || '-'}</p>
+          <p>• <strong>สัดส่วน Feed Culture:</strong> ${project.conditionParams ? project.conditionParams.feedCulture : '-'}</p>
+          <p>• <strong>สายพันธุ์ยีสต์ (Seed):</strong> ${project.seed || '-'}</p>
+          <p>• <strong>นักวิจัยผู้รับผิดชอบ:</strong> ${project.ownerName || '-'}</p>
+          <p>• <strong>วันที่เริ่มการทดลอง:</strong> ${project.date || '-'}</p>
         </div>
       </div>
     `;
   } else if (state.slideIndex === 2) {
+    // กรองเฉพาะถัง/กระบวนการที่มีข้อมูลบันทึกอยู่จริงในระบบสำหรับโครงการนี้เท่านั้น (ซ่อนถังว่าง)
+    const recordedTanks = window.LAB_TANKS.map(t => {
+      const s = state.samples
+        .filter(x => x.tank === t.id && (x.projectId === state.currentProjectId || !x.projectId))
+        .sort((a, b) => b.time - a.time)[0];
+      return { tank: t, sample: s };
+    }).filter(({ sample }) => {
+      if (!sample) return false;
+      const hasVal = (v) => v !== undefined && v !== null && v !== '' && v !== '-';
+      return hasVal(sample.brix) || 
+             hasVal(sample.sugarConvert) || 
+             hasVal(sample.ethanol) || 
+             hasVal(sample.glycerol) || 
+             hasVal(sample.cellCount) || 
+             hasVal(sample.cellDryWeight);
+    });
+
+    const hasData = recordedTanks.length > 0;
+
     container.innerHTML = `
       <div>
-        <h2 style="color: #0a2540; margin-bottom: 8px;">ตารางวิเคราะห์ Kinetic รวมของถังหมักทั้ง 8 ใบ (PF → D3)</h2>
-        <p style="color: #64748b; margin-bottom: 20px;">สรุปค่าความเข้มข้นสารสุดท้าย (Final Harvesting Values @ 82h)</p>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h2 style="color: #0a2540; margin-bottom: 4px; font-size: 1.4rem;">ตารางสรุปผลจลนพลศาสตร์รายกระบวนการ (Process Kinetic Summary)</h2>
+            <p style="color: #64748b; font-size: 0.88rem; margin: 0;">สรุปผลการวิเคราะห์ล่าสุดเฉพาะกระบวนการที่มีการบันทึกข้อมูลผลแล็บจริง (${recordedTanks.length} กระบวนการ)</p>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <span class="badge badge-navy" style="font-size: 0.8rem;">
+              บันทึกแล้ว ${recordedTanks.length} / ${window.LAB_TANKS.length} กระบวนการ
+            </span>
+          </div>
+        </div>
         
-        <div class="lab-data-table-wrapper">
-          <table class="lab-table">
+        <div class="lab-data-table-wrapper table-responsive" style="max-height: 380px; overflow-y: auto;">
+          <table class="lab-table" style="min-width: 820px;">
             <thead>
               <tr>
-                <th>ถังหมัก</th>
-                <th>คำอธิบาย</th>
-                <th>Brix สุดท้าย (°Bx)</th>
+                <th style="width: 110px;">กระบวนการ / ถัง</th>
+                <th>บทบาทในระบบ</th>
+                <th style="width: 90px;">เวลาล่าสุด</th>
+                <th>Brix (°Bx)</th>
                 <th>Sugar Convert (g/L)</th>
                 <th>Ethanol (g/L)</th>
                 <th>Glycerol (g/L)</th>
                 <th>Cell Count (cells/mL)</th>
+                <th>CDW (g/L)</th>
               </tr>
             </thead>
             <tbody>
-              ${window.LAB_TANKS.map(t => {
-                const s = state.samples.filter(x => x.tank === t.id).sort((a,b) => b.time - a.time)[0] || {};
+              ${hasData ? recordedTanks.map(({ tank: t, sample: s }) => {
+                const sugarVal = s.sugarConvert !== undefined && s.sugarConvert !== null ? Number(s.sugarConvert).toFixed(3) : '-';
+                const ethVal = s.ethanol !== undefined && s.ethanol !== null ? Number(s.ethanol).toFixed(3) : '-';
+                const glyVal = s.glycerol !== undefined && s.glycerol !== null ? Number(s.glycerol).toFixed(3) : '-';
                 return `
                   <tr>
                     <td><strong><span style="color: ${t.color}">●</span> ${t.id}</strong></td>
-                    <td>${t.desc}</td>
-                    <td>${s.brix !== undefined ? s.brix : '-'}</td>
-                    <td>${s.sugarConvert !== undefined ? s.sugarConvert : '-'}</td>
-                    <td><strong>${s.ethanol !== undefined ? s.ethanol : '-'}</strong></td>
-                    <td>${s.glycerol !== undefined ? s.glycerol : '-'}</td>
+                    <td style="font-size: 0.85rem; color: #475569;">${t.desc}</td>
+                    <td><span class="badge badge-navy" style="font-size: 0.75rem;">@ ${s.time !== undefined ? s.time + 'h' : '-'}</span></td>
+                    <td><strong>${s.brix !== undefined ? s.brix + '°' : '-'}</strong></td>
+                    <td><strong style="color: #2563eb;">${sugarVal}</strong></td>
+                    <td><strong style="color: #ea580c;">${ethVal}</strong></td>
+                    <td>${glyVal}</td>
                     <td>${s.cellCount ? s.cellCount.toExponential(2) : '-'}</td>
+                    <td style="color: #92400e; font-weight: 700;">${s.cellDryWeight !== undefined ? s.cellDryWeight + ' g/L' : '-'}</td>
                   </tr>
                 `;
-              }).join('')}
+              }).join('') : `
+                <tr>
+                  <td colspan="9" style="text-align: center; color: #94a3b8; padding: 32px;">
+                    ⚠️ ยังไม่มีข้อมูลบันทึกผลการทดลองสำหรับกระบวนการใดๆ ในโครงการนี้
+                  </td>
+                </tr>
+              `}
             </tbody>
           </table>
         </div>
+
+        ${hasData ? `
+          <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; font-size: 0.82rem; color: #475569; flex-wrap: wrap; gap: 8px;">
+            <span>ℹ️ แสดงเฉพาะถังหมักที่มีข้อมูลตรวจวัดจริงในห้องปฏิบัติการเพื่อความกระชับในการนำเสนอ</span>
+            <span style="color: #1e3a8a; font-weight: 600;">Sugar Convert แสดงผลมาตรฐานทศนิยม 3 ตำแหน่ง</span>
+          </div>
+        ` : ''}
       </div>
     `;
   } else if (state.slideIndex === 3) {
@@ -2772,7 +2836,7 @@ function updateSlideContent() {
       <div>
         <h2 style="color: #0a2540; margin-bottom: 8px;">พฤติกรรมและการเจริญเติบโตของเซลล์ยีสต์</h2>
         <p style="color: #64748b; margin-bottom: 16px;">สัดส่วนเซลล์มีชีวิต (% Viability) และการแตกหน่อ (Budding Index) ส่องด้วยกล้องจุลทรรศน์</p>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
           <div class="kpi-stat-card">
             <span class="kpi-label">Average Viability</span>
             <div class="kpi-value" style="color: #059669;">97.4 %</div>
@@ -2792,35 +2856,169 @@ function updateSlideContent() {
       </div>
     `;
   } else if (state.slideIndex === 5) {
+    const feedLogs = (project && project.feedLogs && Array.isArray(project.feedLogs)) ? project.feedLogs : [];
+    const totalCycles = feedLogs.length;
+    const mediaSet = Array.from(new Set(feedLogs.map(f => f.medium).filter(Boolean)));
+    const avgBrix = totalCycles > 0 
+      ? (feedLogs.reduce((acc, f) => acc + (parseFloat(f.brix) || 0), 0) / totalCycles).toFixed(1)
+      : '-';
+
     container.innerHTML = `
-      <div style="text-align: center; padding: 20px;">
-        <span class="badge badge-best-condition" style="font-size: 1rem; padding: 8px 20px; margin-bottom: 16px;">
-          🏆 ข้อสรุปสภาวะการหมักที่ดีที่สุด (Best Condition Determination)
-        </span>
-        <h1 style="color: #0a2540; margin: 16px 0;">สภาวะ D = 0.022 h⁻¹ (B:C 80:20, 30°C)</h1>
-        
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; max-width: 850px; margin: 24px auto;">
-          <div class="kpi-stat-card" style="text-align: left;">
-            <span class="kpi-label">Ethanol Yield</span>
-            <div class="kpi-value" style="color: #d97706;">0.491 g/g</div>
-            <span class="kpi-desc">96.1% ของขีดจำกัดทฤษฎีชีวเคมี</span>
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <span class="badge badge-navy" style="font-size: 0.78rem; margin-bottom: 4px;">Continuous Feeding Substrate Log</span>
+            <h2 style="color: #0a2540; margin: 0; font-size: 1.4rem;">รายละเอียดข้อมูลบันทึกการป้อนอาหาร (Continuous Feeding Log Details)</h2>
           </div>
-          <div class="kpi-stat-card" style="text-align: left;">
-            <span class="kpi-label">Productivity (Qp)</span>
-            <div class="kpi-value" style="color: #059669;">2.18 g/L·h</div>
-            <span class="kpi-desc">อัตราการผลิตต่อชั่วโมงสูงสุด</span>
+          <span class="badge badge-gold" style="font-size: 0.82rem;">ประวัติบันทึกการเติมอาหาร ${totalCycles} รอบ</span>
+        </div>
+        <p style="color: #64748b; font-size: 0.88rem; margin-bottom: 14px;">
+          บันทึกประวัติการป้อนสารตั้งต้นและอาหารเลี้ยงเชื้อแบบต่อเนื่อง (Continuous Feeding) ตลอดกระบวนการหมักชีวภาพ
+        </p>
+
+        <!-- Feed KPI Summary Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
+          <div class="kpi-stat-card" style="padding: 12px 14px;">
+            <span class="kpi-label">น้ำตาลกากน้ำตาลขาเข้า (Inlet Sugar)</span>
+            <div class="kpi-value" style="color: #0f3d7a; font-size: 1.3rem;">${project.inletMolassesSugar !== undefined ? project.inletMolassesSugar + ' g/L' : '-'}</div>
+            <span class="kpi-desc">Initial Brix: ${project.initialBrix !== undefined ? project.initialBrix + '°' : '-'}</span>
           </div>
-          <div class="kpi-stat-card" style="text-align: left;">
-            <span class="kpi-label">Sugar Conversion</span>
-            <div class="kpi-value" style="color: #1e3a8a;">99.3 %</div>
-            <span class="kpi-desc">ใช้น้ำตาลหมดอย่างมีประสิทธิภาพ</span>
+          <div class="kpi-stat-card" style="padding: 12px 14px;">
+            <span class="kpi-label">ปริมาตรอาหารเตรียม / คงเหลือ</span>
+            <div class="kpi-value" style="color: #059669; font-size: 1.3rem;">${project.preparedVolume || '-'} / ${project.remainingVolume || '-'} L</div>
+            <span class="kpi-desc">ปริมาตรในถังเตรียมสารละลายอาหาร</span>
+          </div>
+          <div class="kpi-stat-card" style="padding: 12px 14px;">
+            <span class="kpi-label">รอบการป้อนอาหาร (Feed Cycles)</span>
+            <div class="kpi-value" style="color: #d97706; font-size: 1.3rem;">${totalCycles} รอบ</div>
+            <span class="kpi-desc">สูตรอาหาร: ${mediaSet.length > 0 ? mediaSet.join(', ') : 'BF.1, BF.2'} (เฉลี่ย ${avgBrix}°Bx)</span>
+          </div>
+          <div class="kpi-stat-card" style="padding: 12px 14px;">
+            <span class="kpi-label">อัตราป้อนอาหารเฉลี่ย (Feed Rate)</span>
+            <div class="kpi-value" style="color: #7c3aed; font-size: 1.3rem;">150–200 mL/h</div>
+            <span class="kpi-desc">สอดคล้องกับ Dilution Rate D = ${project.conditionParams?.dilutionRateD || '0.022'} h⁻¹</span>
           </div>
         </div>
 
-        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 18px; max-width: 850px; margin: 0 auto; text-align: left;">
-          <strong style="color: #166534;">💡 ข้อเสนอแนะเชิงกลยุทธ์สำหรับโรงงาน:</strong>
-          <p style="color: #15803d; font-size: 0.9rem; margin-top: 4px;">
-            แนะนำให้ใช้สภาวะ Dilution Rate D = 0.022 เป็นเกณฑ์มาตรฐานหลักสำหรับการขยายขนาด (Scale-up) เนื่องจากรักษาสมดุลระหว่างอัตราการเจือจางและความเข้มข้นเอทานอลได้เสถียรที่สุดตลอด Cascade 8 ถัง
+        <!-- Feed Log Table -->
+        <div class="lab-data-table-wrapper table-responsive" style="max-height: 250px; overflow-y: auto;">
+          <table class="lab-table" style="min-width: 720px;">
+            <thead>
+              <tr>
+                <th style="width: 110px;">วันที่</th>
+                <th style="width: 80px;">เวลา</th>
+                <th>ชนิดอาหาร</th>
+                <th>รอบที่</th>
+                <th>Brix (°Bx)</th>
+                <th>ปริมาตรเริ่มต้น</th>
+                <th>ปริมาตรคงเหลือ</th>
+                <th>หมายเหตุ / อัตรา Feed</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${feedLogs.length > 0 ? feedLogs.map((item, idx) => `
+                <tr>
+                  <td><strong>${item.date || '-'}</strong></td>
+                  <td>${item.time || '-'}</td>
+                  <td><span class="badge ${item.medium === 'BF.1' ? 'badge-navy' : 'badge-gold'}" style="font-size: 0.75rem;">${item.medium || '-'}</span></td>
+                  <td><strong>${item.feedNo || (idx + 1)}</strong></td>
+                  <td style="color: #d97706; font-weight: 600;">${item.brix !== undefined ? item.brix + '°' : '-'}</td>
+                  <td>${item.initialVolume || '-'}</td>
+                  <td>${item.remainingVolume || '-'}</td>
+                  <td>${item.remark ? `<span style="color: #059669; font-weight: 500;">${item.remark}</span>` : '-'}</td>
+                </tr>
+              `).join('') : `
+                <tr>
+                  <td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">ไม่มีรายการบันทึกการ Feed อาหารในโปรเจกต์นี้</td>
+                </tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Strategy Note -->
+        <div style="margin-top: 14px; padding: 12px 16px; background: #f8fafc; border-left: 4px solid #059669; border-radius: 8px; font-size: 0.83rem; color: #334155;">
+          <strong>💡 ยุทธศาสตร์การควบคุมการป้อนอาหาร (Feeding Control Strategy):</strong> การจัดสรรอาหารสูตร BF.1 และ BF.2 อย่างต่อเนื่องช่วยควบคุมสภาวะ Steady-State ไม่ให้น้ำตาลสะสมเกินจนเกิดภาวะยับยั้งแบบ Catabolite Repression ในขณะเดียวกันยังหล่อเลี้ยงความหนาแน่นและอัตราการสังเคราะห์เอทานอลของยีสต์ให้คงที่ตลอด 82 ชั่วโมง
+        </div>
+      </div>
+    `;
+  } else if (state.slideIndex === 6) {
+    container.innerHTML = `
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <span class="badge badge-gold" style="font-size: 0.78rem; margin-bottom: 4px;">Executive Research Synthesis</span>
+            <h2 style="color: #0a2540; margin: 0; font-size: 1.4rem;">บทสรุปภาพรวมงานวิจัย: วิวัฒนาการตั้งแต่กระบวนการแรกจนถึงผลสัมฤทธิ์สุดท้าย</h2>
+          </div>
+          <span class="badge badge-navy" style="font-size: 0.82rem;">End-to-End Cascade Milestones (0–82h)</span>
+        </div>
+        <p style="color: #64748b; font-size: 0.88rem; margin-bottom: 14px;">
+          สังเคราะห์ผลสัมฤทธิ์การทดลองการหมักชีวภาพต่อเนื่องแบบ 8 ถังคาสเคด ตั้งแต่ขั้นตอนเพาะเลี้ยงกล้าเชื้อจนถึงการเก็บเกี่ยวผลผลิตสุดท้าย
+        </p>
+
+        <!-- 4 Chronological Stage Milestone Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px;">
+          <!-- Stage 1 -->
+          <div style="background: #ffffff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 14px; border-left: 4px solid #1e3a8a; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <span style="font-weight: 700; color: #1e3a8a; font-size: 0.88rem;">1. เตรียมหัวเชื้อ & สารตั้งต้น (0–12h)</span>
+              <span class="badge badge-navy" style="font-size: 0.7rem;">ถัง PF</span>
+            </div>
+            <ul style="margin: 0; padding-left: 16px; font-size: 0.8rem; color: #475569; line-height: 1.55;">
+              <li><strong>น้ำตาลเริ่มต้น:</strong> 125.2 g/L (Brix 18.0°) ในกากน้ำตาลตั้งต้น</li>
+              <li><strong>การปลุกเซลล์:</strong> Angel Yeast ละลายน้ำ 0.4 g เซลล์เริ่ม 1.5×10⁸ cfu/mL</li>
+              <li><strong>ความสมบูรณ์เซลล์:</strong> Viability 98.2%, Budding Index 12.5% เซลล์ปรับสภาพสมบูรณ์</li>
+            </ul>
+          </div>
+
+          <!-- Stage 2 -->
+          <div style="background: #ffffff; border: 1px solid #fed7aa; border-radius: 12px; padding: 14px; border-left: 4px solid #ea580c; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <span style="font-weight: 700; color: #9a3412; font-size: 0.88rem;">2. ป้อนอาหาร & เชื่อม Cascade (12–46h)</span>
+              <span class="badge badge-gold" style="font-size: 0.7rem;">ถัง F1 → F3</span>
+            </div>
+            <ul style="margin: 0; padding-left: 16px; font-size: 0.8rem; color: #475569; line-height: 1.55;">
+              <li><strong>การป้อนอาหาร:</strong> Feed อาหารสูตร BF.1/BF.2 อัตรา D = 0.022 h⁻¹</li>
+              <li><strong>จุดตัดชีวเคมี (Cross-Over):</strong> @ F2→F3 น้ำตาลลดฮวบ 100.3 → 19.6 g/L เอทานอลพุ่งแตะ 78.4 g/L</li>
+              <li><strong>พีคชีวมวล:</strong> เซลล์หนาแน่นสูงสุด 9.15×10⁸ cells/mL, CDW สูงสุด 4.35 g/L</li>
+            </ul>
+          </div>
+
+          <!-- Stage 3 -->
+          <div style="background: #ffffff; border: 1px solid #bbf7d0; border-radius: 12px; padding: 14px; border-left: 4px solid #059669; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <span style="font-weight: 700; color: #065f46; font-size: 0.88rem;">3. สมดุลคงที่ & ใช้น้ำตาลหมด (46–82h)</span>
+              <span class="badge" style="background: #dcfce7; color: #166534; font-size: 0.7rem;">ถัง F4 → F7</span>
+            </div>
+            <ul style="margin: 0; padding-left: 16px; font-size: 0.8rem; color: #475569; line-height: 1.55;">
+              <li><strong>Steady-State:</strong> เข้าสู่สภาวะสมดุลคงที่ อัตราไหลคงที่สม่ำเสมอ</li>
+              <li><strong>การใช้น้ำตาลสมบูรณ์:</strong> น้ำตาลตกค้างในระบบ &lt; 0.1 g/L ใน D3 (ใช้น้ำตาลหมด 99.9%)</li>
+              <li><strong>เสถียรภาพชีวภาพ:</strong> ไร้ปัญหา Stuck Fermentation, ความมีชีวิตคงที่ 97.4%</li>
+            </ul>
+          </div>
+
+          <!-- Stage 4 -->
+          <div style="background: #ffffff; border: 1px solid #ddd6fe; border-radius: 12px; padding: 14px; border-left: 4px solid #7c3aed; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <span style="font-weight: 700; color: #5b21b6; font-size: 0.88rem;">4. เก็บเกี่ยว & ตัวชี้วัดสุดท้าย (@ 82h)</span>
+              <span class="badge" style="background: #ede9fe; color: #6d28d9; font-size: 0.7rem;">ถัง D3 Final</span>
+            </div>
+            <ul style="margin: 0; padding-left: 16px; font-size: 0.8rem; color: #475569; line-height: 1.55;">
+              <li><strong>ความเข้มข้นเอทานอลสูงสุด:</strong> <strong style="color: #ea580c;">99.53 g/L</strong> (12.6% v/v)</li>
+              <li><strong>Ethanol Yield (Yp/s):</strong> <strong style="color: #059669;">0.491 g/g</strong> (96.3% ของทฤษฎี Gay-Lussac)</li>
+              <li><strong>Volumetric Productivity:</strong> Qp = 2.18 g/L·h ต่อเนื่อง</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Strategic Scale-up Recommendation Box -->
+        <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 16px 20px; box-shadow: 0 2px 8px rgba(16,185,129,0.08);">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <span style="font-size: 1.25rem;">🏆</span>
+            <strong style="color: #166534; font-size: 1rem;">ข้อสรุปงานวิจัยและข้อเสนอแนะเชิงกลยุทธ์สำหรับการขยายขนาด (Scale-up Strategy):</strong>
+          </div>
+          <p style="color: #15803d; font-size: 0.88rem; margin: 0; line-height: 1.6;">
+            ผลการวิจัยสรุปได้ว่า สภาวะการหมักแบบคาสเคด 8 ถังต่อเนื่องที่อัตราเจือจาง <strong>Dilution Rate D = 0.022 h⁻¹</strong> (สัดส่วน Feed Culture 80:20, อุณหภูมิ 30°C) เป็นสภาวะที่เหมาะสมที่สุด (Optimal Operating Window) โดยให้อัตราการเปลี่ยนน้ำตาลเป็นเอทานอลสูงถึง 99.9% และ Yield ทางชีวเคมีถึง 96.3% ของขีดจำกัดทฤษฎี โดยไม่พบการสะสมของน้ำตาลหรือการตายของเซลล์ยีสต์ จึงเสนอให้ใช้เป็น <strong>แบบพิมพ์เขียวมาตรฐาน (Standard Benchmark Recipe)</strong> สำหรับการขยายขนาดสู่กระบวนการผลิตระดับโรงงานอุตสาหกรรม
           </p>
         </div>
       </div>
@@ -4348,26 +4546,30 @@ window.switchMobileTab = function(tabKey) {
   const backBar = document.getElementById('mobile-subpage-back-bar');
   const homeSec = document.getElementById('mobile-home-view');
   const profileSec = document.getElementById('mobile-profile-view');
+  const notifSec = document.getElementById('mobile-notifications-view');
+  const banner = document.getElementById('permission-notice-banner');
   const desktopSecs = document.querySelectorAll('.content-section');
 
   if (window.labAudio) window.labAudio.playClick();
+
+  // Hide subpage views
+  if (notifSec) notifSec.style.display = 'none';
+  if (banner) banner.style.display = 'none';
 
   if (tabKey === 'home') {
     if (backBar) backBar.style.display = 'none';
     if (homeSec) homeSec.style.display = 'block';
     if (profileSec) profileSec.style.display = 'none';
-    if (window.innerWidth <= 768) {
-      desktopSecs.forEach(s => s.classList.remove('active'));
-    }
+    desktopSecs.forEach(s => s.classList.remove('active'));
     renderMobileHomeDashboard();
   } else if (tabKey === 'profile') {
     if (backBar) backBar.style.display = 'none';
     if (homeSec) homeSec.style.display = 'none';
     if (profileSec) profileSec.style.display = 'block';
-    if (window.innerWidth <= 768) {
-      desktopSecs.forEach(s => s.classList.remove('active'));
-    }
+    // Remove all desktop content sections so view cleanly terminates at Logout button
+    desktopSecs.forEach(s => s.classList.remove('active'));
     renderMobileProfile();
+    if (typeof pushAppState === 'function') pushAppState('profile');
   } else if (tabKey === 'records') {
     if (homeSec) homeSec.style.display = 'none';
     if (profileSec) profileSec.style.display = 'none';
@@ -4380,6 +4582,7 @@ window.switchMobileTab = function(tabKey) {
       if (title) title.textContent = '📑 ข้อมูลดิบรวม (Data Records)';
     }
     syncDataRecordProjectFilter();
+    if (typeof pushAppState === 'function') pushAppState('records');
   } else if (tabKey === 'charts') {
     if (homeSec) homeSec.style.display = 'none';
     if (profileSec) profileSec.style.display = 'none';
@@ -4393,12 +4596,14 @@ window.switchMobileTab = function(tabKey) {
     }
     renderAnalyticsCharts();
     renderCustomChart();
+    if (typeof pushAppState === 'function') pushAppState('charts');
   }
 };
 
 window.mobileNavigateTo = function(sectionId, titleText) {
   const homeSec = document.getElementById('mobile-home-view');
   const profileSec = document.getElementById('mobile-profile-view');
+  const notifSec = document.getElementById('mobile-notifications-view');
   const desktopSecs = document.querySelectorAll('.content-section');
   const backBar = document.getElementById('mobile-subpage-back-bar');
   const titleEl = document.getElementById('mobile-subpage-title');
@@ -4407,6 +4612,7 @@ window.mobileNavigateTo = function(sectionId, titleText) {
 
   if (homeSec) homeSec.style.display = 'none';
   if (profileSec) profileSec.style.display = 'none';
+  if (notifSec) notifSec.style.display = 'none';
   desktopSecs.forEach(s => s.classList.remove('active'));
 
   const target = document.getElementById(sectionId);
@@ -4416,6 +4622,8 @@ window.mobileNavigateTo = function(sectionId, titleText) {
     backBar.style.display = 'flex';
     if (titleEl) titleEl.textContent = titleText || 'รายละเอียด';
   }
+
+  if (typeof pushAppState === 'function') pushAppState(sectionId);
 
   // Trigger relevant desktop tab callbacks
   if (sectionId === 'sec-projects') {
@@ -4434,6 +4642,89 @@ window.mobileNavigateTo = function(sectionId, titleText) {
   } else if (sectionId === 'sec-settings') {
     renderUserManagementTable();
   }
+};
+
+// Open notifications full subpage like corporate car booking system (ระบบจองรถยนต์)
+window.openMobileNotificationsPage = function() {
+  const homeSec = document.getElementById('mobile-home-view');
+  const profileSec = document.getElementById('mobile-profile-view');
+  const notifSec = document.getElementById('mobile-notifications-view');
+  const desktopSecs = document.querySelectorAll('.content-section');
+  const backBar = document.getElementById('mobile-subpage-back-bar');
+  const titleEl = document.getElementById('mobile-subpage-title');
+  const banner = document.getElementById('permission-notice-banner');
+
+  if (window.labAudio) window.labAudio.playClick();
+
+  if (homeSec) homeSec.style.display = 'none';
+  if (profileSec) profileSec.style.display = 'none';
+  if (banner) banner.style.display = 'none';
+  desktopSecs.forEach(s => s.classList.remove('active'));
+
+  if (notifSec) notifSec.style.display = 'block';
+
+  if (backBar) {
+    backBar.style.display = 'flex';
+    if (titleEl) titleEl.textContent = 'การแจ้งเตือน & ประวัติแล็บ';
+  }
+
+  renderMobileNotificationsListPage();
+  if (typeof pushAppState === 'function') pushAppState('notifications_page');
+};
+
+window.renderMobileNotificationsListPage = function() {
+  const container = document.getElementById('mobile-notifications-page-list');
+  if (!container) return;
+
+  let logs = state.auditLogs || [];
+  if (currentMobLogFilter === 'sample') {
+    logs = logs.filter(l => l.action.includes('SAMPLE') || l.action.includes('CDW'));
+  } else if (currentMobLogFilter === 'system') {
+    logs = logs.filter(l => !l.action.includes('SAMPLE') && !l.action.includes('CDW'));
+  }
+
+  if (logs.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 40px 20px; background: #ffffff; border-radius: 16px; border: 1px solid #f1f5f9; color: #94a3b8; font-size: 0.88rem;">
+        <i class="fa-regular fa-bell-slash" style="font-size: 2.2rem; margin-bottom: 10px; opacity: 0.4;"></i>
+        <p style="margin: 0;">ไม่มีรายการแจ้งเตือนในหมวดนี้</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = logs.slice(0, 30).map(l => {
+    const isSample = l.action.includes('SAMPLE') || l.action.includes('CDW');
+    const isWarning = l.action.includes('DELETE') || l.action.includes('RESTORE');
+    const iconClass = isWarning ? 'icon-warning' : (isSample ? 'icon-sample' : 'icon-system');
+    const iconSymbol = isWarning ? 'fa-triangle-exclamation' : (isSample ? 'fa-flask' : 'fa-gear');
+    const timeFormatted = new Date(l.timestamp).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = new Date(l.timestamp).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+
+    return `
+      <div class="mob-notif-item" style="background: #ffffff; border: 1px solid #f1f5f9; border-radius: 14px; padding: 14px; margin-bottom: 10px; display: flex; gap: 12px; box-shadow: 0 1px 4px rgba(15, 23, 42, 0.02);">
+        <div class="mob-notif-icon ${iconClass}">
+          <i class="fa-solid ${iconSymbol}"></i>
+        </div>
+        <div class="mob-notif-content" style="flex: 1;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px;">
+            <div class="mob-notif-title" style="font-weight: 700; font-size: 0.88rem; color: #0f172a;">${l.action}</div>
+            <span style="font-size: 0.72rem; color: #94a3b8; white-space: nowrap;">${dateFormatted} ${timeFormatted}</span>
+          </div>
+          <div class="mob-notif-desc" style="font-size: 0.78rem; color: #475569; margin: 4px 0 6px; line-height: 1.4;">${l.details || '-'}</div>
+          <div class="mob-notif-time" style="font-size: 0.72rem; color: #64748b; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-regular fa-user"></i> ${l.userName || 'System'}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+window.markAllMobileNotificationsRead = function() {
+  const dot = document.getElementById('mobile-notif-dot');
+  if (dot) dot.style.display = 'none';
+  showToast('ล้างการแจ้งเตือนทั้งหมดเรียบร้อย', 'info');
 };
 
 window.handleMobileProjectChange = function(projId) {
@@ -4704,7 +4995,7 @@ window.calcMobQuickSugar = function() {
   const suc = parseFloat(document.getElementById('mob-quick-sucrose')?.value) || 0;
   const glu = parseFloat(document.getElementById('mob-quick-glucose')?.value) || 0;
   const fru = parseFloat(document.getElementById('mob-quick-fructose')?.value) || 0;
-  const sum = (suc + glu + fru).toFixed(2);
+  const sum = (suc + glu + fru).toFixed(3);
   const disp = document.getElementById('mob-quick-sugar-convert-display');
   if (disp) disp.textContent = `${sum} g/L`;
 };
@@ -4750,7 +5041,7 @@ window.saveMobQuickSample = function() {
   const deadCfu = (deadVal !== null) ? deadVal * dilVal * factor : null;
   const cellViability = (totVal && totVal > 0 && deadVal !== null) ? parseFloat(((totVal - deadVal) / totVal * 100).toFixed(1)) : null;
   const cellBuddingRate = (totVal && totVal > 0 && budVal !== null) ? parseFloat((budVal / totVal * 100).toFixed(1)) : null;
-  const sugarConvert = (sucVal !== null || gluVal !== null || fruVal !== null) ? ((sucVal || 0) + (gluVal || 0) + (fruVal || 0)) : null;
+  const sugarConvert = (sucVal !== null || gluVal !== null || fruVal !== null) ? parseFloat(((sucVal || 0) + (gluVal || 0) + (fruVal || 0)).toFixed(3)) : null;
 
   let existingIdx = state.samples.findIndex(s => s.projectId === state.currentProjectId && s.tank === mobQuickSelectedTank && s.time === tVal);
 
@@ -4789,7 +5080,7 @@ window.saveMobQuickSample = function() {
   }
 
   persistState();
-  logAction('SAVE_SAMPLE_MOBILE', `บันทึกตัวอย่างด่วน ถัง ${mobQuickSelectedTank} เวลา ${tVal}h [Brix: ${brixVal || '-'}, EtOH: ${ethVal || '-'}, Total: ${totalCfu ? formatCfuDisplay(totalCfu) + ' CFU/ml' : '-'}${cdwVal ? ', CDW: ' + cdwVal + ' g/L' : ''}]`);
+  logAction('SAVE_SAMPLE_MOBILE', `บันทึกตัวอย่างด่วน ถัง ${mobQuickSelectedTank} เวลา ${tVal}h [Brix: ${brixVal || '-'}, Sugar: ${sugarConvert !== null ? sugarConvert.toFixed(3) : '-'}, EtOH: ${ethVal || '-'}, Total: ${totalCfu ? formatCfuDisplay(totalCfu) + ' CFU/ml' : '-'}${cdwVal ? ', CDW: ' + cdwVal + ' g/L' : ''}]`);
   if (window.labAudio) window.labAudio.playSuccess();
   closeMobileQuickAddModal();
   renderAllDataViews();
@@ -4813,7 +5104,7 @@ window.openMobileSampleDetail = function(sampleKey) {
   const brixStr = sample.brix != null ? `${sample.brix} °Bx` : 'ยังไม่มีข้อมูล';
   const ethStr = sample.ethanol != null ? `${sample.ethanol} g/L` : '-';
   const viaStr = sample.viabilityPct != null ? `${sample.viabilityPct}%` : (sample.cellViabilityPercent != null ? `${sample.cellViabilityPercent.toFixed(1)}%` : '-');
-  const sugarStr = sample.sugarConvert != null ? `${sample.sugarConvert.toFixed(2)} g/L` : '-';
+  const sugarStr = sample.sugarConvert != null ? `${Number(sample.sugarConvert).toFixed(3)} g/L` : '-';
   const cellVal = sample.cellCount || sample.cellsPerMl;
   const cellStr = cellVal ? `${formatCfuDisplay(cellVal)} CFU/ml` : '-';
   const cdwStr = sample.cellDryWeight != null ? `${sample.cellDryWeight} g/L` : '-';
@@ -4982,11 +5273,8 @@ window.mobileShowAccountInfo = function() {
 };
 
 window.mobileOpenPresentation = function() {
-  const modal = document.getElementById('presentation-modal');
-  if (modal) {
-    modal.style.display = 'flex';
-    state.slideIndex = 1;
-    renderCurrentSlide();
+  if (typeof window.openPresentationModal === 'function') {
+    window.openPresentationModal();
   }
 };
 
@@ -5009,33 +5297,104 @@ window.mobileOpenAudioSettings = function() {
   });
 };
 
-window.mobileSwitchUserPrompt = function() {
-  Swal.fire({
-    title: 'สลับบัญชีทดสอบด่วน',
-    input: 'select',
-    inputOptions: {
-      'usr_01': '👨‍🔬 ดร.สมชาย นักวิจัย (เจ้าของงาน)',
-      'usr_02': '👩‍🔬 ดร.อารยา นักวิจัย (ผู้ร่วมวิจัย)',
-      'usr_admin': '🛡️ Lab Admin (ผู้ดูแลระบบ)'
-    },
-    inputValue: state.currentUser ? state.currentUser.uid : 'usr_01',
-    showCancelButton: true,
-    confirmButtonText: 'สลับบัญชี',
-    cancelButtonText: 'ยกเลิก',
-    confirmButtonColor: '#2563eb'
-  }).then((res) => {
-    if (res.isConfirmed && res.value) {
-      const u = state.users.find(user => user.uid === res.value);
-      if (u) {
-        applyLoginSuccess(u);
-        showToast(`สลับเป็น ${u.displayName} แล้ว`, 'success');
-      }
-    }
-  });
+// Mobile History / Back Navigation Management (Popstate Interceptor)
+let mobileNavDepth = 0;
+
+window.pushAppState = function(viewName) {
+  try {
+    history.pushState({ appView: viewName, depth: ++mobileNavDepth }, '');
+  } catch (e) {
+    console.warn('History pushState error', e);
+  }
 };
+
+window.handleMobileBackNavigation = function() {
+  // 1. Check Presentation Modal
+  const presModal = document.getElementById('presentation-modal');
+  if (presModal && (presModal.classList.contains('open') || presModal.style.display === 'flex')) {
+    window.closePresentationModal();
+    return true;
+  }
+
+  // 2. Check Quick Add Modal
+  const quickModal = document.getElementById('mobile-quick-add-modal');
+  if (quickModal && quickModal.style.display === 'flex') {
+    window.closeMobileQuickAddModal();
+    return true;
+  }
+
+  // 3. Check Sample Detail Sheet
+  const detailModal = document.getElementById('mobile-sample-detail-modal');
+  if (detailModal && detailModal.style.display === 'flex') {
+    window.closeMobileSampleDetail();
+    return true;
+  }
+
+  // 4. Check Notifications Modal
+  const notifModal = document.getElementById('mobile-notifications-modal');
+  if (notifModal && notifModal.style.display === 'flex') {
+    window.closeMobileNotificationsModal();
+    return true;
+  }
+
+  // 5. Check CDW Modal
+  const cdwModal = document.getElementById('modal-cdw-calculator');
+  if (cdwModal && cdwModal.style.display === 'flex') {
+    window.closeCDWModal();
+    return true;
+  }
+
+  // 6. Check Feed Log Modal
+  const feedModal = document.getElementById('modal-add-feed-log');
+  if (feedModal && feedModal.style.display === 'flex') {
+    window.closeAddFeedLogModal();
+    return true;
+  }
+
+  // 7. Check SweetAlert
+  if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) {
+    Swal.close();
+    return true;
+  }
+
+  // 8. Check Car Booking Notifications Subpage
+  const notifView = document.getElementById('mobile-notifications-view');
+  if (notifView && notifView.style.display === 'block') {
+    window.switchMobileTab('home');
+    return true;
+  }
+
+  // 9. Check Profile View (when opened via avatar or tab)
+  const profileView = document.getElementById('mobile-profile-view');
+  if (profileView && profileView.style.display === 'block') {
+    window.switchMobileTab('home');
+    return true;
+  }
+
+  // 10. Check Desktop Subsections on mobile
+  const backBar = document.getElementById('mobile-subpage-back-bar');
+  if (backBar && backBar.style.display === 'flex') {
+    window.switchMobileTab('home');
+    return true;
+  }
+
+  return false;
+};
+
+// Listen to browser / device back button
+window.addEventListener('popstate', (e) => {
+  const handled = window.handleMobileBackNavigation();
+  if (handled && e && e.preventDefault) {
+    e.preventDefault();
+  }
+});
 
 // Initialize mobile UI on DOM load
 function initMobileUI() {
   renderMobileHomeDashboard();
   renderMobileProfile();
+  // Push initial home state for popstate tracking
+  try {
+    history.replaceState({ appView: 'home', depth: 0 }, '');
+  } catch (e) {}
 }

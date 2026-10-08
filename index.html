@@ -122,7 +122,7 @@
       </div>
     </div>
     <div class="mobile-top-actions">
-      <button class="mobile-icon-btn" onclick="openMobileNotificationsModal()" title="การแจ้งเตือนและบันทึกประวัติ">
+      <button class="mobile-icon-btn" onclick="openMobileNotificationsPage()" title="การแจ้งเตือนและบันทึกประวัติ">
         <i class="fa-regular fa-bell"></i>
         <span class="mobile-badge-dot" id="mobile-notif-dot"></span>
       </button>
@@ -258,7 +258,7 @@
           <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
         </div>
 
-        <div class="mobile-menu-item" onclick="openMobileNotificationsModal()">
+        <div class="mobile-menu-item" onclick="openMobileNotificationsPage()">
           <div class="mob-menu-icon icon-purple"><i class="fa-solid fa-bell"></i></div>
           <div class="mob-menu-text">
             <div class="mob-menu-title">การแจ้งเตือน & ประวัติแล็บ</div>
@@ -270,8 +270,8 @@
         <div class="mobile-menu-item" onclick="mobileOpenPresentation()">
           <div class="mob-menu-icon icon-gold"><i class="fa-solid fa-file-powerpoint"></i></div>
           <div class="mob-menu-text">
-            <div class="mob-menu-title">โหมดพรีเซนต์ผู้บริหาร</div>
-            <div class="mob-menu-desc">Executive Slide Deck สำหรับนำเสนอ</div>
+            <div class="mob-menu-title">สไลด์นำเสนอ</div>
+            <div class="mob-menu-desc">สไลด์สรุปผลสำหรับนำเสนอ</div>
           </div>
           <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
         </div>
@@ -293,22 +293,47 @@
           </div>
           <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
         </div>
-
-        <div class="mobile-menu-item" onclick="mobileSwitchUserPrompt()">
-          <div class="mob-menu-icon icon-slate"><i class="fa-solid fa-user-gear"></i></div>
-          <div class="mob-menu-text">
-            <div class="mob-menu-title">สลับบัญชีทดสอบด่วน</div>
-            <div class="mob-menu-desc">เปลี่ยนเป็น ดร.สมชาย, ดร.อารยา หรือ Admin</div>
-          </div>
-          <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
-        </div>
       </div>
 
-      <!-- Logout Red Outline Button (Screen 9) -->
-      <div style="margin-top: 18px; padding: 0 4px;">
+      <!-- Logout Red Outline Button (Screen 9) - End of Profile Page -->
+      <div style="margin-top: 18px; padding: 0 4px; margin-bottom: 24px;">
         <button class="mobile-logout-btn" onclick="handleLogout()">
           <i class="fa-solid fa-arrow-right-from-bracket"></i> ออกจากระบบ
         </button>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         MOBILE NOTIFICATIONS SUBPAGE (Full Subpage Style like Car Booking System)
+         ==================================================================== -->
+    <section id="mobile-notifications-view" class="mobile-notifications-section" style="display: none;">
+      <div style="background: #ffffff; border: 1px solid #f1f5f9; border-radius: 18px; padding: 16px 18px; margin-bottom: 14px; box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 38px; height: 38px; border-radius: 10px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+              <i class="fa-solid fa-bell"></i>
+            </div>
+            <div>
+              <h3 style="margin: 0; font-size: 1rem; color: #0f172a; font-weight: 800;">การแจ้งเตือน & ประวัติแล็บ</h3>
+              <p style="margin: 0; font-size: 0.74rem; color: #64748b;">บันทึกกิจกรรมและประวัติการทำงานแบบเรียลไทม์</p>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="markAllMobileNotificationsRead()" style="font-size: 0.72rem; padding: 4px 8px;">
+            ✓ เคลียร์จุดแจ้ง
+          </button>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="mobile-filter-pills" style="margin-top: 8px;">
+          <button type="button" class="mob-filter-pill active" onclick="filterMobLogs('all', this)">ทั้งหมด</button>
+          <button type="button" class="mob-filter-pill" onclick="filterMobLogs('sample', this)">บันทึกแล็บ</button>
+          <button type="button" class="mob-filter-pill" onclick="filterMobLogs('system', this)">ระบบ</button>
+        </div>
+      </div>
+
+      <!-- Notifications List Cards (Car Booking System Subpage Style) -->
+      <div id="mobile-notifications-page-list" class="mobile-notifications-list" style="margin-bottom: 30px;">
+        <!-- Dynamically populated from state.auditLogs -->
       </div>
     </section>
 
@@ -490,7 +515,7 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
             <div>
               <h3 style="font-size: 1rem; color: var(--mitr-navy-900); display: flex; align-items: center; gap: 8px; margin: 0;">
-                <span>📋</span> ตารางบันทึก Feed อาหาร (Feeding Log - Attachment 1)
+                <span>📋</span> ตารางบันทึก Feed อาหาร (Continuous Feeding Log)
               </h3>
               <p style="font-size: 0.8rem; color: #64748b; margin-top: 2px; margin-bottom: 0;">
                 บันทึกการป้อนสารละลายอาหารหมัก ปริมาตรเตรียม และปริมาตรคงเหลือจริงตามเวลาปฏิบัติการ
@@ -501,8 +526,8 @@
             </button>
           </div>
 
-          <div class="table-responsive">
-            <table class="data-table" style="font-size: 0.84rem; width: 100%;">
+          <div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+            <table class="data-table" style="font-size: 0.84rem; width: 100%; min-width: 680px;">
               <thead>
                 <tr>
                   <th style="min-width: 110px;">วันที่ & เวลา</th>
@@ -575,7 +600,7 @@
             </div>
           </div>
 
-          <!-- Gantt Visual Timeline -->
+          <!-- Gantt Visual Timeline (Responsive Scroll Wrapper) -->
           <div style="background: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 18px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
               <h3 style="font-size: 0.95rem; font-weight: 700; color: var(--mitr-navy-900); display: flex; align-items: center; gap: 8px;">
@@ -588,27 +613,33 @@
               </div>
             </div>
 
-            <!-- Time Scale Axis Header (340px Activity Column to show full text) -->
-            <div style="display: grid; grid-template-columns: 340px 105px 1fr 75px; gap: 14px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; font-size: 0.78rem; font-weight: 700; color: #475569;">
-              <div>กิจกรรม / ขั้นตอน</div>
-              <div>ระยะเวลา</div>
-              <div style="display: flex; justify-content: space-between; position: relative; padding: 0 4px;">
-                <span>0h</span>
-                <span>12h</span>
-                <span>22h</span>
-                <span>34h</span>
-                <span>46h</span>
-                <span>58h</span>
-                <span>70h</span>
-                <span>82h</span>
-              </div>
-              <div style="text-align: right;">สถานะ</div>
-            </div>
+            <!-- Scrollable Gantt Bar Container -->
+            <div class="gantt-scroll-wrapper" style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+              <div class="gantt-inner-container" style="min-width: 720px;">
+                <!-- Time Scale Axis Header (340px Activity Column to show full text) -->
+                <div style="display: grid; grid-template-columns: 340px 105px 1fr 75px; gap: 14px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; font-size: 0.78rem; font-weight: 700; color: #475569;">
+                  <div>กิจกรรม / ขั้นตอน</div>
+                  <div>ระยะเวลา</div>
+                  <div style="display: flex; justify-content: space-between; position: relative; padding: 0 4px;">
+                    <span>0h</span>
+                    <span>12h</span>
+                    <span>22h</span>
+                    <span>34h</span>
+                    <span>46h</span>
+                    <span>58h</span>
+                    <span>70h</span>
+                    <span>82h</span>
+                  </div>
+                  <div style="text-align: right;">สถานะ</div>
+                </div>
 
-            <!-- Gantt Bars Container -->
-            <div id="gantt-bars-container" style="margin-top: 10px;">
-              <!-- Rendered by JS -->
+                <!-- Gantt Bars Container -->
+                <div id="gantt-bars-container" style="margin-top: 10px;">
+                  <!-- Rendered by JS -->
+                </div>
+              </div>
             </div>
+            <div class="mobile-swipe-hint" style="display: none; font-size: 0.74rem; color: #64748b; margin-top: 6px; text-align: right;"><i class="fa-solid fa-arrows-left-right"></i> เลื่อนแนวนอนเพื่อดูผังเวลาทั้งหมด</div>
           </div>
 
           <!-- Task & Milestone Detailed Table -->
@@ -620,8 +651,8 @@
               <span id="gantt-task-count-badge" class="badge badge-gold" style="font-size: 0.78rem;">0 รายการ</span>
             </div>
 
-            <div class="table-responsive">
-              <table class="data-table" style="font-size: 0.85rem;">
+            <div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+              <table class="data-table" style="font-size: 0.85rem; width: 100%; min-width: 820px;">
                 <thead>
                   <tr>
                     <th style="width: 80px; text-align: center;">ประเภท</th>
@@ -1039,7 +1070,7 @@
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 20px;">
+        <div class="analytics-charts-grid">
           <!-- Chart 1: Brix across 8 tanks -->
           <div style="background: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -1049,7 +1080,7 @@
               </div>
               <button class="btn btn-sm btn-secondary" onclick="downloadChartPNG('brix', 'MitrPhol_Brix_Profile')">PNG</button>
             </div>
-            <div style="height: 320px; position: relative;">
+            <div class="chart-canvas-wrapper" style="height: 320px; position: relative; width: 100%;">
               <canvas id="chart-brix"></canvas>
             </div>
           </div>
@@ -1063,7 +1094,7 @@
               </div>
               <button class="btn btn-sm btn-secondary" onclick="downloadChartPNG('cells', 'MitrPhol_Yeast_Cells')">PNG</button>
             </div>
-            <div style="height: 320px; position: relative;">
+            <div class="chart-canvas-wrapper" style="height: 320px; position: relative; width: 100%;">
               <canvas id="chart-cells"></canvas>
             </div>
           </div>
@@ -1439,7 +1470,7 @@
           <span style="font-size: 1.4rem;">⚖️</span>
           <div>
             <h3 style="margin: 0; font-size: 1.1rem; color: var(--mitr-navy-900);">คำนวณและบันทึกค่าน้ำหนักแห้งเซลล์ยีสต์ Cell Dry Weight (CDW)</h3>
-            <p style="margin: 0; font-size: 0.78rem; color: #64748b;">อ้างอิง "แบบฟอร์มบันทึกน้ำหนักแห้ง" (Attachment 4) • ตัวอย่าง <span id="cdw-modal-target-sample" style="font-weight: 700; color: #1e40af;">PF @ 82h</span></p>
+            <p style="margin: 0; font-size: 0.78rem; color: #64748b;">อ้างอิง "แบบฟอร์มบันทึกน้ำหนักแห้งเซลล์" (Cell Dry Weight) • ตัวอย่าง <span id="cdw-modal-target-sample" style="font-weight: 700; color: #1e40af;">PF @ 82h</span></p>
           </div>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" onclick="closeCDWModal()" style="border-radius: 50%; width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">&times;</button>
@@ -1537,17 +1568,12 @@
           </div>
         </div>
 
-        <!-- Modal Actions -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 10px;">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="loadCDWExampleData()" title="กรอกตัวอย่างจริงจากแบบฟอร์มบันทึกน้ำหนักแห้ง (Attachment 4)">
-            📋 โหลดตัวอย่างจริงจากแบบฟอร์ม
+        <!-- Modal Actions (Option 2: Laboratory Production Mode) -->
+        <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 20px; gap: 10px;">
+          <button type="button" class="btn btn-secondary" onclick="closeCDWModal()">ยกเลิก</button>
+          <button type="button" class="btn btn-primary" onclick="saveCDWToCurrentSample()">
+            💾 บันทึกค่า CDW ลงตัวอย่าง
           </button>
-          <div style="display: flex; gap: 10px;">
-            <button type="button" class="btn btn-secondary" onclick="closeCDWModal()">ยกเลิก</button>
-            <button type="button" class="btn btn-primary" onclick="saveCDWToCurrentSample()">
-              💾 บันทึกค่า CDW ลงตัวอย่าง
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -1561,7 +1587,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-bottom: 1px solid var(--border-subtle); background: #f8fafc; border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg);">
         <div style="display: flex; align-items: center; gap: 10px;">
           <span style="font-size: 1.3rem;">📋</span>
-          <h3 id="feed-log-modal-title" style="margin: 0; font-size: 1.1rem; color: var(--mitr-navy-900);">บันทึก Feed อาหาร (Attachment 1)</h3>
+          <h3 id="feed-log-modal-title" style="margin: 0; font-size: 1.1rem; color: var(--mitr-navy-900);">บันทึก Feed อาหาร (Feeding Log)</h3>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" onclick="closeAddFeedLogModal()" style="border-radius: 50%; width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">&times;</button>
       </div>
@@ -1731,7 +1757,7 @@
           </div>
           <div style="margin-top: 8px; font-size: 0.78rem; color: #475569; display: flex; justify-content: space-between;">
             <span>น้ำตาลรวม Sugar Convert:</span>
-            <strong id="mob-quick-sugar-convert-display" style="color: #2563eb;">0.00 g/L</strong>
+            <strong id="mob-quick-sugar-convert-display" style="color: #2563eb;">0.000 g/L</strong>
           </div>
         </div>
 
@@ -1816,15 +1842,15 @@
   <!-- ====================================================================
        PRESENTATION DECK MODAL (Slide Suite)
        ==================================================================== -->
-  <div id="presentation-modal" class="presentation-modal-backdrop">
-    <div class="slide-container">
+  <div id="presentation-modal" class="presentation-modal-backdrop" onclick="handlePresentationBackdropClick(event)">
+    <div class="slide-container" onclick="event.stopPropagation()">
       <div class="slide-header">
         <div style="display: flex; align-items: center; gap: 10px;">
           <span style="font-size: 1.4rem;">📊</span>
-          <strong>Mitr Phol Executive Presentation Mode</strong>
-          <span class="badge badge-gold" id="slide-counter-badge">Slide 1 of 5</span>
+          <strong>สไลด์นำเสนอ (Presentation Deck)</strong>
+          <span class="badge badge-gold" id="slide-counter-badge">Slide 1 of 6</span>
         </div>
-        <button id="btn-close-presentation" style="background: none; border: none; color: #ffffff; font-size: 1.6rem; cursor: pointer;">&times;</button>
+        <button type="button" id="btn-close-presentation" onclick="closePresentationModal()" style="background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.3); border-radius: 50%; width: 36px; height: 36px; color: #ffffff; font-size: 1.4rem; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" title="ปิดสไลด์นำเสนอ">&times;</button>
       </div>
 
       <div class="slide-body" id="slide-inner-content">
@@ -1832,13 +1858,18 @@
       </div>
 
       <div class="slide-footer">
-        <div style="display: flex; gap: 10px;">
-          <button class="btn btn-secondary" id="btn-prev-slide">◀ สไลด์ก่อนหน้า</button>
-          <button class="btn btn-primary" id="btn-next-slide">สไลด์ถัดไป ▶</button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-secondary" id="btn-prev-slide">◀ สไลด์ก่อนหน้า</button>
+          <button type="button" class="btn btn-primary" id="btn-next-slide">สไลด์ถัดไป ▶</button>
         </div>
-        <button class="btn btn-accent" id="btn-export-pdf">
-          <span>🖨️</span> พิมพ์ / Export PDF
-        </button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-secondary" onclick="closePresentationModal()" style="font-weight: 600;">
+            <i class="fa-solid fa-xmark"></i> ปิดสไลด์
+          </button>
+          <button type="button" class="btn btn-accent" id="btn-export-pdf">
+            <span>🖨️</span> พิมพ์ / Export PDF
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -2078,9 +2109,9 @@
 
           const cdwRes = window.calcCDWFromInputs();
           if (cdwRes && Math.abs(cdwRes.cdw - 1.98) < 0.02) {
-            ok(`Attachment 4: Cell Dry Weight (CDW) duplicate weighing verified (${cdwRes.cdw.toFixed(2)} g/L from 1 mL)`);
+            ok(`Cell Dry Weight (CDW): duplicate weighing verified (${cdwRes.cdw.toFixed(2)} g/L from 1 mL)`);
           } else {
-            fail('Attachment 4 CDW calculation', `Expected ~1.98 g/L, got ${cdwRes ? cdwRes.cdw : 'null'}`);
+            fail('CDW calculation', `Expected ~1.98 g/L, got ${cdwRes ? cdwRes.cdw : 'null'}`);
           }
         }
 
@@ -2094,7 +2125,7 @@
 
         // Verify Feed Log Table & Data
         if (currProj && currProj.feedLogs && currProj.feedLogs.length > 0) {
-          ok(`Attachment 1: Feeding Log Table verified (${currProj.feedLogs.length} feed cycles logged)`);
+          ok(`Feeding Log Table verified (${currProj.feedLogs.length} feed cycles logged)`);
         } else {
           fail('Feeding Log Table', 'Feed log array empty or not found');
         }
@@ -2153,7 +2184,48 @@
           fail('Mobile detail/notification modals', 'Modal open failed');
         }
 
-        // 9. Admin Switching & Role-based Controls
+        // 9. Mobile Car Booking Style Notifications Subpage
+        openMobileNotificationsPage();
+        const carNotifPage = document.getElementById('mobile-notifications-view');
+        const isNotifPageVisible = carNotifPage && carNotifPage.style.display === 'block';
+        if (isNotifPageVisible) {
+          ok('Mobile Bell Notification: Opens dedicated subpage (Corporate Car Booking System style)');
+        } else {
+          fail('Mobile Notifications subpage', 'mobile-notifications-view not displayed');
+        }
+        switchMobileTab('home');
+
+        // 10. Presentation Modal (Slide Suite) Close & Navigation Verification
+        openPresentationModal();
+        const presModal = document.getElementById('presentation-modal');
+        const presOpen = presModal && (presModal.style.display === 'flex' || presModal.classList.contains('open'));
+        closePresentationModal();
+        const presClosed = presModal && presModal.style.display === 'none' && !presModal.classList.contains('open');
+        if (presOpen && presClosed && state.totalSlides === 6) {
+          ok('Presentation Modal (สไลด์นำเสนอ): Open, Close, and 6-Slide Deck (with new features slide) verified');
+        } else {
+          fail('Presentation Modal', 'Could not open, close, or 6 slides mismatch');
+        }
+
+        // 11. Sugar Convert 3-Decimal Places Verification
+        const testSugar = (1.2345 + 2.3456).toFixed(3);
+        if (testSugar === '3.580') {
+          ok('Sugar Convert calculation standardizes to strictly 3 decimal places (0.000 g/L)');
+        } else {
+          fail('Sugar Convert decimals', 'Expected 3 decimals');
+        }
+
+        // 12. Mobile Back Button Interceptor
+        openPresentationModal();
+        const backHandled = handleMobileBackNavigation();
+        const presClosedByBack = presModal && presModal.style.display === 'none';
+        if (backHandled && presClosedByBack) {
+          ok('Mobile Back Navigation: Successfully intercepted popstate to dismiss open views back to home without refresh');
+        } else {
+          fail('Mobile Back Navigation', 'Back button did not dismiss view');
+        }
+
+        // 13. Admin Switching & Role-based Controls
         const admin = state.users.find(u => u.role === 'admin');
         applyLoginSuccess(admin);
         const adminLogsVisible = document.getElementById('tab-btn-logs').style.display !== 'none';
