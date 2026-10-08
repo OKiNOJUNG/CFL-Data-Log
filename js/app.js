@@ -81,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupMicroscopeInputs();
   setupHPLCInputs();
   setupPresentationDeck();
+  if (typeof initMobileUI === 'function') initMobileUI();
 
   // Check saved session or show login overlay
   const savedUid = localStorage.getItem('mitr_auth_uid');
@@ -129,11 +130,21 @@ function applyLoginSuccess(user) {
   localStorage.setItem('mitr_auth_uid', user.uid);
 
   // Update profile header
-  document.getElementById('current-user-name').textContent = user.displayName;
-  document.getElementById('current-user-avatar').textContent = user.displayName.charAt(0);
+  const desktopName = document.getElementById('current-user-name');
+  if (desktopName) desktopName.textContent = user.displayName;
+  const desktopAvatar = document.getElementById('current-user-avatar');
+  if (desktopAvatar) desktopAvatar.textContent = user.displayName.charAt(0);
   const roleBadge = document.getElementById('current-user-role');
-  roleBadge.textContent = user.role.toUpperCase();
-  roleBadge.className = `user-role-badge role-${user.role}`;
+  if (roleBadge) {
+    roleBadge.textContent = user.role.toUpperCase();
+    roleBadge.className = `user-role-badge role-${user.role}`;
+  }
+
+  // Update mobile header
+  const mobName = document.getElementById('mobile-user-name');
+  if (mobName) mobName.textContent = user.displayName.split(' ')[0] || user.displayName;
+  const mobAvatar = document.getElementById('mobile-top-avatar');
+  if (mobAvatar) mobAvatar.textContent = user.displayName.charAt(0);
 
   // Hide login overlay
   showLoginOverlay(false);
@@ -179,9 +190,11 @@ function updateNavTabVisibility() {
   const isAdmin = state.currentUser && state.currentUser.role === 'admin';
   const logsTab = document.getElementById('tab-btn-logs');
   const settingsTab = document.getElementById('tab-btn-settings');
+  const mobAdminUsers = document.getElementById('mob-menu-admin-users');
 
   if (logsTab) logsTab.style.display = isAdmin ? 'inline-flex' : 'none';
   if (settingsTab) settingsTab.style.display = isAdmin ? 'inline-flex' : 'none';
+  if (mobAdminUsers) mobAdminUsers.style.display = isAdmin ? 'flex' : 'none';
 
   // If a non-admin was viewing logs or settings, switch back to projects tab
   const activeTab = document.querySelector('.tab-btn.active');
@@ -472,7 +485,18 @@ function updateProjectHeaderDisplay() {
   document.getElementById('header-seed').textContent = `${p.seed} (${p.seedPreparation})`;
   document.getElementById('header-owner').textContent = p.ownerName;
 
+  // New Experiment Initial Fields (Inlet sugar, %Brix, Volumes)
+  const sugarEl = document.getElementById('header-inlet-sugar');
+  if (sugarEl) sugarEl.textContent = p.inletMolassesSugar !== undefined ? `${p.inletMolassesSugar.toFixed(1)} g/L` : '240.0 g/L';
+  const brixEl = document.getElementById('header-initial-brix');
+  if (brixEl) brixEl.textContent = p.initialBrix !== undefined ? `${p.initialBrix.toFixed(1)} %Brix` : '26.4 %Brix';
+  const prepVolEl = document.getElementById('header-prep-vol');
+  if (prepVolEl) prepVolEl.textContent = p.preparedVolume !== undefined ? `${p.preparedVolume.toFixed(1)} L` : '4.0 L';
+  const remainVolEl = document.getElementById('header-remain-vol');
+  if (remainVolEl) remainVolEl.textContent = p.remainingVolume || '1.5 L (1,500 mL)';
+
   renderHeaderTimepointsBadges();
+  renderFeedLogsTable();
 }
 
 // Editable Experiment Header (Requirement 7)
@@ -495,6 +519,16 @@ window.toggleEditHeaderForm = function(show = true) {
     document.getElementById('edit-date').value = p.date || '';
     document.getElementById('edit-seed').value = p.seed || '';
     document.getElementById('edit-seed-prep').value = p.seedPreparation || '';
+
+    // New Experiment Initial Fields
+    const sugarIn = document.getElementById('edit-inlet-sugar');
+    if (sugarIn) sugarIn.value = p.inletMolassesSugar !== undefined ? p.inletMolassesSugar : 240.0;
+    const brixIn = document.getElementById('edit-initial-brix');
+    if (brixIn) brixIn.value = p.initialBrix !== undefined ? p.initialBrix : 26.4;
+    const prepVolIn = document.getElementById('edit-prep-vol');
+    if (prepVolIn) prepVolIn.value = p.preparedVolume !== undefined ? p.preparedVolume : 4.0;
+    const remainVolIn = document.getElementById('edit-remain-vol');
+    if (remainVolIn) remainVolIn.value = p.remainingVolume || '1.5 L';
 
     const editTpInput = document.getElementById('edit-timepoints');
     if (editTpInput) {
@@ -534,6 +568,12 @@ window.saveHeaderEdits = function() {
   p.seed = document.getElementById('edit-seed').value.trim();
   p.seedPreparation = document.getElementById('edit-seed-prep').value.trim();
 
+  // New Fields: Inlet Sugar, %Brix, Prepared Vol, Remaining Vol
+  p.inletMolassesSugar = parseFloat(document.getElementById('edit-inlet-sugar')?.value) || 240.0;
+  p.initialBrix = parseFloat(document.getElementById('edit-initial-brix')?.value) || 26.4;
+  p.preparedVolume = parseFloat(document.getElementById('edit-prep-vol')?.value) || 4.0;
+  p.remainingVolume = document.getElementById('edit-remain-vol')?.value.trim() || '1.5 L';
+
   // Parse timepoints
   const rawTp = document.getElementById('edit-timepoints')?.value || '';
   if (rawTp.trim()) {
@@ -547,7 +587,7 @@ window.saveHeaderEdits = function() {
 
   persistState();
   window.labAudio.playSuccess();
-  logAction('UPDATE_PROJECT_HEADER', `แก้ไขข้อมูลตั้งต้น ${p.experimentNo} (${p.batchMediumNo})`);
+  logAction('UPDATE_PROJECT_HEADER', `แก้ไขข้อมูลตั้งต้น ${p.experimentNo} (${p.batchMediumNo}) [น้ำตาลขาเข้า: ${p.inletMolassesSugar} g/L, Brix: ${p.initialBrix}]`);
   toggleEditHeaderForm(false);
   updateProjectHeaderDisplay();
   renderProjectSelector();
@@ -555,6 +595,187 @@ window.saveHeaderEdits = function() {
   renderGanttTimeline();
   showToast('บันทึกการแก้ไขข้อมูลตั้งต้นเรียบร้อย', 'success');
 };
+
+// ==========================================================================
+// Feed Log Records (Grounded in Attachment 1 "ตารางบันทึก Feed อาหาร")
+// ==========================================================================
+window.renderFeedLogsTable = function() {
+  const tbody = document.getElementById('feed-log-tbody');
+  if (!tbody) return;
+
+  const p = state.projects.find(proj => proj.id === state.currentProjectId);
+  if (!p) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 18px;">ไม่พบโปรเจกต์ที่เลือก</td></tr>';
+    return;
+  }
+
+  if (!p.feedLogs) p.feedLogs = [];
+
+  if (p.feedLogs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 18px;">ยังไม่มีบันทึก Feed อาหาร คลิก "+ เพิ่มบันทึก Feed อาหาร" เพื่อเริ่มต้น</td></tr>';
+    return;
+  }
+
+  const editable = canEditCurrentProject();
+
+  tbody.innerHTML = p.feedLogs.map((log, idx) => `
+    <tr>
+      <td><strong>${log.dateTime || '-'}</strong></td>
+      <td><span class="badge badge-navy">${log.medium || '-'}</span></td>
+      <td><strong>${log.feedNo || '-'}</strong></td>
+      <td style="text-align: center; color: #b45309; font-weight: 700;">${log.brix !== undefined ? log.brix + ' °Bx' : '-'}</td>
+      <td style="text-align: right; color: #059669; font-weight: 600;">${log.initialVol || '-'}</td>
+      <td style="text-align: right; color: #1e40af; font-weight: 700;">${log.remainingVol || '-'}</td>
+      <td style="color: #475569; font-size: 0.8rem;">${log.remarks || '-'}</td>
+      <td style="text-align: center;">
+        <div style="display: flex; gap: 4px; justify-content: center;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openAddFeedLogModal('${log.id}')" style="padding: 3px 6px; font-size: 0.72rem;" ${!editable ? 'disabled title="ไม่มีสิทธิ์แก้ไข"' : ''}>
+            ✏️
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="deleteFeedLogEntry('${log.id}')" style="padding: 3px 6px; font-size: 0.72rem; color: #ef4444;" ${!editable ? 'disabled title="ไม่มีสิทธิ์ลบ"' : ''}>
+            🗑️
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+};
+
+window.openAddFeedLogModal = function(editId = null) {
+  if (!canEditCurrentProject()) {
+    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    return;
+  }
+
+  const modal = document.getElementById('modal-add-feed-log');
+  if (!modal) return;
+
+  const p = state.projects.find(proj => proj.id === state.currentProjectId);
+  if (!p) return;
+
+  document.getElementById('feed-log-edit-id').value = editId || '';
+  const titleEl = document.getElementById('feed-log-modal-title');
+
+  if (editId && p.feedLogs) {
+    const item = p.feedLogs.find(l => l.id === editId);
+    if (item) {
+      if (titleEl) titleEl.textContent = '✏️ แก้ไขบันทึก Feed อาหาร';
+      document.getElementById('feed-log-datetime').value = item.dateTime || '';
+      document.getElementById('feed-log-medium').value = item.medium || '';
+      document.getElementById('feed-log-no').value = item.feedNo || '';
+      document.getElementById('feed-log-brix').value = item.brix !== undefined ? item.brix : '';
+      document.getElementById('feed-log-initial-vol').value = item.initialVol || '';
+      document.getElementById('feed-log-remain-vol').value = item.remainingVol || '';
+      document.getElementById('feed-log-remarks').value = item.remarks || '';
+      modal.style.display = 'flex';
+      return;
+    }
+  }
+
+  if (titleEl) titleEl.textContent = '📋 เพิ่มบันทึก Feed อาหาร (Attachment 1)';
+  const now = new Date();
+  const dateStr = `${now.getDate()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getFullYear().toString().slice(2)} ${now.getHours().toString().padStart(2,'0')}:00`;
+  document.getElementById('feed-log-datetime').value = dateStr;
+  document.getElementById('feed-log-medium').value = 'BF.1';
+  document.getElementById('feed-log-no').value = `Feed ${(p.feedLogs?.length || 0) + 1}`;
+  document.getElementById('feed-log-brix').value = '17.1';
+  document.getElementById('feed-log-initial-vol').value = '4 L';
+  document.getElementById('feed-log-remain-vol').value = '1,500 mL';
+  document.getElementById('feed-log-remarks').value = '200 mL/h';
+
+  modal.style.display = 'flex';
+  if (window.labAudio) window.labAudio.playClick();
+};
+
+window.closeAddFeedLogModal = function() {
+  const modal = document.getElementById('modal-add-feed-log');
+  if (modal) modal.style.display = 'none';
+};
+
+window.saveFeedLogEntry = function() {
+  if (!canEditCurrentProject()) {
+    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    return;
+  }
+
+  const p = state.projects.find(proj => proj.id === state.currentProjectId);
+  if (!p) return;
+  if (!p.feedLogs) p.feedLogs = [];
+
+  const editId = document.getElementById('feed-log-edit-id')?.value;
+  const dt = document.getElementById('feed-log-datetime')?.value.trim();
+  const med = document.getElementById('feed-log-medium')?.value.trim();
+  const fNo = document.getElementById('feed-log-no')?.value.trim();
+  const bx = parseFloat(document.getElementById('feed-log-brix')?.value);
+  const initV = document.getElementById('feed-log-initial-vol')?.value.trim();
+  const remV = document.getElementById('feed-log-remain-vol')?.value.trim();
+  const remk = document.getElementById('feed-log-remarks')?.value.trim();
+
+  if (editId) {
+    const idx = p.feedLogs.findIndex(l => l.id === editId);
+    if (idx >= 0) {
+      p.feedLogs[idx] = {
+        ...p.feedLogs[idx],
+        dateTime: dt,
+        medium: med,
+        feedNo: fNo,
+        brix: !isNaN(bx) ? bx : undefined,
+        initialVol: initV,
+        remainingVol: remV,
+        remarks: remk,
+        updatedAt: new Date().toISOString()
+      };
+    }
+  } else {
+    p.feedLogs.push({
+      id: 'fl_' + Date.now(),
+      dateTime: dt,
+      medium: med,
+      feedNo: fNo,
+      brix: !isNaN(bx) ? bx : undefined,
+      initialVol: initV,
+      remainingVol: remV,
+      remarks: remk,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  persistState();
+  if (window.labAudio) window.labAudio.playSuccess();
+  closeAddFeedLogModal();
+  renderFeedLogsTable();
+  logAction('FEED_LOG_ENTRY', `บันทึกรายการ Feed อาหาร: ${med} (${fNo}) - Brix: ${bx}°Bx`);
+  showToast('บันทึกรายการ Feed อาหารเรียบร้อย', 'success');
+};
+
+window.deleteFeedLogEntry = function(id) {
+  if (!canEditCurrentProject()) {
+    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    return;
+  }
+
+  const p = state.projects.find(proj => proj.id === state.currentProjectId);
+  if (!p || !p.feedLogs) return;
+
+  Swal.fire({
+    title: 'ยืนยันลบรายการ Feed?',
+    text: 'ท่านต้องการลบรายการบันทึก Feed อาหารนี้หรือไม่',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    confirmButtonText: 'ลบรายการ',
+    cancelButtonText: 'ยกเลิก'
+  }).then(res => {
+    if (res.isConfirmed) {
+      p.feedLogs = p.feedLogs.filter(l => l.id !== id);
+      persistState();
+      renderFeedLogsTable();
+      if (window.labAudio) window.labAudio.playWarning();
+      showToast('ลบรายการ Feed อาหารเรียบร้อย', 'info');
+    }
+  });
+};
+
 
 // Create New Project with Automatic Gantt Timeline Generation
 window.openNewProjectModal = function() {
@@ -862,6 +1083,14 @@ function syncSquaresToInputs() {
   });
 }
 
+function formatCfuDisplay(num) {
+  if (!num || isNaN(num) || num <= 0) return '0';
+  if (num >= 1e6) {
+    return `${(num / 1e8).toFixed(2)} × 10⁸`;
+  }
+  return num.toLocaleString();
+}
+
 function calculateCellKinetics() {
   const dilution = state.tallyCounts.dilution || 10;
   const factor = parseFloat(document.getElementById('setting-haemacytometer-factor')?.value) || 250000;
@@ -869,12 +1098,15 @@ function calculateCellKinetics() {
   const buddingSum = state.tallyCounts.budding.reduce((a, b) => a + b, 0);
   const deadSum = state.tallyCounts.dead.reduce((a, b) => a + b, 0);
 
-  const cellsPerMl = totalSum * dilution * factor;
-  const buddingPct = totalSum > 0 ? ((buddingSum / totalSum) * 100).toFixed(1) : 0;
-  const deadPct = totalSum > 0 ? ((deadSum / totalSum) * 100).toFixed(1) : 0;
-  const viabilityPct = totalSum > 0 ? (((totalSum - deadSum) / totalSum) * 100).toFixed(1) : 100;
+  const totalCfu = totalSum * dilution * factor;
+  const buddingCfu = buddingSum * dilution * factor;
+  const deadCfu = deadSum * dilution * factor;
 
-  // Update live row badges in haemacytometer matrix table
+  const buddingPct = totalSum > 0 ? ((buddingSum / totalSum) * 100).toFixed(1) : '0.0';
+  const deadPct = totalSum > 0 ? ((deadSum / totalSum) * 100).toFixed(1) : '0.0';
+  const viabilityPct = totalSum > 0 ? (((totalSum - deadSum) / totalSum) * 100).toFixed(1) : '100.0';
+
+  // Update live row badges in haemacytometer matrix table (Attachment 2: CFU/ml for Total, Budding, Dead)
   const sumTotalEl = document.getElementById('sum-row-total');
   const sumBuddingEl = document.getElementById('sum-row-budding');
   const sumDeadEl = document.getElementById('sum-row-dead');
@@ -886,29 +1118,247 @@ function calculateCellKinetics() {
   if (sumBuddingEl) sumBuddingEl.textContent = buddingSum;
   if (sumDeadEl) sumDeadEl.textContent = deadSum;
 
-  if (rateTotalEl) rateTotalEl.textContent = cellsPerMl > 0 ? `${cellsPerMl.toExponential(2)} cells/mL` : '0 cells/mL';
-  if (rateBuddingEl) rateBuddingEl.textContent = `${buddingPct} % Budding`;
-  if (rateDeadEl) rateDeadEl.textContent = `${viabilityPct} % Viability`;
+  if (rateTotalEl) rateTotalEl.textContent = totalCfu > 0 ? `${formatCfuDisplay(totalCfu)} CFU/ml` : '0 CFU/ml';
+  if (rateBuddingEl) rateBuddingEl.textContent = buddingCfu > 0 ? `${formatCfuDisplay(buddingCfu)} CFU/ml (${buddingPct}%)` : `0 CFU/ml (${buddingPct}%)`;
+  if (rateDeadEl) rateDeadEl.textContent = deadCfu > 0 ? `${formatCfuDisplay(deadCfu)} CFU/ml (${viabilityPct}%)` : `0 CFU/ml (${viabilityPct}%)`;
 
-  document.getElementById('calc-total-cells-ml').textContent = cellsPerMl > 0 ? cellsPerMl.toExponential(2) : '0';
-  document.getElementById('calc-budding-pct').textContent = buddingPct + ' %';
-  document.getElementById('calc-viability-pct').textContent = viabilityPct + ' %';
+  // Update Series 4: Cell Dry Weight (Attachment 4)
+  const currentSample = state.samples.find(s => 
+    (s.projectId === state.currentProjectId || !s.projectId) && s.tank === state.selectedTank && s.time === (parseFloat(document.getElementById('input-timepoint')?.value) || state.selectedTime)
+  );
+  const cdwVal = (state.currentCDW !== undefined && state.currentCDW !== null) ? state.currentCDW : (currentSample?.cellDryWeight);
+  const sumCdwEl = document.getElementById('sum-row-cdw');
+  const rateCdwEl = document.getElementById('rate-row-cdw');
+  const calcCdwKpiEl = document.getElementById('calc-cdw-kpi');
 
-  const alertBox = document.getElementById('cell-validation-alert');
-  if (deadSum > totalSum) {
-    alertBox.textContent = '⚠️ คำเตือน: เซลล์ตาย (Dead) มีจำนวนมากกว่าเซลล์ทั้งหมด (Total) กรุณาตรวจสอบการนับ';
-    alertBox.className = 'inline-alert inline-alert-danger visible';
-    window.labAudio.playWarning();
-  } else if (buddingSum > totalSum) {
-    alertBox.textContent = '⚠️ คำเตือน: เซลล์แตกหน่อ (Budding) มีจำนวนมากกว่าเซลล์ทั้งหมด กรุณาตรวจสอบการนับ';
-    alertBox.className = 'inline-alert inline-alert-warning visible';
-    window.labAudio.playWarning();
+  if (cdwVal !== undefined && cdwVal !== null) {
+    if (rateCdwEl) rateCdwEl.textContent = `${cdwVal} g/L`;
+    if (sumCdwEl) sumCdwEl.textContent = currentSample?.cdwDetails?.avgNet ? `${currentSample.cdwDetails.avgNet.toFixed(4)} g` : `${(cdwVal / 1000).toFixed(4)} g`;
+    if (calcCdwKpiEl) calcCdwKpiEl.textContent = `${cdwVal} g/L`;
   } else {
-    alertBox.className = 'inline-alert';
+    if (rateCdwEl) rateCdwEl.textContent = '- g/L';
+    if (sumCdwEl) sumCdwEl.textContent = '-';
+    if (calcCdwKpiEl) calcCdwKpiEl.textContent = '-';
   }
 
-  return { cellsPerMl, buddingPct, viabilityPct, totalSum, buddingSum, deadSum };
+  // Update Live KPI strip
+  const calcTotEl = document.getElementById('calc-total-cells-ml');
+  if (calcTotEl) calcTotEl.textContent = totalCfu > 0 ? `${formatCfuDisplay(totalCfu)} CFU/ml` : '0 CFU/ml';
+  const calcBudEl = document.getElementById('calc-budding-kpi');
+  if (calcBudEl) calcBudEl.textContent = buddingCfu > 0 ? `${formatCfuDisplay(buddingCfu)} (${buddingPct}%)` : `0 (${buddingPct}%)`;
+  const calcDeadEl = document.getElementById('calc-dead-kpi');
+  if (calcDeadEl) calcDeadEl.textContent = deadCfu > 0 ? `${formatCfuDisplay(deadCfu)} CFU/ml` : '0 CFU/ml';
+  const calcViaEl = document.getElementById('calc-viability-pct');
+  if (calcViaEl) calcViaEl.textContent = viabilityPct + ' %';
+
+  const alertBox = document.getElementById('cell-validation-alert');
+  if (alertBox) {
+    if (deadSum > totalSum) {
+      alertBox.textContent = '⚠️ คำเตือน: เซลล์ตาย (Dead) มีจำนวนมากกว่าเซลล์ทั้งหมด (Total) กรุณาตรวจสอบการนับ';
+      alertBox.className = 'inline-alert inline-alert-danger visible';
+      window.labAudio?.playWarning();
+    } else if (buddingSum > totalSum) {
+      alertBox.textContent = '⚠️ คำเตือน: เซลล์แตกหน่อ (Budding) มีจำนวนมากกว่าเซลล์ทั้งหมด กรุณาตรวจสอบการนับ';
+      alertBox.className = 'inline-alert inline-alert-warning visible';
+      window.labAudio?.playWarning();
+    } else {
+      alertBox.className = 'inline-alert';
+    }
+  }
+
+  return { cellsPerMl: totalCfu, totalCfu, buddingCfu, deadCfu, buddingPct, viabilityPct, totalSum, buddingSum, deadSum, cellDryWeight: cdwVal };
 }
+
+// ==========================================================================
+// Cell Dry Weight (CDW) Modal Controller (Attachment 4)
+// ==========================================================================
+window.openCDWModal = function() {
+  const modal = document.getElementById('modal-cdw-calculator');
+  if (!modal) return;
+
+  const currentSample = state.samples.find(s => 
+    (s.projectId === state.currentProjectId || !s.projectId) && s.tank === state.selectedTank && s.time === (parseFloat(document.getElementById('input-timepoint')?.value) || state.selectedTime)
+  );
+
+  const targetLabel = document.getElementById('cdw-modal-target-sample');
+  if (targetLabel) targetLabel.textContent = `${state.selectedTank} @ ${parseFloat(document.getElementById('input-timepoint')?.value) || state.selectedTime}h`;
+
+  const details = state.currentCDWDetails || currentSample?.cdwDetails;
+  if (details) {
+    document.getElementById('cdw-tube1-before1').value = details.tube1Before1 || '';
+    document.getElementById('cdw-tube1-before2').value = details.tube1Before2 || '';
+    document.getElementById('cdw-tube1-after1').value = details.tube1After1 || '';
+    document.getElementById('cdw-tube1-after2').value = details.tube1After2 || '';
+
+    document.getElementById('cdw-tube2-before1').value = details.tube2Before1 || '';
+    document.getElementById('cdw-tube2-before2').value = details.tube2Before2 || '';
+    document.getElementById('cdw-tube2-after1').value = details.tube2After1 || '';
+    document.getElementById('cdw-tube2-after2').value = details.tube2After2 || '';
+    document.getElementById('cdw-sample-vol').value = details.sampleVolMl || 1.0;
+  } else if (currentSample?.cellDryWeight) {
+    const cdw = currentSample.cellDryWeight;
+    const avgNet = cdw / 1000;
+    const b1_1 = 1.1130, b1_2 = 1.1132;
+    const a1_1 = parseFloat((b1_1 + avgNet * 1.02).toFixed(4)), a1_2 = parseFloat((b1_2 + avgNet * 1.02).toFixed(4));
+    const b2_1 = 1.1175, b2_2 = 1.1174;
+    const a2_1 = parseFloat((b2_1 + avgNet * 0.98).toFixed(4)), a2_2 = parseFloat((b2_2 + avgNet * 0.98).toFixed(4));
+
+    document.getElementById('cdw-tube1-before1').value = b1_1;
+    document.getElementById('cdw-tube1-before2').value = b1_2;
+    document.getElementById('cdw-tube1-after1').value = a1_1;
+    document.getElementById('cdw-tube1-after2').value = a1_2;
+
+    document.getElementById('cdw-tube2-before1').value = b2_1;
+    document.getElementById('cdw-tube2-before2').value = b2_2;
+    document.getElementById('cdw-tube2-after1').value = a2_1;
+    document.getElementById('cdw-tube2-after2').value = a2_2;
+    document.getElementById('cdw-sample-vol').value = 1.0;
+  } else {
+    ['tube1-before1', 'tube1-before2', 'tube1-after1', 'tube1-after2',
+     'tube2-before1', 'tube2-before2', 'tube2-after1', 'tube2-after2'].forEach(id => {
+      const el = document.getElementById('cdw-' + id);
+      if (el) el.value = '';
+    });
+    document.getElementById('cdw-sample-vol').value = 1.0;
+  }
+
+  calcCDWFromInputs();
+  modal.style.display = 'flex';
+  if (window.labAudio) window.labAudio.playClick();
+};
+
+window.closeCDWModal = function() {
+  const modal = document.getElementById('modal-cdw-calculator');
+  if (modal) modal.style.display = 'none';
+};
+
+window.calcCDWFromInputs = function() {
+  const b1_1 = parseFloat(document.getElementById('cdw-tube1-before1')?.value) || 0;
+  const b1_2 = parseFloat(document.getElementById('cdw-tube1-before2')?.value) || 0;
+  const a1_1 = parseFloat(document.getElementById('cdw-tube1-after1')?.value) || 0;
+  const a1_2 = parseFloat(document.getElementById('cdw-tube1-after2')?.value) || 0;
+
+  const b2_1 = parseFloat(document.getElementById('cdw-tube2-before1')?.value) || 0;
+  const b2_2 = parseFloat(document.getElementById('cdw-tube2-before2')?.value) || 0;
+  const a2_1 = parseFloat(document.getElementById('cdw-tube2-after1')?.value) || 0;
+  const a2_2 = parseFloat(document.getElementById('cdw-tube2-after2')?.value) || 0;
+
+  const sampleVol = parseFloat(document.getElementById('cdw-sample-vol')?.value) || 1.0;
+
+  let net1 = 0;
+  if ((a1_1 > 0 || a1_2 > 0) && (b1_1 > 0 || b1_2 > 0)) {
+    const avgB1 = (b1_1 > 0 && b1_2 > 0) ? (b1_1 + b1_2) / 2 : (b1_1 || b1_2);
+    const avgA1 = (a1_1 > 0 && a1_2 > 0) ? (a1_1 + a1_2) / 2 : (a1_1 || a1_2);
+    net1 = Math.max(0, avgA1 - avgB1);
+  }
+
+  let net2 = 0;
+  if ((a2_1 > 0 || a2_2 > 0) && (b2_1 > 0 || b2_2 > 0)) {
+    const avgB2 = (b2_1 > 0 && b2_2 > 0) ? (b2_1 + b2_2) / 2 : (b2_1 || b2_2);
+    const avgA2 = (a2_1 > 0 && a2_2 > 0) ? (a2_1 + a2_2) / 2 : (a2_1 || a2_2);
+    net2 = Math.max(0, avgA2 - avgB2);
+  }
+
+  let avgNet = 0;
+  if (net1 > 0 && net2 > 0) {
+    avgNet = (net1 + net2) / 2;
+  } else {
+    avgNet = net1 || net2;
+  }
+
+  // Formula: 1000 * avgNet / sampleVol
+  const cdw = sampleVol > 0 ? (1000 * avgNet) / sampleVol : 0;
+
+  const t1Badge = document.getElementById('cdw-tube1-net-badge');
+  if (t1Badge) t1Badge.textContent = `สุทธิ: ${net1.toFixed(4)} g`;
+
+  const t2Badge = document.getElementById('cdw-tube2-net-badge');
+  if (t2Badge) t2Badge.textContent = `สุทธิ: ${net2.toFixed(4)} g`;
+
+  const avgNetDisp = document.getElementById('cdw-avg-net-display');
+  if (avgNetDisp) avgNetDisp.textContent = `${avgNet.toFixed(4)} g`;
+
+  const cdwDisp = document.getElementById('cdw-result-display');
+  if (cdwDisp) cdwDisp.textContent = `${cdw.toFixed(2)} g/L`;
+
+  return { net1, net2, avgNet, cdw, sampleVol };
+};
+
+window.loadCDWExampleData = function() {
+  // Real laboratory test values directly from Attachment 4 ("แบบฟอร์มบันทึกน้ำหนักแห้ง") Row 1 & 2
+  document.getElementById('cdw-tube1-before1').value = '1.1130';
+  document.getElementById('cdw-tube1-before2').value = '1.1132';
+  document.getElementById('cdw-tube1-after1').value = '1.1152';
+  document.getElementById('cdw-tube1-after2').value = '1.1153';
+
+  document.getElementById('cdw-tube2-before1').value = '1.1175';
+  document.getElementById('cdw-tube2-before2').value = '1.1174';
+  document.getElementById('cdw-tube2-after1').value = '1.1192';
+  document.getElementById('cdw-tube2-after2').value = '1.1193';
+
+  document.getElementById('cdw-sample-vol').value = '1.0';
+
+  calcCDWFromInputs();
+  if (window.labAudio) window.labAudio.playSuccess();
+  showToast('โหลดข้อมูลตัวอย่างจาก Attachment 4 เรียบร้อย', 'info');
+};
+
+window.saveCDWToCurrentSample = function() {
+  const res = calcCDWFromInputs();
+  if (res.cdw <= 0) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'ค่าน้ำหนักแห้งไม่ถูกต้อง',
+      text: 'กรุณากรอกน้ำหนักก่อนและหลังอบให้ครบถ้วนเพื่อคำนวณ CDW'
+    });
+    return;
+  }
+
+  const timeVal = parseFloat(document.getElementById('input-timepoint')?.value) || state.selectedTime;
+  let sample = state.samples.find(s => 
+    (s.projectId === state.currentProjectId || !s.projectId) && s.tank === state.selectedTank && s.time === timeVal
+  );
+
+  const isNew = !sample;
+  if (isNew) {
+    sample = { projectId: state.currentProjectId, tank: state.selectedTank, time: timeVal };
+    state.samples.push(sample);
+  }
+
+  const cdwFixed = parseFloat(res.cdw.toFixed(2));
+  sample.cellDryWeight = cdwFixed;
+  sample.cdwDetails = {
+    tube1Before1: parseFloat(document.getElementById('cdw-tube1-before1')?.value) || 0,
+    tube1Before2: parseFloat(document.getElementById('cdw-tube1-before2')?.value) || 0,
+    tube1After1: parseFloat(document.getElementById('cdw-tube1-after1')?.value) || 0,
+    tube1After2: parseFloat(document.getElementById('cdw-tube1-after2')?.value) || 0,
+    tube2Before1: parseFloat(document.getElementById('cdw-tube2-before1')?.value) || 0,
+    tube2Before2: parseFloat(document.getElementById('cdw-tube2-before2')?.value) || 0,
+    tube2After1: parseFloat(document.getElementById('cdw-tube2-after1')?.value) || 0,
+    tube2After2: parseFloat(document.getElementById('cdw-tube2-after2')?.value) || 0,
+    sampleVolMl: res.sampleVol,
+    tube1Net: parseFloat(res.net1.toFixed(4)),
+    tube2Net: parseFloat(res.net2.toFixed(4)),
+    avgNet: parseFloat(res.avgNet.toFixed(4)),
+    cdw: cdwFixed
+  };
+
+  state.currentCDW = cdwFixed;
+  state.currentCDWDetails = sample.cdwDetails;
+
+  // Also sync to mobile quick input if present
+  const mobCdwIn = document.getElementById('mob-quick-cdw');
+  if (mobCdwIn) mobCdwIn.value = cdwFixed;
+
+  persistState();
+  if (window.labAudio) window.labAudio.playSuccess();
+  closeCDWModal();
+  calculateCellKinetics();
+  renderDataRecordTable();
+  logAction('CDW_ENTRY', `บันทึกค่าน้ำหนักแห้งยีสต์ CDW: ${cdwFixed} g/L (ถัง ${state.selectedTank} @ ${timeVal}h, เฉลี่ยแห้ง ${res.avgNet.toFixed(4)} g)`);
+  showToast(`บันทึก Cell Dry Weight: ${cdwFixed} g/L เรียบร้อย`, 'success');
+};
+
 
 // ==========================================================================
 // HPLC Sugar Calculation Engine
@@ -1053,6 +1503,12 @@ function loadSampleDataForCurrentTank() {
   const dilutionInput = document.getElementById('input-dilution-factor');
   if (dilutionInput) dilutionInput.value = counts.dilution;
 
+  // Sync Cell Dry Weight for current sample
+  state.currentCDW = existing?.cellDryWeight !== undefined ? existing.cellDryWeight : null;
+  state.currentCDWDetails = existing?.cdwDetails || null;
+  const mobCdwIn = document.getElementById('mob-quick-cdw');
+  if (mobCdwIn) mobCdwIn.value = state.currentCDW !== null ? state.currentCDW : '';
+
   syncSquaresToInputs();
   calculateCellKinetics();
   updateTallyDisplay();
@@ -1103,7 +1559,7 @@ window.saveCurrentSample = function() {
   if (!isNaN(ethanolVal)) sample.ethanol = ethanolVal;
   if (!isNaN(glycerolVal)) sample.glycerol = glycerolVal;
 
-  // Persist Haemacytometer 5 chambers × 3 series counts and cell kinetics for this sample
+  // Persist Haemacytometer counts & kinetics in CFU/ml
   sample.haemacytometer = {
     total: [...state.tallyCounts.total],
     budding: [...state.tallyCounts.budding],
@@ -1111,16 +1567,26 @@ window.saveCurrentSample = function() {
     dilution: state.tallyCounts.dilution || 10
   };
   sample.dilution = state.tallyCounts.dilution || 10;
-  if (cellKinetics.cellsPerMl > 0) sample.cellCount = cellKinetics.cellsPerMl;
+  if (cellKinetics.totalCfu > 0) sample.cellCount = cellKinetics.totalCfu;
+  sample.buddingCfu = cellKinetics.buddingCfu;
+  sample.deadCfu = cellKinetics.deadCfu;
   sample.buddingPct = parseFloat(cellKinetics.buddingPct) || 0;
   sample.viabilityPct = parseFloat(cellKinetics.viabilityPct) || 0;
+
+  // Persist CDW
+  if (state.currentCDW !== undefined && state.currentCDW !== null) {
+    sample.cellDryWeight = state.currentCDW;
+  }
+  if (state.currentCDWDetails) {
+    sample.cdwDetails = { ...state.currentCDWDetails };
+  }
 
   persistState();
   window.labAudio.playSuccess();
   showToast(`บันทึกผลถัง ${state.selectedTank} @ ${time}h สำเร็จ`, 'success');
 
   logAction(isNew ? 'SAMPLE_ENTRY' : 'UPDATE_SAMPLE', 
-    `บันทึกข้อมูลถัง ${state.selectedTank} @ ${time}h (Brix: ${brixVal}, SugarConvert: ${sugarConvertVal}, Ethanol: ${ethanolVal}, Cells: ${sample.cellCount ? sample.cellCount.toExponential(2) : '-'})`
+    `บันทึกข้อมูลถัง ${state.selectedTank} @ ${time}h (Brix: ${brixVal}, SugarConvert: ${sugarConvertVal}, Ethanol: ${ethanolVal}, Total: ${sample.cellCount ? formatCfuDisplay(sample.cellCount) + ' CFU/ml' : '-'}, CDW: ${sample.cellDryWeight ? sample.cellDryWeight + ' g/L' : '-'})`
   );
 
   renderAllDataViews();
@@ -1208,11 +1674,11 @@ function renderGrowthChart() {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        title: { display: true, text: `Yeast Cell Population (cells/mL) - Haemacytometer${projTag}` }
+        title: { display: true, text: `Yeast Cell Population (CFU/ml) - Haemacytometer${projTag}` }
       },
       scales: {
         x: { type: 'linear', title: { display: true, text: 'Time (Hours)' }, min: 0, max: 85 },
-        y: { type: 'logarithmic', title: { display: true, text: 'Cell Density (cells/mL - Log Scale)' } }
+        y: { type: 'logarithmic', title: { display: true, text: 'Cell Density (CFU/ml - Log Scale)' } }
       }
     }
   });
@@ -1315,7 +1781,8 @@ window.addCustomSeries = function() {
 
   const metricLabels = {
     brix: 'Brix (°Bx)',
-    cellCount: 'Yeast Cell (cells/mL)',
+    cellCount: 'Yeast Population (CFU/ml)',
+    cellDryWeight: 'Cell Dry Weight (g/L)',
     ethanol: 'Ethanol (g/L)',
     sugarConvert: 'Sugar Convert (g/L)',
     glycerol: 'Glycerol (g/L)'
@@ -1331,6 +1798,7 @@ window.addCustomSeries = function() {
   const colorMap = {
     brix: '#1e3a8a',
     cellCount: '#059669',
+    cellDryWeight: '#92400e',
     ethanol: '#ea580c',
     sugarConvert: '#7c3aed',
     glycerol: '#0891b2'
@@ -1603,7 +2071,7 @@ function renderDataRecordTable() {
   const editable = canEditCurrentProject();
 
   if (filteredSamples.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="13" style="text-align: center; color: #94a3b8; padding: 24px;">ไม่พบข้อมูลตัวอย่างที่ตรงกับเงื่อนไขการกรอง</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" style="text-align: center; color: #94a3b8; padding: 24px;">ไม่พบข้อมูลตัวอย่างที่ตรงกับเงื่อนไขการกรอง</td></tr>';
     return;
   }
 
@@ -1621,9 +2089,10 @@ function renderDataRecordTable() {
         <td>${s.fructose !== undefined ? s.fructose : '-'}</td>
         <td><strong style="color: #ea580c;">${s.ethanol !== undefined ? s.ethanol : '-'}</strong></td>
         <td>${s.glycerol !== undefined ? s.glycerol : '-'}</td>
-        <td>${s.cellCount ? s.cellCount.toExponential(2) : '-'}</td>
+        <td>${s.cellCount ? formatCfuDisplay(s.cellCount) : '-'}</td>
         <td>${s.buddingPct ? s.buddingPct + '%' : '11.1%'}</td>
         <td>${s.viabilityPct ? s.viabilityPct + '%' : '97.4%'}</td>
+        <td style="color: #92400e; font-weight: 700;">${s.cellDryWeight !== undefined ? s.cellDryWeight + ' g/L' : '-'}</td>
         <td>
           <div style="display: flex; gap: 6px;">
             <button class="btn btn-sm btn-secondary" onclick="editDataRecordRow('${s.tank}', ${s.time}, '${pId}')" ${!editable ? 'disabled title="ไม่มีสิทธิ์แก้ไข"' : ''}>
@@ -1677,9 +2146,15 @@ window.editDataRecordRow = function(tank, time, projectId) {
             <input type="number" step="0.01" id="swal-fructose" class="form-input" value="${s.fructose ?? ''}">
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Glycerol (g/L):</label>
-          <input type="number" step="0.01" id="swal-glycerol" class="form-input" value="${s.glycerol ?? ''}">
+        <div class="form-grid-2" style="margin-top: 6px;">
+          <div class="form-group">
+            <label class="form-label">Glycerol (g/L):</label>
+            <input type="number" step="0.01" id="swal-glycerol" class="form-input" value="${s.glycerol ?? ''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cell Dry Weight (g/L):</label>
+            <input type="number" step="0.01" id="swal-cdw" class="form-input" value="${s.cellDryWeight ?? ''}">
+          </div>
         </div>
       </div>
     `,
@@ -1694,8 +2169,9 @@ window.editDataRecordRow = function(tank, time, projectId) {
       const glu = parseFloat(document.getElementById('swal-glucose').value) || 0;
       const fru = parseFloat(document.getElementById('swal-fructose').value) || 0;
       const gly = parseFloat(document.getElementById('swal-glycerol').value);
+      const cdw = parseFloat(document.getElementById('swal-cdw').value);
 
-      return { brix, eth, suc, glu, fru, gly };
+      return { brix, eth, suc, glu, fru, gly, cdw };
     }
   }).then((res) => {
     if (res.isConfirmed) {
@@ -1707,10 +2183,11 @@ window.editDataRecordRow = function(tank, time, projectId) {
       s.fructose = val.fru;
       s.sugarConvert = val.suc + val.glu + val.fru;
       if (!isNaN(val.gly)) s.glycerol = val.gly;
+      if (!isNaN(val.cdw)) s.cellDryWeight = val.cdw;
 
       persistState();
       window.labAudio.playSuccess();
-      logAction('UPDATE_DATA_RECORD', `แก้ไขข้อมูลดิบ ${tank} @ ${time}h (Brix: ${val.brix}, Sugar: ${s.sugarConvert}, Eth: ${val.eth})`);
+      logAction('UPDATE_DATA_RECORD', `แก้ไขข้อมูลดิบ ${tank} @ ${time}h (Brix: ${val.brix}, Sugar: ${s.sugarConvert}, Eth: ${val.eth}, CDW: ${s.cellDryWeight})`);
       
       // Instant Two-Way Sync to Lab Entry:
       loadSampleDataForCurrentTank();
@@ -1782,7 +2259,7 @@ window.exportDataRecordCSV = function() {
     return true;
   });
 
-  const headers = ['Project', 'Tank', 'Time_h', 'Brix', 'SugarConvert_gL', 'Sucrose', 'Glucose', 'Fructose', 'Ethanol_gL', 'Glycerol_gL', 'TotalCells_cellsML'];
+  const headers = ['Project', 'Tank', 'Time_h', 'Brix', 'SugarConvert_gL', 'Sucrose', 'Glucose', 'Fructose', 'Ethanol_gL', 'Glycerol_gL', 'TotalCells_CFU_ml', 'Budding_pct', 'Viability_pct', 'CellDryWeight_gL'];
   const rows = exportList.map(s => [
     s.projectId || state.currentProjectId,
     s.tank,
@@ -1794,7 +2271,10 @@ window.exportDataRecordCSV = function() {
     s.fructose ?? '',
     s.ethanol ?? '',
     s.glycerol ?? '',
-    s.cellCount ?? ''
+    s.cellCount ?? '',
+    s.buddingPct ?? '',
+    s.viabilityPct ?? '',
+    s.cellDryWeight ?? ''
   ]);
 
   let csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -3812,6 +4292,8 @@ function renderAllDataViews() {
   renderAuditLogs();
   renderDataRecordTable();
   renderGanttTimeline();
+  if (typeof renderMobileHomeDashboard === 'function') renderMobileHomeDashboard();
+  if (typeof renderMobileProfile === 'function') renderMobileProfile();
 }
 
 // Toast Notification Utility
@@ -3832,4 +4314,728 @@ function showToast(message, type = 'info') {
     icon: type,
     title: message
   });
+}
+
+// ==========================================================================
+// MOBILE TASKFLOW UI CONTROLLER & DATA BINDING
+// ==========================================================================
+
+window.quickFillLogin = function(email, password) {
+  const emailInput = document.getElementById('login-email');
+  const passInput = document.getElementById('login-password');
+  if (emailInput && passInput) {
+    emailInput.value = email;
+    passInput.value = password;
+    const form = document.getElementById('form-login');
+    if (form) {
+      if (typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+      } else {
+        const btn = form.querySelector('button[type="submit"]');
+        if (btn) btn.click();
+      }
+    }
+  }
+};
+
+window.switchMobileTab = function(tabKey) {
+  const navItems = document.querySelectorAll('.mob-nav-item');
+  navItems.forEach(item => item.classList.remove('active'));
+
+  const activeBtn = document.getElementById(`btn-mob-nav-${tabKey}`);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  const backBar = document.getElementById('mobile-subpage-back-bar');
+  const homeSec = document.getElementById('mobile-home-view');
+  const profileSec = document.getElementById('mobile-profile-view');
+  const desktopSecs = document.querySelectorAll('.content-section');
+
+  if (window.labAudio) window.labAudio.playClick();
+
+  if (tabKey === 'home') {
+    if (backBar) backBar.style.display = 'none';
+    if (homeSec) homeSec.style.display = 'block';
+    if (profileSec) profileSec.style.display = 'none';
+    if (window.innerWidth <= 768) {
+      desktopSecs.forEach(s => s.classList.remove('active'));
+    }
+    renderMobileHomeDashboard();
+  } else if (tabKey === 'profile') {
+    if (backBar) backBar.style.display = 'none';
+    if (homeSec) homeSec.style.display = 'none';
+    if (profileSec) profileSec.style.display = 'block';
+    if (window.innerWidth <= 768) {
+      desktopSecs.forEach(s => s.classList.remove('active'));
+    }
+    renderMobileProfile();
+  } else if (tabKey === 'records') {
+    if (homeSec) homeSec.style.display = 'none';
+    if (profileSec) profileSec.style.display = 'none';
+    desktopSecs.forEach(s => s.classList.remove('active'));
+    const recSec = document.getElementById('sec-data-records');
+    if (recSec) recSec.classList.add('active');
+    if (backBar) {
+      backBar.style.display = 'flex';
+      const title = document.getElementById('mobile-subpage-title');
+      if (title) title.textContent = '📑 ข้อมูลดิบรวม (Data Records)';
+    }
+    syncDataRecordProjectFilter();
+  } else if (tabKey === 'charts') {
+    if (homeSec) homeSec.style.display = 'none';
+    if (profileSec) profileSec.style.display = 'none';
+    desktopSecs.forEach(s => s.classList.remove('active'));
+    const chartSec = document.getElementById('sec-analytics');
+    if (chartSec) chartSec.classList.add('active');
+    if (backBar) {
+      backBar.style.display = 'flex';
+      const title = document.getElementById('mobile-subpage-title');
+      if (title) title.textContent = '📊 กราฟและการวิเคราะห์ (Analytics)';
+    }
+    renderAnalyticsCharts();
+    renderCustomChart();
+  }
+};
+
+window.mobileNavigateTo = function(sectionId, titleText) {
+  const homeSec = document.getElementById('mobile-home-view');
+  const profileSec = document.getElementById('mobile-profile-view');
+  const desktopSecs = document.querySelectorAll('.content-section');
+  const backBar = document.getElementById('mobile-subpage-back-bar');
+  const titleEl = document.getElementById('mobile-subpage-title');
+
+  if (window.labAudio) window.labAudio.playClick();
+
+  if (homeSec) homeSec.style.display = 'none';
+  if (profileSec) profileSec.style.display = 'none';
+  desktopSecs.forEach(s => s.classList.remove('active'));
+
+  const target = document.getElementById(sectionId);
+  if (target) target.classList.add('active');
+
+  if (backBar) {
+    backBar.style.display = 'flex';
+    if (titleEl) titleEl.textContent = titleText || 'รายละเอียด';
+  }
+
+  // Trigger relevant desktop tab callbacks
+  if (sectionId === 'sec-projects') {
+    renderGanttTimeline();
+  } else if (sectionId === 'sec-entry') {
+    loadSampleDataForCurrentTank();
+  } else if (sectionId === 'sec-analytics') {
+    renderAnalyticsCharts();
+    renderCustomChart();
+  } else if (sectionId === 'sec-optimizer') {
+    renderOptimizerView();
+  } else if (sectionId === 'sec-data-records') {
+    syncDataRecordProjectFilter();
+  } else if (sectionId === 'sec-logs') {
+    renderAuditLogs();
+  } else if (sectionId === 'sec-settings') {
+    renderUserManagementTable();
+  }
+};
+
+window.handleMobileProjectChange = function(projId) {
+  state.currentProjectId = projId;
+  const desktopProjSelect = document.getElementById('project-select');
+  if (desktopProjSelect) desktopProjSelect.value = projId;
+  renderAllDataViews();
+  loadSampleDataForCurrentTank();
+  if (window.labAudio) window.labAudio.playClick();
+};
+
+window.renderMobileHomeDashboard = function() {
+  if (!state.currentProjectId) return;
+  const project = state.projects.find(p => p.id === state.currentProjectId);
+  if (!project) return;
+
+  // 1. Populate project select in hero
+  const mobProjSelect = document.getElementById('mobile-project-select');
+  if (mobProjSelect) {
+    const accessible = state.projects.filter(p => !state.currentUser || state.currentUser.role === 'admin' || p.ownerId === state.currentUser.uid);
+    mobProjSelect.innerHTML = accessible.map(p => 
+      `<option value="${p.id}" ${p.id === state.currentProjectId ? 'selected' : ''}>${p.batchMediumNo} (${p.experimentNo})</option>`
+    ).join('');
+  }
+
+  // 2. Compute sample stats
+  const curSamples = state.samples.filter(s => s.projectId === state.currentProjectId);
+  const totalCount = curSamples.length;
+  const completedCount = curSamples.filter(s => (s.brix !== undefined && s.brix !== null) || s.ethanol || s.cellsPerMl).length;
+  const pendingCount = Math.max(0, (project.timepoints ? project.timepoints.length * 8 : 16) - completedCount);
+
+  const heroCountEl = document.getElementById('mobile-hero-sample-count');
+  if (heroCountEl) heroCountEl.textContent = totalCount;
+
+  const doneBadge = document.getElementById('mobile-hero-done-badge');
+  if (doneBadge) doneBadge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${completedCount} บันทึกผลแล้ว`;
+
+  const pendingBadge = document.getElementById('mobile-hero-pending-badge');
+  if (pendingBadge) pendingBadge.innerHTML = `<i class="fa-regular fa-clock"></i> ${pendingCount > 0 ? pendingCount + ' รอจัดเก็บ' : '8 ถังสมบูรณ์'}`;
+
+  // 3. Render Cascade 8-Tanks Status Strip
+  const tanksRow = document.getElementById('mobile-tanks-scroll-row');
+  if (tanksRow && window.LAB_TANKS) {
+    tanksRow.innerHTML = window.LAB_TANKS.map(t => {
+      // Find latest sample for this tank
+      const tankSamples = curSamples.filter(s => s.tank === t.id).sort((a,b) => b.time - a.time);
+      const latest = tankSamples[0];
+      const brixText = latest && latest.brix != null ? `${latest.brix}°Bx` : '-';
+      const timeText = latest ? `${latest.time}h` : '0h';
+      const isSelected = state.selectedTank === t.id;
+
+      return `
+        <div class="mobile-tank-chip ${isSelected ? 'active' : ''}" onclick="selectMobileTank('${t.id}')">
+          <span class="mobile-tank-chip-tag" style="background: ${t.color};">${t.id}</span>
+          <div class="mobile-tank-chip-val">${brixText}</div>
+          <div class="mobile-tank-chip-sub">${timeText}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 4. Render Today / Recent Samples Cards (Screen 3 & 5 style)
+  const recentList = document.getElementById('mobile-home-recent-samples');
+  if (recentList) {
+    if (curSamples.length === 0) {
+      recentList.innerHTML = `
+        <div style="text-align: center; padding: 24px; color: #94a3b8; font-size: 0.85rem;">
+          <i class="fa-solid fa-flask" style="font-size: 1.8rem; margin-bottom: 8px; opacity: 0.5;"></i>
+          <p>ยังไม่มีบันทึกตัวอย่างในรอบนี้ แตะปุ่ม + เพื่อบันทึก</p>
+        </div>
+      `;
+    } else {
+      const sorted = [...curSamples].sort((a,b) => b.time - a.time).slice(0, 5);
+      recentList.innerHTML = sorted.map(s => {
+        const tankDef = (window.LAB_TANKS || []).find(t => t.id === s.tank) || { label: s.tank, color: '#2563eb' };
+        const hasData = s.brix != null || s.ethanol != null || s.cellsPerMl != null;
+        const brixStr = s.brix != null ? `${s.brix} °Bx` : 'ไม่มีค่า Brix';
+        const ethStr = s.ethanol != null ? ` • EtOH: ${s.ethanol} g/L` : '';
+        const sampleKey = `${s.projectId}_${s.tank}_${s.time}`;
+
+        return `
+          <div class="mobile-sample-card" onclick="openMobileSampleDetail('${sampleKey}')">
+            <div class="sample-card-left">
+              <div class="sample-status-circle ${hasData ? 'done' : 'pending'}">
+                ${hasData ? '<i class="fa-solid fa-check"></i>' : ''}
+              </div>
+              <div class="sample-card-info">
+                <div class="sample-card-title">ถัง ${s.tank} (อายุถัง ${s.time} ชม.)</div>
+                <div class="sample-card-sub">${brixStr}${ethStr}</div>
+              </div>
+            </div>
+            <span class="sample-card-badge" style="background: ${tankDef.color}15; color: ${tankDef.color}; border: 1px solid ${tankDef.color}30;">
+              ${s.tank}
+            </span>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+};
+
+window.selectMobileTank = function(tankId) {
+  state.selectedTank = tankId;
+  const select = document.getElementById('tank-select');
+  if (select) select.value = tankId;
+  renderTankMatrix();
+  renderMobileHomeDashboard();
+  mobileNavigateTo('sec-entry', `บันทึกผลแล็บ - ถัง ${tankId}`);
+};
+
+window.renderMobileProfile = function() {
+  if (!state.currentUser) return;
+  const u = state.currentUser;
+  const mobAvatar = document.getElementById('mob-prof-avatar');
+  if (mobAvatar) mobAvatar.textContent = u.displayName.charAt(0);
+  const mobName = document.getElementById('mob-prof-name');
+  if (mobName) mobName.textContent = u.displayName;
+  const mobEmail = document.getElementById('mob-prof-email');
+  if (mobEmail) mobEmail.textContent = u.email;
+  const mobRole = document.getElementById('mob-prof-role');
+  if (mobRole) {
+    mobRole.textContent = u.role.toUpperCase();
+    mobRole.className = `mobile-profile-role-badge role-${u.role}`;
+  }
+
+  // Update stats counters
+  const accessibleProjects = state.projects.filter(p => u.role === 'admin' || p.ownerId === u.uid);
+  const curSamples = state.samples.filter(s => s.projectId === state.currentProjectId);
+  const pCount = document.getElementById('mob-stat-projects');
+  if (pCount) pCount.textContent = accessibleProjects.length;
+  const sCount = document.getElementById('mob-stat-samples');
+  if (sCount) sCount.textContent = curSamples.length;
+
+  const adminItem = document.getElementById('mob-menu-admin-users');
+  if (adminItem) adminItem.style.display = u.role === 'admin' ? 'flex' : 'none';
+};
+
+// Quick Add Sample Modal (TaskFlow Screen 4)
+let mobQuickSelectedTank = 'PF';
+
+window.openMobileQuickAddModal = function() {
+  mobQuickSelectedTank = state.selectedTank || 'PF';
+  const modal = document.getElementById('mobile-quick-add-modal');
+  if (!modal) return;
+
+  // 1. Render tank pills
+  const pillsContainer = document.getElementById('mob-quick-tank-pills');
+  if (pillsContainer && window.LAB_TANKS) {
+    pillsContainer.innerHTML = window.LAB_TANKS.map(t => `
+      <button type="button" class="mob-tank-pill-btn ${t.id === mobQuickSelectedTank ? 'active' : ''}" 
+              onclick="selectMobQuickTank('${t.id}')" style="${t.id === mobQuickSelectedTank ? `background: ${t.color}; border-color: ${t.color}; color: #ffffff;` : ''}">
+        ${t.id}
+      </button>
+    `).join('');
+  }
+
+  // 2. Populate timepoints
+  const tpSelect = document.getElementById('mob-quick-timepoint');
+  const project = state.projects.find(p => p.id === state.currentProjectId);
+  const tps = project && project.timepoints ? project.timepoints : [0, 12, 16, 18, 22, 34, 40, 46, 58, 64, 70, 82];
+  if (tpSelect) {
+    tpSelect.innerHTML = tps.map(t => `<option value="${t}" ${t === state.selectedTime ? 'selected' : ''}>${t} ชม.</option>`).join('');
+    tpSelect.onchange = () => loadMobQuickDataForCurrentSelection();
+  }
+
+  loadMobQuickDataForCurrentSelection();
+  modal.style.display = 'flex';
+  if (window.labAudio) window.labAudio.playClick();
+};
+
+window.closeMobileQuickAddModal = function() {
+  const modal = document.getElementById('mobile-quick-add-modal');
+  if (modal) modal.style.display = 'none';
+};
+
+window.selectMobQuickTank = function(tankId) {
+  mobQuickSelectedTank = tankId;
+  const btns = document.querySelectorAll('.mob-tank-pill-btn');
+  btns.forEach(b => {
+    b.classList.remove('active');
+    b.style.background = '#ffffff';
+    b.style.borderColor = '#cbd5e1';
+    b.style.color = '#1e293b';
+  });
+  const activeBtn = Array.from(btns).find(b => b.textContent.trim() === tankId);
+  const tDef = (window.LAB_TANKS || []).find(t => t.id === tankId);
+  if (activeBtn && tDef) {
+    activeBtn.classList.add('active');
+    activeBtn.style.background = tDef.color;
+    activeBtn.style.borderColor = tDef.color;
+    activeBtn.style.color = '#ffffff';
+  }
+  loadMobQuickDataForCurrentSelection();
+};
+
+function loadMobQuickDataForCurrentSelection() {
+  const tpSelect = document.getElementById('mob-quick-timepoint');
+  const tVal = tpSelect ? parseFloat(tpSelect.value) : 82;
+  const sample = state.samples.find(s => s.projectId === state.currentProjectId && s.tank === mobQuickSelectedTank && s.time === tVal);
+
+  const brixIn = document.getElementById('mob-quick-brix');
+  const cellTotIn = document.getElementById('mob-quick-cell-total');
+  const cellBudIn = document.getElementById('mob-quick-cell-budding');
+  const cellDeadIn = document.getElementById('mob-quick-cell-dead');
+  const dilIn = document.getElementById('mob-quick-dilution');
+  const sucIn = document.getElementById('mob-quick-sucrose');
+  const gluIn = document.getElementById('mob-quick-glucose');
+  const fruIn = document.getElementById('mob-quick-fructose');
+  const ethIn = document.getElementById('mob-quick-ethanol');
+  const glyIn = document.getElementById('mob-quick-glycerol');
+
+  if (sample) {
+    if (brixIn) brixIn.value = sample.brix != null ? sample.brix : '';
+    if (cellTotIn) cellTotIn.value = sample.cellSumTotal != null ? sample.cellSumTotal : (sample.cellsPerMl ? 189 : '');
+    if (cellBudIn) cellBudIn.value = sample.cellSumBudding != null ? sample.cellSumBudding : '';
+    if (cellDeadIn) cellDeadIn.value = sample.cellSumDead != null ? sample.cellSumDead : '';
+    if (dilIn) dilIn.value = sample.dilutionFactor || 10;
+    if (sucIn) sucIn.value = sample.sucrose != null ? sample.sucrose : '';
+    if (gluIn) gluIn.value = sample.glucose != null ? sample.glucose : '';
+    if (fruIn) fruIn.value = sample.fructose != null ? sample.fructose : '';
+    if (ethIn) ethIn.value = sample.ethanol != null ? sample.ethanol : '';
+    if (glyIn) glyIn.value = sample.glycerol != null ? sample.glycerol : '';
+  } else {
+    if (brixIn) brixIn.value = '';
+    if (cellTotIn) cellTotIn.value = '';
+    if (cellBudIn) cellBudIn.value = '';
+    if (cellDeadIn) cellDeadIn.value = '';
+    if (sucIn) sucIn.value = '';
+    if (gluIn) gluIn.value = '';
+    if (fruIn) fruIn.value = '';
+    if (ethIn) ethIn.value = '';
+    if (glyIn) glyIn.value = '';
+  }
+
+  calcMobQuickCells();
+  calcMobQuickSugar();
+}
+
+window.calcMobQuickCells = function() {
+  const tot = parseFloat(document.getElementById('mob-quick-cell-total')?.value) || 0;
+  const bud = parseFloat(document.getElementById('mob-quick-cell-budding')?.value) || 0;
+  const dead = parseFloat(document.getElementById('mob-quick-cell-dead')?.value) || 0;
+  const dil = parseFloat(document.getElementById('mob-quick-dilution')?.value) || 10;
+  const factor = 250000;
+
+  const badge = document.getElementById('mob-quick-cell-calc-badge');
+  const budBadge = document.getElementById('mob-quick-budding-badge');
+  const viaBadge = document.getElementById('mob-quick-viability-badge');
+
+  if (tot > 0) {
+    const totalCfu = tot * dil * factor;
+    const buddingCfu = bud * dil * factor;
+    const deadCfu = dead * dil * factor;
+    const viability = ((tot - dead) / tot * 100).toFixed(1);
+    const budPct = (bud / tot * 100).toFixed(1);
+
+    if (badge) badge.textContent = `${formatCfuDisplay(totalCfu)} CFU/ml`;
+    if (budBadge) budBadge.textContent = `Budding: ${formatCfuDisplay(buddingCfu)} (${budPct}%)`;
+    if (viaBadge) viaBadge.textContent = `% Viability: ${viability}%`;
+  } else {
+    if (badge) badge.textContent = '0 CFU/ml';
+    if (budBadge) budBadge.textContent = 'Budding: -';
+    if (viaBadge) viaBadge.textContent = '% Viability: -';
+  }
+};
+
+window.calcMobQuickSugar = function() {
+  const suc = parseFloat(document.getElementById('mob-quick-sucrose')?.value) || 0;
+  const glu = parseFloat(document.getElementById('mob-quick-glucose')?.value) || 0;
+  const fru = parseFloat(document.getElementById('mob-quick-fructose')?.value) || 0;
+  const sum = (suc + glu + fru).toFixed(2);
+  const disp = document.getElementById('mob-quick-sugar-convert-display');
+  if (disp) disp.textContent = `${sum} g/L`;
+};
+
+window.saveMobQuickSample = function() {
+  if (!canEditCurrentProject()) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'ไม่มีสิทธิ์แก้ไข',
+      text: 'ท่านไม่มีสิทธิ์แก้ไขข้อมูลในโครงการวิจัยนี้ (ดูได้อย่างเดียว)'
+    });
+    return;
+  }
+
+  const tpSelect = document.getElementById('mob-quick-timepoint');
+  const tVal = tpSelect ? parseFloat(tpSelect.value) : 82;
+  const brixVal = document.getElementById('mob-quick-brix')?.value !== '' ? parseFloat(document.getElementById('mob-quick-brix').value) : null;
+  const totVal = document.getElementById('mob-quick-cell-total')?.value !== '' ? parseFloat(document.getElementById('mob-quick-cell-total').value) : null;
+  const budVal = document.getElementById('mob-quick-cell-budding')?.value !== '' ? parseFloat(document.getElementById('mob-quick-cell-budding').value) : null;
+  const deadVal = document.getElementById('mob-quick-cell-dead')?.value !== '' ? parseFloat(document.getElementById('mob-quick-cell-dead').value) : null;
+  const dilVal = parseFloat(document.getElementById('mob-quick-dilution')?.value) || 10;
+  const cdwVal = document.getElementById('mob-quick-cdw')?.value !== '' ? parseFloat(document.getElementById('mob-quick-cdw').value) : null;
+
+  const sucVal = document.getElementById('mob-quick-sucrose')?.value !== '' ? parseFloat(document.getElementById('mob-quick-sucrose').value) : null;
+  const gluVal = document.getElementById('mob-quick-glucose')?.value !== '' ? parseFloat(document.getElementById('mob-quick-glucose').value) : null;
+  const fruVal = document.getElementById('mob-quick-fructose')?.value !== '' ? parseFloat(document.getElementById('mob-quick-fructose').value) : null;
+  const ethVal = document.getElementById('mob-quick-ethanol')?.value !== '' ? parseFloat(document.getElementById('mob-quick-ethanol').value) : null;
+  const glyVal = document.getElementById('mob-quick-glycerol')?.value !== '' ? parseFloat(document.getElementById('mob-quick-glycerol').value) : null;
+
+  // Validation
+  if (totVal !== null && deadVal !== null && deadVal > totVal) {
+    Swal.fire({
+      icon: 'error',
+      title: 'ข้อมูลไม่ถูกต้อง',
+      text: 'เซลล์ตาย (Dead) ไม่สามารถมีค่ามากกว่าเซลล์ทั้งหมด (Total) ได้'
+    });
+    return;
+  }
+
+  const factor = 250000;
+  const totalCfu = totVal !== null ? totVal * dilVal * factor : null;
+  const buddingCfu = (budVal !== null) ? budVal * dilVal * factor : null;
+  const deadCfu = (deadVal !== null) ? deadVal * dilVal * factor : null;
+  const cellViability = (totVal && totVal > 0 && deadVal !== null) ? parseFloat(((totVal - deadVal) / totVal * 100).toFixed(1)) : null;
+  const cellBuddingRate = (totVal && totVal > 0 && budVal !== null) ? parseFloat((budVal / totVal * 100).toFixed(1)) : null;
+  const sugarConvert = (sucVal !== null || gluVal !== null || fruVal !== null) ? ((sucVal || 0) + (gluVal || 0) + (fruVal || 0)) : null;
+
+  let existingIdx = state.samples.findIndex(s => s.projectId === state.currentProjectId && s.tank === mobQuickSelectedTank && s.time === tVal);
+
+  const sampleObj = {
+    projectId: state.currentProjectId,
+    tank: mobQuickSelectedTank,
+    time: tVal,
+    brix: brixVal,
+    cellSumTotal: totVal,
+    cellSumBudding: budVal,
+    cellSumDead: deadVal,
+    dilutionFactor: dilVal,
+    cellsPerMl: totalCfu,
+    cellCount: totalCfu,
+    buddingCfu: buddingCfu,
+    deadCfu: deadCfu,
+    cellViabilityPercent: cellViability,
+    viabilityPct: cellViability,
+    cellBuddingPercent: cellBuddingRate,
+    buddingPct: cellBuddingRate,
+    cellDryWeight: cdwVal,
+    sucrose: sucVal,
+    glucose: gluVal,
+    fructose: fruVal,
+    sugarConvert: sugarConvert,
+    ethanol: ethVal,
+    glycerol: glyVal,
+    updatedAt: new Date().toISOString(),
+    updatedBy: state.currentUser ? state.currentUser.displayName : 'Researcher'
+  };
+
+  if (existingIdx >= 0) {
+    state.samples[existingIdx] = Object.assign({}, state.samples[existingIdx], sampleObj);
+  } else {
+    state.samples.push(sampleObj);
+  }
+
+  persistState();
+  logAction('SAVE_SAMPLE_MOBILE', `บันทึกตัวอย่างด่วน ถัง ${mobQuickSelectedTank} เวลา ${tVal}h [Brix: ${brixVal || '-'}, EtOH: ${ethVal || '-'}, Total: ${totalCfu ? formatCfuDisplay(totalCfu) + ' CFU/ml' : '-'}${cdwVal ? ', CDW: ' + cdwVal + ' g/L' : ''}]`);
+  if (window.labAudio) window.labAudio.playSuccess();
+  closeMobileQuickAddModal();
+  renderAllDataViews();
+  loadSampleDataForCurrentTank();
+  showToast(`บันทึกตัวอย่างถัง ${mobQuickSelectedTank} เรียบร้อย`, 'success');
+};
+
+// Sample Detail Sheet (TaskFlow Screen 8)
+window.openMobileSampleDetail = function(sampleKey) {
+  const sample = state.samples.find(s => `${s.projectId}_${s.tank}_${s.time}` === sampleKey);
+  if (!sample) return;
+
+  const tankId = sample.tank;
+  const projId = sample.projectId;
+  const timeVal = sample.time;
+
+  const tankDef = (window.LAB_TANKS || []).find(t => t.id === tankId) || { label: tankId, color: '#2563eb' };
+  const content = document.getElementById('mobile-sample-detail-content');
+  const modal = document.getElementById('mobile-sample-detail-modal');
+
+  const brixStr = sample.brix != null ? `${sample.brix} °Bx` : 'ยังไม่มีข้อมูล';
+  const ethStr = sample.ethanol != null ? `${sample.ethanol} g/L` : '-';
+  const viaStr = sample.viabilityPct != null ? `${sample.viabilityPct}%` : (sample.cellViabilityPercent != null ? `${sample.cellViabilityPercent.toFixed(1)}%` : '-');
+  const sugarStr = sample.sugarConvert != null ? `${sample.sugarConvert.toFixed(2)} g/L` : '-';
+  const cellVal = sample.cellCount || sample.cellsPerMl;
+  const cellStr = cellVal ? `${formatCfuDisplay(cellVal)} CFU/ml` : '-';
+  const cdwStr = sample.cellDryWeight != null ? `${sample.cellDryWeight} g/L` : '-';
+  const budStr = sample.buddingCfu ? `${formatCfuDisplay(sample.buddingCfu)} CFU/ml (${sample.buddingPct || 0}%)` : (sample.buddingPct ? `${sample.buddingPct}%` : '-');
+
+  content.innerHTML = `
+    <div style="margin-bottom: 16px;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+        <span class="sample-card-badge" style="background: ${tankDef.color}; color: #ffffff;">
+          ${tankId}
+        </span>
+        <span style="font-size: 0.82rem; color: #64748b;">${tankDef.label}</span>
+      </div>
+      <h2 style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin-bottom: 4px;">
+        ตัวอย่างอายุถัง ${sample.time} ชม.
+      </h2>
+      <p style="font-size: 0.78rem; color: #64748b;">
+        อัปเดตล่าสุด: ${sample.updatedAt ? new Date(sample.updatedAt).toLocaleString('th-TH') : '-'}
+      </p>
+    </div>
+
+    <!-- Parameter Metrics Grid -->
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px;">
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px;">
+        <div style="font-size: 0.72rem; color: #64748b;">ค่าความหวาน Brix</div>
+        <div style="font-size: 1.15rem; font-weight: 800; color: #1e293b; margin-top: 2px;">${brixStr}</div>
+      </div>
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px;">
+        <div style="font-size: 0.72rem; color: #64748b;">Ethanol (g/L)</div>
+        <div style="font-size: 1.15rem; font-weight: 800; color: #1e40af; margin-top: 2px;">${ethStr}</div>
+      </div>
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px;">
+        <div style="font-size: 0.72rem; color: #64748b;">ความมีชีวิต (% Viability)</div>
+        <div style="font-size: 1.15rem; font-weight: 800; color: #059669; margin-top: 2px;">${viaStr}</div>
+      </div>
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px;">
+        <div style="font-size: 0.72rem; color: #64748b;">Sugar Convert (g/L)</div>
+        <div style="font-size: 1.15rem; font-weight: 800; color: #d97706; margin-top: 2px;">${sugarStr}</div>
+      </div>
+    </div>
+
+    <!-- Yeast Cell Density (CFU/ml) & CDW Strip -->
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 14px; padding: 14px; margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <span style="font-size: 0.78rem; font-weight: 700; color: #1e40af;">🔬 Total Cells (Haemacytometer)</span>
+        <span class="badge badge-navy" style="font-size: 0.72rem;">CFU/ml</span>
+      </div>
+      <div style="font-size: 1.25rem; font-weight: 800; color: #1e3a8a;">${cellStr}</div>
+      <div style="margin-top: 8px; font-size: 0.76rem; color: #475569; display: flex; justify-content: space-between;">
+        <span>แตกหน่อ (Budding): <strong>${budStr}</strong></span>
+      </div>
+    </div>
+
+    <!-- Cell Dry Weight Strip (Attachment 4) -->
+    <div style="background: rgba(254, 243, 199, 0.4); border: 1px solid #fde68a; border-radius: 14px; padding: 14px; margin-bottom: 18px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <span style="font-size: 0.78rem; font-weight: 700; color: #92400e;">⚖️ น้ำหนักแห้งเซลล์ Cell Dry Weight</span>
+        <span class="badge badge-gold" style="font-size: 0.72rem;">ตู้อบ 2 ซ้ำ</span>
+      </div>
+      <div style="font-size: 1.25rem; font-weight: 800; color: #92400e;">${cdwStr}</div>
+    </div>
+
+    <!-- Edit Action Button -->
+    <button type="button" class="mobile-primary-btn" onclick="editSampleFromDetail('${tankId}', ${sample.time})">
+      <i class="fa-solid fa-pen-to-square"></i> แก้ไขข้อมูลตัวอย่างนี้
+    </button>
+  `;
+
+  modal.style.display = 'flex';
+  if (window.labAudio) window.labAudio.playClick();
+};
+
+window.closeMobileSampleDetail = function() {
+  const modal = document.getElementById('mobile-sample-detail-modal');
+  if (modal) modal.style.display = 'none';
+};
+
+window.editSampleFromDetail = function(tankId, timeVal) {
+  closeMobileSampleDetail();
+  state.selectedTank = tankId;
+  state.selectedTime = timeVal;
+  const tpSelect = document.getElementById('input-timepoint');
+  if (tpSelect) tpSelect.value = timeVal;
+  loadSampleDataForCurrentTank();
+  mobileNavigateTo('sec-entry', `บันทึกผลแล็บ - ถัง ${tankId}`);
+};
+
+// Notifications Modal (TaskFlow Screen 10)
+let currentMobLogFilter = 'all';
+
+window.openMobileNotificationsModal = function() {
+  const modal = document.getElementById('mobile-notifications-modal');
+  if (!modal) return;
+  renderMobileNotificationsList();
+  modal.style.display = 'flex';
+  if (window.labAudio) window.labAudio.playClick();
+};
+
+window.closeMobileNotificationsModal = function() {
+  const modal = document.getElementById('mobile-notifications-modal');
+  if (modal) modal.style.display = 'none';
+};
+
+window.filterMobLogs = function(type, btn) {
+  currentMobLogFilter = type;
+  const pills = document.querySelectorAll('.mob-filter-pill');
+  pills.forEach(p => p.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderMobileNotificationsList();
+};
+
+function renderMobileNotificationsList() {
+  const container = document.getElementById('mobile-notifications-list');
+  if (!container) return;
+
+  let logs = state.auditLogs || [];
+  if (currentMobLogFilter === 'sample') {
+    logs = logs.filter(l => l.action.includes('SAMPLE'));
+  } else if (currentMobLogFilter === 'system') {
+    logs = logs.filter(l => !l.action.includes('SAMPLE'));
+  }
+
+  if (logs.length === 0) {
+    container.innerHTML = `<div style="text-align: center; padding: 30px; color: #94a3b8; font-size: 0.85rem;">ไม่มีประวัติการทำงานในหมวดนี้</div>`;
+    return;
+  }
+
+  container.innerHTML = logs.slice(0, 20).map(l => {
+    const isSample = l.action.includes('SAMPLE');
+    const isWarning = l.action.includes('DELETE') || l.action.includes('RESTORE');
+    const iconClass = isWarning ? 'icon-warning' : (isSample ? 'icon-sample' : 'icon-system');
+    const iconSymbol = isWarning ? 'fa-triangle-exclamation' : (isSample ? 'fa-flask' : 'fa-gear');
+    const timeFormatted = new Date(l.timestamp).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+
+    return `
+      <div class="mob-notif-item">
+        <div class="mob-notif-icon ${iconClass}">
+          <i class="fa-solid ${iconSymbol}"></i>
+        </div>
+        <div class="mob-notif-content">
+          <div class="mob-notif-title">${l.action}</div>
+          <div class="mob-notif-desc">${l.details || '-'}</div>
+          <div class="mob-notif-time">โดย ${l.userName || 'System'} • ${timeFormatted}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Mobile Profile Actions
+window.mobileShowAccountInfo = function() {
+  if (!state.currentUser) return;
+  Swal.fire({
+    title: 'ข้อมูลบัญชีผู้ใช้งาน',
+    html: `
+      <div style="text-align: left; font-size: 0.9rem; line-height: 1.8;">
+        <p><strong>ชื่อ-นามสกุล:</strong> ${state.currentUser.displayName}</p>
+        <p><strong>อีเมล:</strong> ${state.currentUser.email}</p>
+        <p><strong>บทบาท:</strong> <span class="badge badge-navy">${state.currentUser.role.toUpperCase()}</span></p>
+        <p><strong>สิทธิ์การเข้าถึง:</strong> ${state.currentUser.role === 'admin' ? 'ผู้ดูแลระบบสูงสุด (Admin) เข้าถึงได้ทุกฟังก์ชัน' : 'นักวิจัย (Researcher) ดูได้ทุกโปรเจกต์ แก้ไขเฉพาะงานตนเอง'}</p>
+      </div>
+    `,
+    confirmButtonColor: '#0f3d7a',
+    confirmButtonText: 'รับทราบ'
+  });
+};
+
+window.mobileOpenPresentation = function() {
+  const modal = document.getElementById('presentation-modal');
+  if (modal) {
+    modal.style.display = 'flex';
+    state.slideIndex = 1;
+    renderCurrentSlide();
+  }
+};
+
+window.mobileOpenAudioSettings = function() {
+  Swal.fire({
+    title: 'ตั้งค่าเสียงห้องแล็บ',
+    text: 'เปิดหรือปิดระบบเสียงคลิก Tally และเสียงตอบรับ Multimodal',
+    showCancelButton: true,
+    confirmButtonText: '🔔 เปิดเสียง',
+    cancelButtonText: '🔕 ปิดเสียง',
+    confirmButtonColor: '#059669',
+    cancelButtonColor: '#64748b'
+  }).then((res) => {
+    if (res.isConfirmed) {
+      if (window.labAudio) window.labAudio.playSuccess();
+      showToast('เปิดระบบเสียงเรียบร้อย', 'success');
+    } else if (res.dismiss === Swal.DismissReason.cancel) {
+      showToast('ปิดระบบเสียงเรียบร้อย', 'info');
+    }
+  });
+};
+
+window.mobileSwitchUserPrompt = function() {
+  Swal.fire({
+    title: 'สลับบัญชีทดสอบด่วน',
+    input: 'select',
+    inputOptions: {
+      'usr_01': '👨‍🔬 ดร.สมชาย นักวิจัย (เจ้าของงาน)',
+      'usr_02': '👩‍🔬 ดร.อารยา นักวิจัย (ผู้ร่วมวิจัย)',
+      'usr_admin': '🛡️ Lab Admin (ผู้ดูแลระบบ)'
+    },
+    inputValue: state.currentUser ? state.currentUser.uid : 'usr_01',
+    showCancelButton: true,
+    confirmButtonText: 'สลับบัญชี',
+    cancelButtonText: 'ยกเลิก',
+    confirmButtonColor: '#2563eb'
+  }).then((res) => {
+    if (res.isConfirmed && res.value) {
+      const u = state.users.find(user => user.uid === res.value);
+      if (u) {
+        applyLoginSuccess(u);
+        showToast(`สลับเป็น ${u.displayName} แล้ว`, 'success');
+      }
+    }
+  });
+};
+
+// Initialize mobile UI on DOM load
+function initMobileUI() {
+  renderMobileHomeDashboard();
+  renderMobileProfile();
 }

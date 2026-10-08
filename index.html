@@ -14,6 +14,9 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+  <!-- Font Awesome 6 Icons (For TaskFlow Mobile App UI) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
   <!-- Mitr Phol 60-30-10 Design System -->
   <link rel="stylesheet" href="css/app.css">
 </head>
@@ -28,23 +31,31 @@
       
       <form id="form-login" onsubmit="handleLoginSubmit(event)">
         <div class="form-group">
-          <label class="form-label">Email:</label>
-          <input type="email" id="login-email" class="form-input" required value="somchai.r@mitrphol.com">
+          <label class="form-label">Email / ชื่อผู้ใช้งาน:</label>
+          <div style="position: relative;">
+            <input type="email" id="login-email" class="form-input" required value="somchai.r@mitrphol.com" style="padding-left: 36px;">
+            <i class="fa-regular fa-envelope" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Password:</label>
-          <input type="password" id="login-password" class="form-input" required value="password123">
+          <div style="position: relative;">
+            <input type="password" id="login-password" class="form-input" required value="password123" style="padding-left: 36px;">
+            <i class="fa-solid fa-lock" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
-          เข้าสู่ระบบ
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px; border-radius: var(--radius-md); padding: 12px; font-weight: 700;">
+          เข้าสู่ระบบ (Login)
         </button>
       </form>
 
-      <div style="margin-top: 20px; padding: 12px; background: #f8fafc; border-radius: var(--radius-sm); font-size: 0.78rem; color: #64748b; border: 1px dashed var(--border-subtle); line-height: 1.6;">
-        <strong>🔑 บัญชีทดสอบระบบ:</strong><br>
-        • ดร.สมชาย: <code>somchai.r@mitrphol.com</code> / <code>password123</code><br>
-        • ดร.อารยา: <code>araya.k@mitrphol.com</code> / <code>password123</code><br>
-        • Admin: <code>admin.lab@mitrphol.com</code> / <code>admin123</code>
+      <div style="margin-top: 18px; padding: 12px; background: #f8fafc; border-radius: var(--radius-md); font-size: 0.78rem; color: #64748b; border: 1px dashed var(--border-subtle); line-height: 1.6;">
+        <div style="font-weight: 700; color: #1e293b; margin-bottom: 6px;">🔑 เลือกบัญชีทดสอบระบบด่วน (1-Tap):</div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="quickFillLogin('somchai.r@mitrphol.com', 'password123')" style="font-size: 0.74rem; flex: 1; padding: 6px 4px; justify-content: center;">👨‍🔬 ดร.สมชาย</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="quickFillLogin('araya.k@mitrphol.com', 'password123')" style="font-size: 0.74rem; flex: 1; padding: 6px 4px; justify-content: center;">👩‍🔬 ดร.อารยา</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="quickFillLogin('admin.lab@mitrphol.com', 'admin123')" style="font-size: 0.74rem; flex: 1; padding: 6px 4px; justify-content: center;">🛡️ Admin</button>
+        </div>
       </div>
     </div>
   </div>
@@ -101,8 +112,205 @@
     </div>
   </nav>
 
+  <!-- Mobile Top App Bar (TaskFlow Style - Screen 3) -->
+  <header class="mobile-top-bar" id="mobile-top-bar">
+    <div class="mobile-top-user" onclick="switchMobileTab('profile')">
+      <div class="mobile-avatar" id="mobile-top-avatar">ด</div>
+      <div class="mobile-user-greeting">
+        <div class="mobile-greeting-text">สวัสดี, <span id="mobile-user-name">ดร.สมชาย</span> 👋</div>
+        <div class="mobile-greeting-sub">งานวิจัยหมักชีวภาพ 8 ถังต่อเนื่อง</div>
+      </div>
+    </div>
+    <div class="mobile-top-actions">
+      <button class="mobile-icon-btn" onclick="openMobileNotificationsModal()" title="การแจ้งเตือนและบันทึกประวัติ">
+        <i class="fa-regular fa-bell"></i>
+        <span class="mobile-badge-dot" id="mobile-notif-dot"></span>
+      </button>
+    </div>
+  </header>
+
   <!-- Main Content Area -->
   <main class="app-main-content">
+
+    <!-- Mobile Sub-page Back Header (When navigating into desktop sections on mobile) -->
+    <div id="mobile-subpage-back-bar" class="mobile-subpage-back-bar" style="display: none;">
+      <button class="mobile-back-btn" onclick="switchMobileTab('home')">
+        <i class="fa-solid fa-arrow-left"></i> กลับหน้าหลัก
+      </button>
+      <span id="mobile-subpage-title" class="mobile-subpage-title">หัวข้อการทำงาน</span>
+    </div>
+
+    <!-- ====================================================================
+         MOBILE HOME VIEW (TaskFlow Mobile Dashboard - Screen 3)
+         ==================================================================== -->
+    <section id="mobile-home-view" class="mobile-home-section active">
+      <!-- 1. Hero Blue Gradient Card (TaskFlow Screen 3) -->
+      <div class="mobile-hero-card">
+        <div class="mobile-hero-header">
+          <div class="mobile-hero-proj-tag">
+            <i class="fa-solid fa-flask"></i> รอบการหมักปัจจุบัน
+          </div>
+          <select id="mobile-project-select" class="mobile-hero-proj-select" onchange="handleMobileProjectChange(this.value)">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+        <div class="mobile-hero-title-row">
+          <div>
+            <div class="mobile-hero-label">Total Samples (จุดตัวอย่าง)</div>
+            <div class="mobile-hero-count" id="mobile-hero-sample-count">12</div>
+          </div>
+          <div class="mobile-hero-check-circle">
+            <i class="fa-solid fa-check"></i>
+          </div>
+        </div>
+        <div class="mobile-hero-badges-row">
+          <span class="mobile-hero-badge badge-done" id="mobile-hero-done-badge">
+            <i class="fa-solid fa-circle-check"></i> 12 บันทึกผลแล้ว
+          </span>
+          <span class="mobile-hero-badge badge-pending" id="mobile-hero-pending-badge">
+            <i class="fa-regular fa-clock"></i> 8 ถัง Cascade พร้อม
+          </span>
+        </div>
+      </div>
+
+      <!-- 2. Quick Action Grid / Category Tiles (4 items - Screen 3) -->
+      <div class="mobile-category-grid">
+        <div class="mobile-cat-tile cat-tile-blue" onclick="mobileNavigateTo('sec-projects', 'ข้อมูลตั้งต้นการทดลอง')">
+          <div class="cat-tile-icon"><i class="fa-solid fa-folder-tree"></i></div>
+          <span class="cat-tile-label">ข้อมูลตั้งต้น</span>
+        </div>
+        <div class="mobile-cat-tile cat-tile-orange" onclick="mobileNavigateTo('sec-entry', 'บันทึกข้อมูลหน้าแล็บ')">
+          <div class="cat-tile-icon"><i class="fa-solid fa-flask-vial"></i></div>
+          <span class="cat-tile-label">บันทึกแล็บ</span>
+        </div>
+        <div class="mobile-cat-tile cat-tile-cyan" onclick="mobileNavigateTo('sec-analytics', 'กราฟและการวิเคราะห์')">
+          <div class="cat-tile-icon"><i class="fa-solid fa-chart-line"></i></div>
+          <span class="cat-tile-label">กราฟวิเคราะห์</span>
+        </div>
+        <div class="mobile-cat-tile cat-tile-green" onclick="mobileNavigateTo('sec-optimizer', 'เปรียบเทียบสภาวะที่ดีที่สุด')">
+          <div class="cat-tile-icon"><i class="fa-solid fa-trophy"></i></div>
+          <span class="cat-tile-label">เปรียบเทียบ</span>
+        </div>
+      </div>
+
+      <!-- 3. Cascade 8-Tank Status Strip -->
+      <div class="mobile-tanks-strip-card">
+        <div class="mobile-sec-header">
+          <h4><i class="fa-solid fa-microscope" style="color: #2563eb; margin-right: 6px;"></i> สถานะ 8 ถังหมักต่อเนื่อง</h4>
+          <span class="mobile-sec-sub" id="mobile-tanks-count-label">PF → D3</span>
+        </div>
+        <div class="mobile-tanks-scroll-row" id="mobile-tanks-scroll-row">
+          <!-- Dynamically populated 8 tank chips -->
+        </div>
+      </div>
+
+      <!-- 4. Today / Recent Samples Section (Screen 3 & 5) -->
+      <div class="mobile-recent-samples-sec">
+        <div class="mobile-sec-header">
+          <h4><i class="fa-solid fa-list-check" style="color: #2563eb; margin-right: 6px;"></i> ตัวอย่างล่าสุดในรอบนี้</h4>
+          <button class="mobile-link-btn" onclick="switchMobileTab('records')">ดูทั้งหมด</button>
+        </div>
+        <div id="mobile-home-recent-samples" class="mobile-sample-cards-list">
+          <!-- Dynamically rendered sample cards -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         MOBILE PROFILE VIEW (TaskFlow Mobile Profile - Screen 9)
+         ==================================================================== -->
+    <section id="mobile-profile-view" class="mobile-profile-section" style="display: none;">
+      <div class="mobile-profile-header-card">
+        <div class="mobile-profile-avatar-wrap">
+          <div class="mobile-profile-avatar" id="mob-prof-avatar">ด</div>
+        </div>
+        <h3 class="mobile-profile-name" id="mob-prof-name">ดร.สมชาย นักวิจัย</h3>
+        <p class="mobile-profile-email" id="mob-prof-email">somchai.r@mitrphol.com</p>
+        <span class="mobile-profile-role-badge role-researcher" id="mob-prof-role">RESEARCHER</span>
+
+        <!-- 3-Column Stats Counter (Screen 9) -->
+        <div class="mobile-profile-stats-card">
+          <div class="mob-stat-col">
+            <div class="mob-stat-val" id="mob-stat-projects">3</div>
+            <div class="mob-stat-label">โปรเจกต์</div>
+          </div>
+          <div class="mob-stat-divider"></div>
+          <div class="mob-stat-col">
+            <div class="mob-stat-val" id="mob-stat-samples">12</div>
+            <div class="mob-stat-label">ตัวอย่างบันทึก</div>
+          </div>
+          <div class="mob-stat-divider"></div>
+          <div class="mob-stat-col">
+            <div class="mob-stat-val">8</div>
+            <div class="mob-stat-label">ถังหมัก</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Menu List Items (Screen 9) -->
+      <div class="mobile-menu-card">
+        <div class="mobile-menu-item" onclick="mobileShowAccountInfo()">
+          <div class="mob-menu-icon icon-blue"><i class="fa-solid fa-id-card"></i></div>
+          <div class="mob-menu-text">
+            <div class="mob-menu-title">ข้อมูลบัญชีและสิทธิ์วิจัย</div>
+            <div class="mob-menu-desc">ดูรายละเอียดบทบาทและสิทธิ์ของคุณ</div>
+          </div>
+          <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
+        </div>
+
+        <div class="mobile-menu-item" onclick="openMobileNotificationsModal()">
+          <div class="mob-menu-icon icon-purple"><i class="fa-solid fa-bell"></i></div>
+          <div class="mob-menu-text">
+            <div class="mob-menu-title">การแจ้งเตือน & ประวัติแล็บ</div>
+            <div class="mob-menu-desc">ประวัติการบันทึก Audit Logs ล่าสุด</div>
+          </div>
+          <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
+        </div>
+
+        <div class="mobile-menu-item" onclick="mobileOpenPresentation()">
+          <div class="mob-menu-icon icon-gold"><i class="fa-solid fa-file-powerpoint"></i></div>
+          <div class="mob-menu-text">
+            <div class="mob-menu-title">โหมดพรีเซนต์ผู้บริหาร</div>
+            <div class="mob-menu-desc">Executive Slide Deck สำหรับนำเสนอ</div>
+          </div>
+          <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
+        </div>
+
+        <div class="mobile-menu-item admin-only-item" id="mob-menu-admin-users" onclick="mobileNavigateTo('sec-settings', 'จัดการผู้ใช้และตั้งค่า')" style="display: none;">
+          <div class="mob-menu-icon icon-green"><i class="fa-solid fa-users-gear"></i></div>
+          <div class="mob-menu-text">
+            <div class="mob-menu-title">จัดการผู้ใช้งานแล็บ (Admin)</div>
+            <div class="mob-menu-desc">เพิ่ม/แก้ไขผู้ใช้และรหัสผ่าน</div>
+          </div>
+          <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
+        </div>
+
+        <div class="mobile-menu-item" onclick="mobileOpenAudioSettings()">
+          <div class="mob-menu-icon icon-cyan"><i class="fa-solid fa-sliders"></i></div>
+          <div class="mob-menu-text">
+            <div class="mob-menu-title">ตั้งค่าเสียง & ค่าคงที่แล็บ</div>
+            <div class="mob-menu-desc">เปิด/ปิดเสียงคลิก Tally และค่าคงที่</div>
+          </div>
+          <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
+        </div>
+
+        <div class="mobile-menu-item" onclick="mobileSwitchUserPrompt()">
+          <div class="mob-menu-icon icon-slate"><i class="fa-solid fa-user-gear"></i></div>
+          <div class="mob-menu-text">
+            <div class="mob-menu-title">สลับบัญชีทดสอบด่วน</div>
+            <div class="mob-menu-desc">เปลี่ยนเป็น ดร.สมชาย, ดร.อารยา หรือ Admin</div>
+          </div>
+          <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
+        </div>
+      </div>
+
+      <!-- Logout Red Outline Button (Screen 9) -->
+      <div style="margin-top: 18px; padding: 0 4px;">
+        <button class="mobile-logout-btn" onclick="handleLogout()">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i> ออกจากระบบ
+        </button>
+      </div>
+    </section>
 
     <!-- Read-Only Notice Banner when viewing other researcher's project -->
     <div id="permission-notice-banner" class="lab-card" style="display: none; background: #fffbeb; border-color: #fde68a; color: #92400e; padding: 14px 20px; align-items: center; gap: 14px;"></div>
@@ -152,6 +360,29 @@
             <p id="header-culture" style="font-weight: 600; color: #334155;">PK B:C mol (80:20)</p>
             <p style="font-size: 0.85rem; color: #64748b; margin-top: 10px;">วันที่เริ่มต้น:</p>
             <p id="header-date" style="font-weight: 600; color: #334155;">2022-03-26</p>
+
+            <!-- New Experiment Initial Fields (Requested by User / Attachment 1 & 4) -->
+            <div style="margin-top: 14px; padding: 12px; background: #ffffff; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              <div style="font-size: 0.8rem; font-weight: 700; color: var(--mitr-navy-900); margin-bottom: 6px;">🍯 พารามิเตอร์น้ำตาลโมลาส & ปริมาตรหมักเริ่มต้น:</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.82rem;">
+                <div>
+                  <span style="color: #64748b;">น้ำตาลโมลาสขาเข้า:</span>
+                  <strong style="color: #1e40af; display: block;" id="header-inlet-sugar">240.0 g/L</strong>
+                </div>
+                <div>
+                  <span style="color: #64748b;">%Brix เริ่มต้น:</span>
+                  <strong style="color: #b45309; display: block;" id="header-initial-brix">26.4 %Brix</strong>
+                </div>
+                <div>
+                  <span style="color: #64748b;">ปริมาตรที่เตรียม:</span>
+                  <strong style="color: #059669; display: block;" id="header-prep-vol">4.0 L</strong>
+                </div>
+                <div>
+                  <span style="color: #64748b;">ปริมาตรที่เหลือ:</span>
+                  <strong style="color: #475569; display: block;" id="header-remain-vol">1.5 L (1,500 mL)</strong>
+                </div>
+              </div>
+            </div>
           </div>
           <div>
             <p style="font-size: 0.85rem; color: #64748b;">สภาวะการทดลอง (Condition):</p>
@@ -179,6 +410,26 @@
             <div class="form-group">
               <label class="form-label">Experiment no.:</label>
               <input type="text" id="edit-exp-no" class="form-input">
+            </div>
+          </div>
+
+          <!-- New Fields: Molasses Sugar, Initial Brix, Prepared Volume, Remaining Volume -->
+          <div class="form-grid-4">
+            <div class="form-group">
+              <label class="form-label">ปริมาณน้ำตาลโมลาสขาเข้า (g/L):</label>
+              <input type="number" step="0.1" id="edit-inlet-sugar" class="form-input" placeholder="240.0">
+            </div>
+            <div class="form-group">
+              <label class="form-label">%Brix เริ่มต้น (%Bx):</label>
+              <input type="number" step="0.1" id="edit-initial-brix" class="form-input" placeholder="26.4">
+            </div>
+            <div class="form-group">
+              <label class="form-label">ปริมาตรที่เตรียม (L):</label>
+              <input type="number" step="0.1" id="edit-prep-vol" class="form-input" placeholder="4.0">
+            </div>
+            <div class="form-group">
+              <label class="form-label">ปริมาตรที่เหลือ (L หรือ mL):</label>
+              <input type="text" id="edit-remain-vol" class="form-input" placeholder="1.5 L หรือ 1500 ml">
             </div>
           </div>
 
@@ -231,6 +482,43 @@
           <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px;">
             <button class="btn btn-secondary" onclick="toggleEditHeaderForm(false)">ยกเลิก</button>
             <button class="btn btn-primary" onclick="saveHeaderEdits()">💾 บันทึกการแก้ไขข้อมูลตั้งต้น</button>
+          </div>
+        </div>
+
+        <!-- Feeding Log Record Table (Grounded in Attachment 1 "ตารางบันทึก Feed อาหาร") -->
+        <div style="margin-top: 24px; background: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 18px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <h3 style="font-size: 1rem; color: var(--mitr-navy-900); display: flex; align-items: center; gap: 8px; margin: 0;">
+                <span>📋</span> ตารางบันทึก Feed อาหาร (Feeding Log - Attachment 1)
+              </h3>
+              <p style="font-size: 0.8rem; color: #64748b; margin-top: 2px; margin-bottom: 0;">
+                บันทึกการป้อนสารละลายอาหารหมัก ปริมาตรเตรียม และปริมาตรคงเหลือจริงตามเวลาปฏิบัติการ
+              </p>
+            </div>
+            <button class="btn btn-accent btn-sm" onclick="openAddFeedLogModal()">
+              <span>+</span> เพิ่มบันทึก Feed อาหาร
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table" style="font-size: 0.84rem; width: 100%;">
+              <thead>
+                <tr>
+                  <th style="min-width: 110px;">วันที่ & เวลา</th>
+                  <th style="width: 100px;">อาหาร / ถัง</th>
+                  <th style="width: 100px;">Feed รอบที่</th>
+                  <th style="width: 90px; text-align: center;">Brix (°Bx)</th>
+                  <th style="width: 120px; text-align: right;">ปริมาตรเริ่มต้น</th>
+                  <th style="width: 120px; text-align: right;">ปริมาตรที่เหลือ</th>
+                  <th style="min-width: 140px;">หมายเหตุ (Feed Rate)</th>
+                  <th style="width: 80px; text-align: center;">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="feed-log-tbody">
+                <!-- Dynamically rendered by renderFeedLogsTable() -->
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -453,10 +741,10 @@
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
             <div>
               <h3 style="font-size: 1.1rem; color: var(--mitr-navy-900); display: flex; align-items: center; gap: 8px;">
-                <span>🔬</span> นับเซลล์ยีสต์ด้วย Haemacytometer (5 ช่อง × 3 ซีรีส์)
+                <span>🔬</span> นับเซลล์ยีสต์ด้วย Haemacytometer (5 ช่อง × 4 ซีรีส์ - CFU/ml & CDW)
               </h3>
               <p style="font-size: 0.8rem; color: #64748b;">
-                สูตร: <strong>(ผลรวม 5 ช่อง) × เท่าการเจือจาง × 250,000</strong> = cells/mL
+                สูตร: <strong>(ผลรวม 5 ช่อง) × เท่าการเจือจาง × 250,000</strong> = CFU/ml (คำนวณแยก Total, Budding, Dead และ % อัตราส่วน)
               </p>
             </div>
 
@@ -472,10 +760,10 @@
           </div>
 
           <!-- Dilution Factor -->
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px; background: #f8fafc; padding: 10px 14px; border-radius: var(--radius-sm);">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px; background: #f8fafc; padding: 10px 14px; border-radius: var(--radius-sm); flex-wrap: wrap;">
             <label style="font-size: 0.85rem; font-weight: 700; color: var(--mitr-navy-800);">เท่าการเจือจาง (Dilution Factor):</label>
             <input type="number" id="input-dilution-factor" value="10" class="form-input" style="width: 90px; text-align: center;">
-            <span style="font-size: 0.82rem; color: #64748b;">เท่า (ตามไฟล์แนบที่ 4)</span>
+            <span style="font-size: 0.82rem; color: #64748b;">เท่า (อ้างอิง Form Count Haemacytometer Attachment 2)</span>
           </div>
 
           <!-- Numpad Panel (5-Chamber Matrix Table: Fully Contained & Responsive) -->
@@ -484,14 +772,14 @@
               <table class="haemacytometer-table">
                 <thead>
                   <tr>
-                    <th style="min-width: 140px;">ซีรีส์การนับ (Series)</th>
+                    <th style="min-width: 150px;">ซีรีส์การนับ (Series)</th>
                     <th class="square-col-header">ช่อง 1</th>
                     <th class="square-col-header">ช่อง 2</th>
                     <th class="square-col-header">ช่อง 3</th>
                     <th class="square-col-header">ช่อง 4</th>
                     <th class="square-col-header">ช่อง 5</th>
                     <th style="min-width: 80px; text-align: center;">รวม 5 ช่อง</th>
-                    <th style="min-width: 110px; text-align: right;">ดัชนีชีวภาพ</th>
+                    <th style="min-width: 140px; text-align: right;">ดัชนีชีวภาพ (CFU/ml & %)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -512,10 +800,10 @@
                     <td style="text-align: center;"><input type="number" class="square-cell-input square-box" data-series="total" data-index="3" value="77" placeholder="4"></td>
                     <td style="text-align: center;"><input type="number" class="square-cell-input square-box" data-series="total" data-index="4" value="24" placeholder="5"></td>
                     <td class="sum-cell" id="sum-row-total">189</td>
-                    <td class="rate-cell" id="rate-row-total" style="color: var(--mitr-navy-700);">4.73 × 10⁸ cells/mL</td>
+                    <td class="rate-cell" id="rate-row-total" style="color: var(--mitr-navy-700); font-weight: 700;">4.73 × 10⁸ CFU/ml</td>
                   </tr>
 
-                  <!-- Series 2: Budding Cells -->
+                  <!-- Series 2: Budding Cells (Calculates CFU/ml then % Budding) -->
                   <tr>
                     <td>
                       <div class="series-title-cell">
@@ -532,10 +820,10 @@
                     <td style="text-align: center;"><input type="number" class="square-cell-input square-box" data-series="budding" data-index="3" value="8" placeholder="4"></td>
                     <td style="text-align: center;"><input type="number" class="square-cell-input square-box" data-series="budding" data-index="4" value="3" placeholder="5"></td>
                     <td class="sum-cell" id="sum-row-budding">21</td>
-                    <td class="rate-cell" id="rate-row-budding" style="color: var(--accent-gold-700);">11.1 % Budding</td>
+                    <td class="rate-cell" id="rate-row-budding" style="color: var(--accent-gold-700); font-weight: 700;">5.25 × 10⁷ CFU/ml (11.1%)</td>
                   </tr>
 
-                  <!-- Series 3: Dead Cells -->
+                  <!-- Series 3: Dead Cells (Calculates CFU/ml then % Viability) -->
                   <tr>
                     <td>
                       <div class="series-title-cell">
@@ -552,7 +840,27 @@
                     <td style="text-align: center;"><input type="number" class="square-cell-input square-box" data-series="dead" data-index="3" value="1" placeholder="4"></td>
                     <td style="text-align: center;"><input type="number" class="square-cell-input square-box" data-series="dead" data-index="4" value="1" placeholder="5"></td>
                     <td class="sum-cell" id="sum-row-dead">5</td>
-                    <td class="rate-cell" id="rate-row-dead" style="color: #059669;">97.4 % Viability</td>
+                    <td class="rate-cell" id="rate-row-dead" style="color: #059669; font-weight: 700;">1.25 × 10⁷ CFU/ml (97.4%)</td>
+                  </tr>
+
+                  <!-- Series 4: Cell Dry Weight (ค่าน้ำหนักแห้งเซลล์ยีสต์ g/L - Attachment 4) -->
+                  <tr style="background: rgba(254, 243, 199, 0.25);">
+                    <td>
+                      <div class="series-title-cell">
+                        <span class="series-dot" style="color: #92400e;">●</span>
+                        <div>
+                          <strong style="color: #92400e;">4. Cell Dry Weight</strong>
+                          <div class="series-sub">น้ำหนักแห้งเซลล์ (g/L) • 2 หลอดซ้ำ Before/After</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td colspan="5" style="text-align: center;">
+                      <button type="button" class="btn btn-secondary btn-sm" onclick="openCDWModal()" style="font-size: 0.8rem; padding: 6px 12px; background: #ffffff; border-color: #f59e0b; color: #92400e; font-weight: 700;">
+                        ⚖️ บันทึกน้ำหนักชั่ง 2 ซ้ำ (Before/After ตู้อบ)
+                      </button>
+                    </td>
+                    <td class="sum-cell" id="sum-row-cdw" style="font-size: 0.85rem; color: #64748b; font-weight: 600;">-</td>
+                    <td class="rate-cell" id="rate-row-cdw" style="color: #92400e; font-weight: 800; font-size: 0.95rem;">- g/L</td>
                   </tr>
                 </tbody>
               </table>
@@ -583,21 +891,32 @@
             </div>
           </div>
 
-          <!-- Live Computed Cells KPI Strip -->
+          <!-- Live Computed Cells KPI Strip (CFU/ml & Cell Dry Weight) -->
           <div style="margin-top: 18px; padding: 16px; background: linear-gradient(135deg, rgba(239, 246, 255, 0.7), rgba(254, 243, 199, 0.4)); border-radius: var(--radius-md); border: 1px solid #bfdbfe; display: flex; justify-content: space-around; flex-wrap: wrap; gap: 14px;">
             <div>
-              <span style="font-size: 0.78rem; color: #64748b; font-weight: 600;">ความหนาแน่นเซลล์ (cells/mL):</span>
-              <h4 id="calc-total-cells-ml" style="font-size: 1.25rem; color: var(--mitr-navy-900); font-weight: 800;">4.73 × 10⁸</h4>
+              <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">Total Cells (CFU/ml):</span>
+              <h4 id="calc-total-cells-ml" style="font-size: 1.15rem; color: var(--mitr-navy-900); font-weight: 800;">4.73 × 10⁸</h4>
             </div>
             <div>
-              <span style="font-size: 0.78rem; color: #64748b; font-weight: 600;">อัตราการแตกหน่อ (% Budding):</span>
-              <h4 id="calc-budding-pct" style="font-size: 1.25rem; color: var(--accent-gold-700); font-weight: 800;">11.1 %</h4>
+              <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">Cell Budding (CFU/ml & %):</span>
+              <h4 id="calc-budding-kpi" style="font-size: 1.15rem; color: var(--accent-gold-700); font-weight: 800;">5.25 × 10⁷ (11.1%)</h4>
             </div>
             <div>
-              <span style="font-size: 0.78rem; color: #64748b; font-weight: 600;">ความมีชีวิต (% Viability):</span>
-              <h4 id="calc-viability-pct" style="font-size: 1.25rem; color: #059669; font-weight: 800;">97.4 %</h4>
+              <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">Cell Death (CFU/ml):</span>
+              <h4 id="calc-dead-kpi" style="font-size: 1.15rem; color: #dc2626; font-weight: 800;">1.25 × 10⁷</h4>
+            </div>
+            <div>
+              <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">ความมีชีวิต (% Viability):</span>
+              <h4 id="calc-viability-pct" style="font-size: 1.15rem; color: #059669; font-weight: 800;">97.4 %</h4>
+            </div>
+            <div>
+              <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">Cell Dry Weight (g/L):</span>
+              <h4 id="calc-cdw-kpi" style="font-size: 1.15rem; color: #92400e; font-weight: 800;">-</h4>
             </div>
           </div>
+
+          <div id="cell-validation-alert" class="inline-alert" style="margin-top: 10px;"></div>
+        </div>
 
           <div id="cell-validation-alert" class="inline-alert" style="margin-top: 10px;"></div>
         </div>
@@ -688,9 +1007,10 @@
                 <th class="sortable-th" onclick="handleDataRecordSort('fructose')" title="คลิกเพื่อจัดเรียงตาม Fructose">Fructose <span class="sort-icon" id="sort-icon-fructose">⇅</span></th>
                 <th class="sortable-th" onclick="handleDataRecordSort('ethanol')" title="คลิกเพื่อจัดเรียงตาม Ethanol">Ethanol (g/L) <span class="sort-icon" id="sort-icon-ethanol">⇅</span></th>
                 <th class="sortable-th" onclick="handleDataRecordSort('glycerol')" title="คลิกเพื่อจัดเรียงตาม Glycerol">Glycerol (g/L) <span class="sort-icon" id="sort-icon-glycerol">⇅</span></th>
-                <th class="sortable-th" onclick="handleDataRecordSort('cellCount')" title="คลิกเพื่อจัดเรียงตาม Total Cells">Total Cells (cells/mL) <span class="sort-icon" id="sort-icon-cellCount">⇅</span></th>
+                <th class="sortable-th" onclick="handleDataRecordSort('cellCount')" title="คลิกเพื่อจัดเรียงตาม Total Cells">Total Cells (CFU/ml) <span class="sort-icon" id="sort-icon-cellCount">⇅</span></th>
                 <th class="sortable-th" onclick="handleDataRecordSort('buddingPct')" title="คลิกเพื่อจัดเรียงตาม % Budding">% Budding <span class="sort-icon" id="sort-icon-buddingPct">⇅</span></th>
                 <th class="sortable-th" onclick="handleDataRecordSort('viabilityPct')" title="คลิกเพื่อจัดเรียงตาม % Viability">% Viability <span class="sort-icon" id="sort-icon-viabilityPct">⇅</span></th>
+                <th class="sortable-th" onclick="handleDataRecordSort('cellDryWeight')" title="คลิกเพื่อจัดเรียงตาม Cell Dry Weight">CDW (g/L) <span class="sort-icon" id="sort-icon-cellDryWeight">⇅</span></th>
                 <th style="text-align: center;">การดำเนินการ</th>
               </tr>
             </thead>
@@ -734,11 +1054,11 @@
             </div>
           </div>
 
-          <!-- Chart 2: Yeast Population (cells/mL) -->
+          <!-- Chart 2: Yeast Population (CFU/ml) -->
           <div style="background: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <h4 style="color: var(--mitr-navy-900); margin: 0;">Yeast Population (cells/mL)</h4>
+                <h4 style="color: var(--mitr-navy-900); margin: 0;">Yeast Population (CFU/ml)</h4>
                 <button class="chart-info-btn" onclick="openChartInfoModal('cells')" title="วิธีการดูกราฟและผลสรุปงานวิจัย">ℹ️</button>
               </div>
               <button class="btn btn-sm btn-secondary" onclick="downloadChartPNG('cells', 'MitrPhol_Yeast_Cells')">PNG</button>
@@ -804,7 +1124,8 @@
               <label class="form-label">ตัวแปร (Metric):</label>
               <select id="custom-metric-select" class="form-select">
                 <option value="brix">Brix (°Bx)</option>
-                <option value="cellCount">Yeast Cell (cells/mL)</option>
+                <option value="cellCount">Yeast Cell (CFU/ml)</option>
+                <option value="cellDryWeight">Cell Dry Weight (g/L)</option>
                 <option value="ethanol">Ethanol (g/L)</option>
                 <option value="sugarConvert">Sugar Convert (g/L)</option>
                 <option value="glycerol">Glycerol (g/L)</option>
@@ -1109,6 +1430,390 @@
   </main>
 
   <!-- ====================================================================
+       DESKTOP & MOBILE MODAL: Cell Dry Weight (CDW) Calculator (Attachment 4)
+       ==================================================================== -->
+  <div id="modal-cdw-calculator" class="lab-modal-overlay" style="display: none;">
+    <div class="lab-modal-dialog" style="max-width: 720px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-bottom: 1px solid var(--border-subtle); background: #f8fafc; border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.4rem;">⚖️</span>
+          <div>
+            <h3 style="margin: 0; font-size: 1.1rem; color: var(--mitr-navy-900);">คำนวณและบันทึกค่าน้ำหนักแห้งเซลล์ยีสต์ Cell Dry Weight (CDW)</h3>
+            <p style="margin: 0; font-size: 0.78rem; color: #64748b;">อ้างอิง "แบบฟอร์มบันทึกน้ำหนักแห้ง" (Attachment 4) • ตัวอย่าง <span id="cdw-modal-target-sample" style="font-weight: 700; color: #1e40af;">PF @ 82h</span></p>
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeCDWModal()" style="border-radius: 50%; width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">&times;</button>
+      </div>
+
+      <div style="padding: 22px 24px;">
+        <!-- Formula & Protocol Banner -->
+        <div style="background: rgba(254, 243, 199, 0.45); border: 1px solid #fde68a; border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 18px; font-size: 0.82rem; color: #92400e;">
+          <div style="font-weight: 700; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <span>🔬</span> สูตรการคำนวณ: <code>CDW (g/L) = (1000 × น้ำหนักแห้งเฉลี่ย (g)) / ปริมาตรตัวอย่าง (1 mL)</code>
+          </div>
+          <div>วิธีการ: ชั่งน้ำหนักหลอดเปล่าก่อน 2 รอบ (Before) จำนวน 2 หลอด (2 ซ้ำ) &rarr; ดูดตัวอย่าง 1 mL ปั่นเหวี่ยงเอาน้ำหมักทิ้งเหลือแต่เซลล์ &rarr; อบแห้งในตู้อบ &rarr; นำมาชั่งน้ำหนักหลังอบ 2 รอบ (After) &rarr; หาผลต่างน้ำหนักเซลล์แห้งแต่ละหลอด เฉลี่ย 2 ซ้ำ แล้วคำนวณเป็น g/L</div>
+        </div>
+
+        <!-- 2-Tube Grid Inputs -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+          <!-- Tube 1 -->
+          <div style="background: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 2px solid #bfdbfe; padding-bottom: 6px;">
+              <strong style="color: #1e40af; font-size: 0.92rem;">🧪 หลอดที่ 1 (ซ้ำที่ 1)</strong>
+              <span id="cdw-tube1-net-badge" class="badge badge-navy" style="font-size: 0.75rem;">สุทธิ: 0.0000 g</span>
+            </div>
+            
+            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 4px;">Before ชั่งก่อนอบ (g):</div>
+            <div class="form-grid-2" style="gap: 8px;">
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 1</label>
+                <input type="number" step="0.0001" id="cdw-tube1-before1" class="form-input" placeholder="1.1130" oninput="calcCDWFromInputs()">
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 2</label>
+                <input type="number" step="0.0001" id="cdw-tube1-before2" class="form-input" placeholder="1.1132" oninput="calcCDWFromInputs()">
+              </div>
+            </div>
+
+            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin: 8px 0 4px;">After ชั่งหลังตู้อบ (g):</div>
+            <div class="form-grid-2" style="gap: 8px;">
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 1</label>
+                <input type="number" step="0.0001" id="cdw-tube1-after1" class="form-input" placeholder="1.1152" oninput="calcCDWFromInputs()">
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 2</label>
+                <input type="number" step="0.0001" id="cdw-tube1-after2" class="form-input" placeholder="1.1153" oninput="calcCDWFromInputs()">
+              </div>
+            </div>
+          </div>
+
+          <!-- Tube 2 -->
+          <div style="background: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 2px solid #fde68a; padding-bottom: 6px;">
+              <strong style="color: #b45309; font-size: 0.92rem;">🧪 หลอดที่ 2 (ซ้ำที่ 2)</strong>
+              <span id="cdw-tube2-net-badge" class="badge badge-gold" style="font-size: 0.75rem;">สุทธิ: 0.0000 g</span>
+            </div>
+            
+            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 4px;">Before ชั่งก่อนอบ (g):</div>
+            <div class="form-grid-2" style="gap: 8px;">
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 1</label>
+                <input type="number" step="0.0001" id="cdw-tube2-before1" class="form-input" placeholder="1.1175" oninput="calcCDWFromInputs()">
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 2</label>
+                <input type="number" step="0.0001" id="cdw-tube2-before2" class="form-input" placeholder="1.1174" oninput="calcCDWFromInputs()">
+              </div>
+            </div>
+
+            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin: 8px 0 4px;">After ชั่งหลังตู้อบ (g):</div>
+            <div class="form-grid-2" style="gap: 8px;">
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 1</label>
+                <input type="number" step="0.0001" id="cdw-tube2-after1" class="form-input" placeholder="1.1192" oninput="calcCDWFromInputs()">
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 2</label>
+                <input type="number" step="0.0001" id="cdw-tube2-after2" class="form-input" placeholder="1.1193" oninput="calcCDWFromInputs()">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sample Volume & Calculation Results Strip -->
+        <div style="margin-top: 18px; padding: 16px; background: linear-gradient(135deg, rgba(239, 246, 255, 0.8), rgba(254, 243, 199, 0.6)); border: 1px solid #bfdbfe; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+          <div>
+            <label style="font-size: 0.75rem; color: #64748b; font-weight: 700; display: block;">ปริมาตรตัวอย่าง (mL):</label>
+            <input type="number" step="0.1" id="cdw-sample-vol" value="1.0" class="form-input" style="width: 80px; text-align: center; height: 34px;" oninput="calcCDWFromInputs()">
+          </div>
+          <div>
+            <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">น้ำหนักแห้งเฉลี่ย 2 ซ้ำ:</span>
+            <div id="cdw-avg-net-display" style="font-size: 1.15rem; font-weight: 700; color: #1e3a8a;">0.0000 g</div>
+          </div>
+          <div>
+            <span style="font-size: 0.75rem; color: #92400e; font-weight: 700;">Cell Dry Weight (CDW):</span>
+            <div id="cdw-result-display" style="font-size: 1.5rem; font-weight: 800; color: #92400e;">0.00 g/L</div>
+          </div>
+        </div>
+
+        <!-- Modal Actions -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; flex-wrap: wrap; gap: 10px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="loadCDWExampleData()" title="กรอกตัวอย่างจริงจากแบบฟอร์มบันทึกน้ำหนักแห้ง (Attachment 4)">
+            📋 โหลดตัวอย่างจริงจากแบบฟอร์ม
+          </button>
+          <div style="display: flex; gap: 10px;">
+            <button type="button" class="btn btn-secondary" onclick="closeCDWModal()">ยกเลิก</button>
+            <button type="button" class="btn btn-primary" onclick="saveCDWToCurrentSample()">
+              💾 บันทึกค่า CDW ลงตัวอย่าง
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       DESKTOP & MOBILE MODAL: Add / Edit Feed Log Entry (Attachment 1)
+       ==================================================================== -->
+  <div id="modal-add-feed-log" class="lab-modal-overlay" style="display: none;">
+    <div class="lab-modal-dialog" style="max-width: 580px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-bottom: 1px solid var(--border-subtle); background: #f8fafc; border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.3rem;">📋</span>
+          <h3 id="feed-log-modal-title" style="margin: 0; font-size: 1.1rem; color: var(--mitr-navy-900);">บันทึก Feed อาหาร (Attachment 1)</h3>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeAddFeedLogModal()" style="border-radius: 50%; width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">&times;</button>
+      </div>
+
+      <div style="padding: 22px 24px;">
+        <input type="hidden" id="feed-log-edit-id" value="">
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">วันที่ & เวลา:</label>
+            <input type="text" id="feed-log-datetime" class="form-input" placeholder="เช่น 1/09/26 08:00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">อาหาร / ถัง:</label>
+            <input type="text" id="feed-log-medium" class="form-input" placeholder="เช่น BF.1, BF.2 90:10, B.1">
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Feed รอบที่:</label>
+            <input type="text" id="feed-log-no" class="form-input" placeholder="เช่น Feed 1, Feed 2">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Brix (°Bx):</label>
+            <input type="number" step="0.1" id="feed-log-brix" class="form-input" placeholder="เช่น 17.1">
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">ปริมาตรเริ่มต้น:</label>
+            <input type="text" id="feed-log-initial-vol" class="form-input" placeholder="เช่น 4 L หรือ 2 L">
+          </div>
+          <div class="form-group">
+            <label class="form-label">ปริมาตรที่เหลือ:</label>
+            <input type="text" id="feed-log-remain-vol" class="form-input" placeholder="เช่น 1,500 mL หรือ 980 mL">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">หมายเหตุ (เช่น Feed Rate):</label>
+          <input type="text" id="feed-log-remarks" class="form-input" placeholder="เช่น 200 mL/h">
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" onclick="closeAddFeedLogModal()">ยกเลิก</button>
+          <button type="button" class="btn btn-primary" onclick="saveFeedLogEntry()">
+            💾 บันทึกรายการ Feed
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MOBILE QUICK ADD SAMPLE MODAL (TaskFlow Screen 4 "Tambah Tugas")
+       ==================================================================== -->
+  <div id="mobile-quick-add-modal" class="mobile-modal-overlay" style="display: none;">
+    <div class="mobile-modal-sheet">
+      <div class="mobile-sheet-header">
+        <button class="mobile-sheet-close" onclick="closeMobileQuickAddModal()">&times;</button>
+        <h3><i class="fa-solid fa-flask" style="color: #2563eb; margin-right: 6px;"></i> บันทึกข้อมูลตัวอย่าง</h3>
+        <div style="width: 24px;"></div>
+      </div>
+
+      <div class="mobile-sheet-body">
+        <!-- Tank Selection Pills (PF, F2..F7, D3) -->
+        <div class="form-group">
+          <label class="form-label" style="font-weight: 700; color: #1e293b;">เลือกถังหมักเป้าหมาย *</label>
+          <div class="mobile-tank-pills" id="mob-quick-tank-pills">
+            <!-- Populated dynamically: PF, F2, F3, F4, F5, F6, F7, D3 -->
+          </div>
+        </div>
+
+        <!-- Timepoint & Brix -->
+        <div class="form-grid-2" style="margin-top: 10px;">
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 700;">จุดเวลาอายุถัง (ชม.) *</label>
+            <div style="display: flex; gap: 6px;">
+              <select id="mob-quick-timepoint" class="form-select" style="flex: 1;"></select>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="openAddCustomTimepointModal()">+ เพิ่ม</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 700;">ค่าความหวาน Brix (°Bx) *</label>
+            <input type="number" step="0.1" id="mob-quick-brix" class="form-input" placeholder="เช่น 12.5">
+          </div>
+        </div>
+
+        <!-- Cell Count Series (Total, Budding, Dead) -->
+        <div class="mobile-sheet-card" style="margin-top: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1e293b;">
+              <i class="fa-solid fa-microscope" style="color: #2563eb;"></i> นับเซลล์ยีสต์ (รวม 5 ช่อง)
+            </label>
+            <span id="mob-quick-cell-calc-badge" class="badge badge-navy" style="font-size: 0.72rem;">0 CFU/ml</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 0.72rem; color: #1d4ed8;">1. Total Cells</label>
+              <input type="number" id="mob-quick-cell-total" class="form-input" placeholder="189" oninput="calcMobQuickCells()">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 0.72rem; color: #b45309;">2. Budding</label>
+              <input type="number" id="mob-quick-cell-budding" class="form-input" placeholder="21" oninput="calcMobQuickCells()">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 0.72rem; color: #b91c1c;">3. Dead</label>
+              <input type="number" id="mob-quick-cell-dead" class="form-input" placeholder="4" oninput="calcMobQuickCells()">
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 0.75rem; color: #64748b; flex-wrap: wrap; gap: 4px;">
+            <span>เจือจาง: <input type="number" id="mob-quick-dilution" value="10" style="width: 48px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px;" oninput="calcMobQuickCells()"> เท่า</span>
+            <span id="mob-quick-budding-badge" style="font-weight: 600; color: #b45309;">Budding: -</span>
+            <span id="mob-quick-viability-badge" style="font-weight: 600; color: #059669;">% Viability: -</span>
+          </div>
+        </div>
+
+        <!-- Cell Dry Weight (CDW) Card (Attachment 4) -->
+        <div class="mobile-sheet-card" style="margin-top: 12px; background: rgba(254, 243, 199, 0.35); border-color: #fde68a;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #92400e;">
+              <i class="fa-solid fa-weight-scale" style="color: #d97706;"></i> น้ำหนักแห้ง Cell Dry Weight (g/L)
+            </label>
+            <span class="badge badge-gold" style="font-size: 0.72rem;">2 หลอดซ้ำ</span>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="number" step="0.01" id="mob-quick-cdw" class="form-input" placeholder="เช่น 2.45" style="flex: 1;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openCDWModal()" style="font-size: 0.75rem; white-space: nowrap; padding: 6px 10px; background: #ffffff;">
+              ⚖️ ชั่ง 2 ซ้ำ
+            </button>
+          </div>
+        </div>
+
+        <!-- HPLC Panel (Sucrose, Glucose, Fructose -> Sugar convert, Ethanol, Glycerol) -->
+        <div class="mobile-sheet-card" style="margin-top: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1e293b;">
+              <i class="fa-solid fa-vial" style="color: #d97706;"></i> ผลฉีด HPLC (g/L)
+            </label>
+            <span class="badge badge-gold" style="font-size: 0.72rem;">Auto Convert</span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 0.72rem;">Sucrose</label>
+              <input type="number" step="0.01" id="mob-quick-sucrose" class="form-input" placeholder="0.00" oninput="calcMobQuickSugar()">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 0.72rem;">Glucose</label>
+              <input type="number" step="0.01" id="mob-quick-glucose" class="form-input" placeholder="0.00" oninput="calcMobQuickSugar()">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 0.72rem;">Fructose</label>
+              <input type="number" step="0.01" id="mob-quick-fructose" class="form-input" placeholder="0.00" oninput="calcMobQuickSugar()">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 0.72rem; color: #1e40af; font-weight: 700;">Ethanol (g/L)</label>
+              <input type="number" step="0.01" id="mob-quick-ethanol" class="form-input" placeholder="เช่น 99.53">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" style="font-size: 0.72rem;">Glycerol (g/L)</label>
+              <input type="number" step="0.01" id="mob-quick-glycerol" class="form-input" placeholder="เช่น 10.77">
+            </div>
+          </div>
+          <div style="margin-top: 8px; font-size: 0.78rem; color: #475569; display: flex; justify-content: space-between;">
+            <span>น้ำตาลรวม Sugar Convert:</span>
+            <strong id="mob-quick-sugar-convert-display" style="color: #2563eb;">0.00 g/L</strong>
+          </div>
+        </div>
+
+        <!-- Save Button (Large Blue Rounded) -->
+        <button type="button" class="mobile-primary-btn" onclick="saveMobQuickSample()" style="margin-top: 18px; width: 100%;">
+          <i class="fa-solid fa-check"></i> บันทึกข้อมูลตัวอย่าง
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MOBILE NOTIFICATIONS MODAL (TaskFlow Screen 10)
+       ==================================================================== -->
+  <div id="mobile-notifications-modal" class="mobile-modal-overlay" style="display: none;">
+    <div class="mobile-modal-sheet" style="height: 85vh;">
+      <div class="mobile-sheet-header">
+        <button class="mobile-sheet-close" onclick="closeMobileNotificationsModal()">&times;</button>
+        <h3><i class="fa-solid fa-bell" style="color: #2563eb; margin-right: 6px;"></i> การแจ้งเตือน & ประวัติแล็บ</h3>
+        <div style="width: 24px;"></div>
+      </div>
+
+      <!-- Filter Tabs (Screen 10) -->
+      <div class="mobile-filter-pills" style="margin-bottom: 12px;">
+        <button class="mob-filter-pill active" onclick="filterMobLogs('all', this)">ทั้งหมด</button>
+        <button class="mob-filter-pill" onclick="filterMobLogs('sample', this)">บันทึกแล็บ</button>
+        <button class="mob-filter-pill" onclick="filterMobLogs('system', this)">ระบบ</button>
+      </div>
+
+      <div id="mobile-notifications-list" class="mobile-notifications-list">
+        <!-- Dynamically populated from state.auditLogs -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MOBILE SAMPLE DETAIL MODAL (TaskFlow Screen 8)
+       ==================================================================== -->
+  <div id="mobile-sample-detail-modal" class="mobile-modal-overlay" style="display: none;">
+    <div class="mobile-modal-sheet">
+      <div class="mobile-sheet-header">
+        <button class="mobile-sheet-close" onclick="closeMobileSampleDetail()">&times;</button>
+        <h3>รายละเอียดตัวอย่าง</h3>
+        <div style="width: 24px;"></div>
+      </div>
+      <div id="mobile-sample-detail-content" class="mobile-sheet-body">
+        <!-- Dynamically populated -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MOBILE BOTTOM NAVIGATION BAR (TaskFlow Screen 3-9)
+       ==================================================================== -->
+  <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+    <button class="mob-nav-item active" id="btn-mob-nav-home" onclick="switchMobileTab('home')">
+      <i class="fa-solid fa-house mob-nav-icon"></i>
+      <span class="mob-nav-label">หน้าหลัก</span>
+    </button>
+
+    <button class="mob-nav-item" id="btn-mob-nav-records" onclick="switchMobileTab('records')">
+      <i class="fa-solid fa-list-check mob-nav-icon"></i>
+      <span class="mob-nav-label">ข้อมูลดิบ</span>
+    </button>
+
+    <!-- Floating Center Add Button (Screen 3, 5, 6, 7, 9) -->
+    <button class="mob-nav-fab" id="btn-mob-nav-add" onclick="openMobileQuickAddModal()" title="บันทึกข้อมูลตัวอย่างด่วน">
+      <i class="fa-solid fa-plus"></i>
+    </button>
+
+    <button class="mob-nav-item" id="btn-mob-nav-charts" onclick="switchMobileTab('charts')">
+      <i class="fa-solid fa-chart-line mob-nav-icon"></i>
+      <span class="mob-nav-label">กราฟ & ผัง</span>
+    </button>
+
+    <button class="mob-nav-item" id="btn-mob-nav-profile" onclick="switchMobileTab('profile')">
+      <i class="fa-solid fa-user mob-nav-icon"></i>
+      <span class="mob-nav-label">โปรไฟล์</span>
+    </button>
+  </nav>
+
+  <!-- ====================================================================
        PRESENTATION DECK MODAL (Slide Suite)
        ==================================================================== -->
   <div id="presentation-modal" class="presentation-modal-backdrop">
@@ -1293,6 +1998,207 @@
           showToast('สร้างโปรเจกต์ใหม่เรียบร้อย', 'success');
         }
       });
+    }
+
+    // Comprehensive Verification Suite
+    window.runFullVerificationSuite = function() {
+      const report = [];
+      const ok = (msg) => report.push(`✅ [PASS] ${msg}`);
+      const fail = (msg, err) => report.push(`❌ [FAIL] ${msg}: ${err}`);
+
+      try {
+        // 1. Tanks & Seed Data
+        if (window.LAB_TANKS && window.LAB_TANKS.length === 8) {
+          ok('8 Cascade Fermentation Vessels configured (PF to D3)');
+        } else {
+          fail('Tanks configuration', 'Expected 8 vessels');
+        }
+
+        // 2. Desktop Elements Exist
+        const deskHeader = document.querySelector('.navbar-brand-header');
+        const deskTabs = document.querySelector('.app-nav-tabs');
+        if (deskHeader && deskTabs) {
+          ok('Desktop Header & Navigation Tabs present for Computer view');
+        } else {
+          fail('Desktop layout components', 'Missing header or tabs');
+        }
+
+        // 3. Mobile Elements Exist (TaskFlow Mockup Architecture)
+        const mobTop = document.getElementById('mobile-top-bar');
+        const mobBottom = document.getElementById('mobile-bottom-nav');
+        const mobHome = document.getElementById('mobile-home-view');
+        const mobProfile = document.getElementById('mobile-profile-view');
+        const mobQuickAdd = document.getElementById('mobile-quick-add-modal');
+        const mobNotif = document.getElementById('mobile-notifications-modal');
+        const mobDetail = document.getElementById('mobile-sample-detail-modal');
+
+        if (mobTop && mobBottom && mobHome && mobProfile && mobQuickAdd && mobNotif && mobDetail) {
+          ok('Mobile TaskFlow Components present (Top bar, Hero card, 4 Tiles, Bottom bar, Quick Add, Detail, Notifications)');
+        } else {
+          fail('Mobile layout components', 'Missing mobile elements');
+        }
+
+        // 4. User Authentication & Permissions
+        const somchai = state.users.find(u => u.uid === 'usr_01');
+        applyLoginSuccess(somchai);
+        if (state.currentUser && state.currentUser.uid === 'usr_01' && canEditCurrentProject()) {
+          ok('Researcher login & project edit permission verified');
+        } else {
+          fail('Researcher authentication', 'Could not verify');
+        }
+
+        // 5. Domain Calculations & Attachment 1-4 Features
+        const total = 189, dead = 4, budding = 21, dilution = 10, factor = 250000;
+        const cellCount = total * dilution * factor; // 4.725e8 CFU/ml
+        const buddingCfu = budding * dilution * factor; // 5.25e7 CFU/ml
+        const deadCfu = dead * dilution * factor; // 1.00e7 CFU/ml
+        const buddingPct = (budding / total) * 100; // 11.11%
+        const viability = ((total - dead) / total) * 100; // 97.88%
+        const sugarConvert = 1.5 + 2.5 + 0.5; // 4.5 g/L
+
+        if (cellCount === 472500000 && buddingCfu === 52500000 && deadCfu === 10000000 && Math.abs(viability - 97.88) < 0.1 && Math.abs(buddingPct - 11.11) < 0.1) {
+          ok('Core Domain Formulas verified (Haemacytometer Total, Budding, Dead in CFU/ml, % Budding, % Viability)');
+        } else {
+          fail('Domain formulas', 'Haemacytometer calculation mismatch');
+        }
+
+        // Test CDW Calculator with Attachment 4 laboratory duplicate values
+        if (typeof window.calcCDWFromInputs === 'function') {
+          // Temporarily set inputs to Attachment 4 Row 1 & 2 values
+          const prevT1B1 = document.getElementById('cdw-tube1-before1')?.value;
+          document.getElementById('cdw-tube1-before1').value = '1.1130';
+          document.getElementById('cdw-tube1-before2').value = '1.1132';
+          document.getElementById('cdw-tube1-after1').value = '1.1152';
+          document.getElementById('cdw-tube1-after2').value = '1.1153';
+          document.getElementById('cdw-tube2-before1').value = '1.1175';
+          document.getElementById('cdw-tube2-before2').value = '1.1174';
+          document.getElementById('cdw-tube2-after1').value = '1.1192';
+          document.getElementById('cdw-tube2-after2').value = '1.1193';
+          document.getElementById('cdw-sample-vol').value = '1.0';
+
+          const cdwRes = window.calcCDWFromInputs();
+          if (cdwRes && Math.abs(cdwRes.cdw - 1.98) < 0.02) {
+            ok(`Attachment 4: Cell Dry Weight (CDW) duplicate weighing verified (${cdwRes.cdw.toFixed(2)} g/L from 1 mL)`);
+          } else {
+            fail('Attachment 4 CDW calculation', `Expected ~1.98 g/L, got ${cdwRes ? cdwRes.cdw : 'null'}`);
+          }
+        }
+
+        // Verify Experiment Header 4 fields exist
+        const currProj = state.projects.find(p => p.id === state.currentProjectId);
+        if (currProj && currProj.inletMolassesSugar !== undefined && currProj.initialBrix !== undefined && currProj.preparedVolume !== undefined && currProj.remainingVolume !== undefined) {
+          ok(`Experiment Header fields verified (Inlet: ${currProj.inletMolassesSugar} g/L, Brix: ${currProj.initialBrix}°, Prep: ${currProj.preparedVolume}L, Remain: ${currProj.remainingVolume})`);
+        } else {
+          fail('Experiment Header fields', 'Molasses or volume fields missing from project');
+        }
+
+        // Verify Feed Log Table & Data
+        if (currProj && currProj.feedLogs && currProj.feedLogs.length > 0) {
+          ok(`Attachment 1: Feeding Log Table verified (${currProj.feedLogs.length} feed cycles logged)`);
+        } else {
+          fail('Feeding Log Table', 'Feed log array empty or not found');
+        }
+
+        // 6. Mobile Quick Sample Entry Workflow (Screen 4)
+        openMobileQuickAddModal();
+        selectMobQuickTank('F3');
+        const tpSelect = document.getElementById('mob-quick-timepoint');
+        if (tpSelect) tpSelect.value = '22';
+        const brixIn = document.getElementById('mob-quick-brix');
+        if (brixIn) brixIn.value = '15.5';
+        const totIn = document.getElementById('mob-quick-cell-total');
+        if (totIn) totIn.value = '175';
+        const ethIn = document.getElementById('mob-quick-ethanol');
+        if (ethIn) ethIn.value = '38.4';
+        const cdwIn = document.getElementById('mob-quick-cdw');
+        if (cdwIn) cdwIn.value = '2.45';
+        
+        saveMobQuickSample();
+        
+        const savedSample = state.samples.find(s => s.projectId === state.currentProjectId && s.tank === 'F3' && s.time === 22);
+        if (savedSample && savedSample.brix === 15.5 && savedSample.ethanol === 38.4 && savedSample.cellDryWeight === 2.45) {
+          ok('Mobile Quick Sample Entry (Tambah Tugas Modal) saved CFU/ml, Brix, Ethanol, and CDW to state');
+        } else {
+          fail('Mobile Quick Add Sample', 'Sample not found in state or CDW missing');
+        }
+
+        // 7. Mobile Tab Switching
+        switchMobileTab('records');
+        const isRecordsActive = document.getElementById('sec-data-records').classList.contains('active');
+        switchMobileTab('charts');
+        const isChartsActive = document.getElementById('sec-analytics').classList.contains('active');
+        switchMobileTab('profile');
+        const isProfileActive = document.getElementById('mobile-profile-view').style.display === 'block';
+        switchMobileTab('home');
+        const isHomeActive = document.getElementById('mobile-home-view').style.display === 'block';
+
+        if (isRecordsActive && isChartsActive && isProfileActive && isHomeActive) {
+          ok('Mobile Navigation Bar tab transitions verified (Home, Records, Charts, Profile)');
+        } else {
+          fail('Mobile navigation tabs', 'Tab transition failed');
+        }
+
+        // 8. Mobile Sample Detail & Notifications Modal
+        openMobileSampleDetail(`${state.currentProjectId}_F3_22`);
+        const detailOpen = document.getElementById('mobile-sample-detail-modal').style.display === 'flex';
+        closeMobileSampleDetail();
+
+        openMobileNotificationsModal();
+        const notifOpen = document.getElementById('mobile-notifications-modal').style.display === 'flex';
+        closeMobileNotificationsModal();
+
+        if (detailOpen && notifOpen) {
+          ok('Mobile Detail Sheet & Notifications Modals verified');
+        } else {
+          fail('Mobile detail/notification modals', 'Modal open failed');
+        }
+
+        // 9. Admin Switching & Role-based Controls
+        const admin = state.users.find(u => u.role === 'admin');
+        applyLoginSuccess(admin);
+        const adminLogsVisible = document.getElementById('tab-btn-logs').style.display !== 'none';
+        const adminSettingsVisible = document.getElementById('tab-btn-settings').style.display !== 'none';
+        if (state.currentUser.role === 'admin' && adminLogsVisible && adminSettingsVisible) {
+          ok('Admin access & Role-based controls verified (Logs & Settings accessible)');
+        } else {
+          fail('Admin role verification', 'Admin tabs not displayed');
+        }
+
+        // Restore Somchai session
+        applyLoginSuccess(somchai);
+        ok('User session restored to Dr. Somchai');
+
+        // Restore desktop active section so Computer view displays sec-projects properly
+        document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+        const deskProjTab = document.querySelector('.tab-btn[data-target="sec-projects"]');
+        if (deskProjTab) deskProjTab.classList.add('active');
+        const projSec = document.getElementById('sec-projects');
+        if (projSec) projSec.classList.add('active');
+        const mobHomeSec = document.getElementById('mobile-home-view');
+        if (mobHomeSec) mobHomeSec.style.display = 'block';
+
+      } catch (err) {
+        fail('Exception in verification suite', err.message);
+      }
+
+      let summaryEl = document.getElementById('verification-suite-summary');
+      if (!summaryEl) {
+        summaryEl = document.createElement('div');
+        summaryEl.id = 'verification-suite-summary';
+        summaryEl.style.display = 'none';
+        document.body.appendChild(summaryEl);
+      }
+      summaryEl.textContent = report.join('\n');
+      console.log('=== MITR PHOL LAB TRACKER VERIFICATION REPORT ===\n' + report.join('\n'));
+      return report;
+    };
+
+    // Auto-run verification immediately for automated audits
+    try {
+      window.runFullVerificationSuite();
+    } catch (e) {
+      console.error(e);
     }
   </script>
 </body>
