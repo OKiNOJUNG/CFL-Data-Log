@@ -2418,5 +2418,36 @@ body {
   .mobile-profile-section:not([style*="display: none"]) ~ #permission-notice-banner {
     display: none !important;
   }
+
+  /* Mobile Touch & Layout Optimizations */
+  .lab-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .card-title-group h2 {
+    font-size: 1.1rem;
+    line-height: 1.4;
+  }
+  .lab-card-header .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .form-select, .form-input {
+    font-size: 16px !important; /* Prevents auto-zoom on iOS devices */
+  }
+  .swal2-popup {
+    width: 94% !important;
+    padding: 16px !important;
+  }
+  .lab-data-table-wrapper {
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+  .login-overlay {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 

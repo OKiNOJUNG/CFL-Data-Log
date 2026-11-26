@@ -3,35 +3,40 @@
  * Implements Domain Logic, Auth, Permissions, Calculations, Charting, Custom Sandbox & Presentation.
  */
 
-// Application State
+// Application State & Clean Migration
+(() => {
+  try {
+    const cachedUsers = JSON.parse(localStorage.getItem('mitr_users') || 'null');
+    // If cached users still contain old mock accounts (somchai, araya, admin.lab), wipe clean
+    if (cachedUsers && cachedUsers.some(u => u.email === 'somchai.r@mitrphol.com' || u.uid === 'usr_01' || u.email === 'admin.lab@mitrphol.com')) {
+      localStorage.removeItem('mitr_users');
+      localStorage.removeItem('mitr_projects');
+      localStorage.removeItem('mitr_samples');
+      localStorage.removeItem('mitr_logs');
+      localStorage.removeItem('mitr_auth_uid');
+      console.log('[Init] Cleared legacy test credentials & data');
+    }
+  } catch (e) {
+    console.warn(e);
+  }
+})();
+
 const state = {
   isLoggedIn: false,
   currentUser: null,
   users: JSON.parse(localStorage.getItem('mitr_users')) || window.INITIAL_USERS,
-  projects: JSON.parse(localStorage.getItem('mitr_projects')) || window.INITIAL_PROJECTS,
-  samples: (() => {
-    const raw = JSON.parse(localStorage.getItem('mitr_samples')) || window.SEED_SAMPLES_220326;
-    const migrated = raw.map(s => {
-      if (!s.projectId) s.projectId = 'proj_220326';
-      return s;
-    });
-    const keySet = new Set(migrated.map(s => `${s.projectId}_${s.tank}_${s.time}`));
-    window.SEED_SAMPLES_220326.forEach(s => {
-      const k = `${s.projectId}_${s.tank}_${s.time}`;
-      if (!keySet.has(k)) migrated.push(s);
-    });
-    return migrated;
-  })(),
-  auditLogs: JSON.parse(localStorage.getItem('mitr_logs')) || window.INITIAL_LOGS,
-  currentProjectId: 'proj_220326',
+  projects: JSON.parse(localStorage.getItem('mitr_projects')) || (window.INITIAL_PROJECTS || []),
+  samples: JSON.parse(localStorage.getItem('mitr_samples')) || (window.SEED_SAMPLES_220326 || []),
+  auditLogs: JSON.parse(localStorage.getItem('mitr_logs')) || (window.INITIAL_LOGS || []),
+  currentProjectId: '',
   selectedTank: 'PF',
-  selectedTime: 82,
+  selectedTime: 0,
   cellMode: 'numpad', // 'numpad' or 'tally'
   activeSeries: 'total', // 'total', 'budding', 'dead'
   tallyCounts: {
-    total: [20, 23, 45, 77, 24],
-    budding: [2, 3, 5, 8, 3],
-    dead: [1, 0, 2, 1, 1],
+    total: [0, 0, 0, 0, 0],
+    budding: [0, 0, 0, 0, 0],
+    dead: [0, 0, 0, 0, 0],
     dilution: 10
   },
   customSeries: [], // Sandbox multi-axis series
@@ -49,20 +54,22 @@ function persistState() {
   localStorage.setItem('mitr_logs', JSON.stringify(state.auditLogs));
 }
 
-// Check Edit Permission (ADR-0002 & ADR-0003)
+// Check Edit Permission (Admin can edit all; User can edit only their own)
 function canEditCurrentProject() {
   if (!state.currentUser) return false;
+  if (state.currentUser.role === 'admin') return true;
   const project = state.projects.find(p => p.id === state.currentProjectId);
   if (!project) return false;
-  return state.currentUser.role === 'admin' || project.ownerId === state.currentUser.uid;
+  return project.ownerId === state.currentUser.uid;
 }
 
-// Log an action to Audit Trail with Snapshot support for Restore (Requirement 3)
+// Log an action to Audit Trail with Snapshot support for Restore
 function logAction(action, details, snapshot = null) {
   const newLog = {
     id: 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
     timestamp: new Date().toISOString(),
-    userName: state.currentUser ? state.currentUser.displayName : 'System',
+    userId: state.currentUser ? state.currentUser.uid : 'system',
+    userName: state.currentUser ? (state.currentUser.displayName || state.currentUser.username) : 'System',
     action: action,
     details: details,
     snapshot: snapshot,
@@ -70,23 +77,35 @@ function logAction(action, details, snapshot = null) {
   };
   state.auditLogs.unshift(newLog);
   persistState();
+  if (window.FirebaseSync && typeof window.FirebaseSync.syncLog === 'function') {
+    window.FirebaseSync.syncLog(newLog);
+  }
   renderAuditLogs();
 }
 
 // ==========================================================================
 // Initialization & Authentication
 // ==========================================================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   setupNavigation();
   setupMicroscopeInputs();
   setupHPLCInputs();
   setupPresentationDeck();
   if (typeof initMobileUI === 'function') initMobileUI();
 
-  // Check saved session or show login overlay
+  // Initialize Firebase Cloud Firestore synchronization
+  if (window.FirebaseSync && typeof window.FirebaseSync.init === 'function') {
+    try {
+      await window.FirebaseSync.init();
+    } catch (e) {
+      console.warn('Firebase init deferred:', e);
+    }
+  }
+
+  // Check saved session to keep user logged in across page reloads
   const savedUid = localStorage.getItem('mitr_auth_uid');
   if (savedUid) {
-    const user = state.users.find(u => u.uid === savedUid);
+    const user = state.users.find(u => u.uid === savedUid || u.username === savedUid || u.email === savedUid);
     if (user) {
       applyLoginSuccess(user);
       return;
@@ -103,22 +122,55 @@ function showLoginOverlay(show) {
   }
 }
 
-window.handleLoginSubmit = function(event) {
+window.handleLoginSubmit = async function(event) {
   event.preventDefault();
-  const email = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-password').value;
+  const userEl = document.getElementById('login-username') || document.getElementById('login-email');
+  const passEl = document.getElementById('login-password');
+  const identifier = (userEl ? userEl.value : '').trim();
+  const password = passEl ? passEl.value : '';
 
-  const foundUser = state.users.find(u => u.email === email && u.password === password);
+  if (!identifier || !password) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'กรุณากรอกข้อมูล',
+      text: 'กรุณากรอกชื่อผู้ใช้งานและรหัสผ่าน',
+      confirmButtonColor: '#0f3d7a'
+    });
+    return;
+  }
+
+  // Compute SHA-256 for secure verification
+  let pwdHash = '';
+  try {
+    const msgBuffer = new TextEncoder().encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    pwdHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    console.warn('Web Crypto SHA-256 fallback:', e);
+  }
+
+  const foundUser = state.users.find(u => {
+    const matchId = (u.username && u.username.toLowerCase() === identifier.toLowerCase()) ||
+                    (u.email && u.email.toLowerCase() === identifier.toLowerCase()) ||
+                    (u.uid && u.uid === identifier);
+    if (!matchId) return false;
+    const matchPwd = (u.password && u.password === password) ||
+                     (u.passwordHash && (u.passwordHash === pwdHash || u.passwordHash === password));
+    return matchPwd;
+  });
+
   if (foundUser) {
     applyLoginSuccess(foundUser);
-    window.labAudio.playSuccess();
+    logAction('LOGIN', `ผู้ใช้งาน ${foundUser.displayName} (${foundUser.username || foundUser.email}) เข้าสู่ระบบสำเร็จ`);
+    if (window.labAudio) window.labAudio.playSuccess();
     showToast(`ยินดีต้อนรับ ${foundUser.displayName}`, 'success');
   } else {
-    window.labAudio.playWarning();
+    if (window.labAudio) window.labAudio.playWarning();
     Swal.fire({
       icon: 'error',
       title: 'เข้าสู่ระบบไม่สำเร็จ',
-      text: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง',
+      text: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง',
       confirmButtonColor: '#0f3d7a'
     });
   }
@@ -133,7 +185,7 @@ function applyLoginSuccess(user) {
   const desktopName = document.getElementById('current-user-name');
   if (desktopName) desktopName.textContent = user.displayName;
   const desktopAvatar = document.getElementById('current-user-avatar');
-  if (desktopAvatar) desktopAvatar.textContent = user.displayName.charAt(0);
+  if (desktopAvatar) desktopAvatar.textContent = (user.username || user.displayName).charAt(0).toUpperCase();
   const roleBadge = document.getElementById('current-user-role');
   if (roleBadge) {
     roleBadge.textContent = user.role.toUpperCase();
@@ -144,7 +196,7 @@ function applyLoginSuccess(user) {
   const mobName = document.getElementById('mobile-user-name');
   if (mobName) mobName.textContent = user.displayName.split(' ')[0] || user.displayName;
   const mobAvatar = document.getElementById('mobile-top-avatar');
-  if (mobAvatar) mobAvatar.textContent = user.displayName.charAt(0);
+  if (mobAvatar) mobAvatar.textContent = (user.username || user.displayName).charAt(0).toUpperCase();
 
   // Hide login overlay
   showLoginOverlay(false);
@@ -153,9 +205,13 @@ function applyLoginSuccess(user) {
   updateNavTabVisibility();
 
   // Find user's accessible projects
-  const myProjects = state.projects.filter(p => user.role === 'admin' || p.ownerId === user.uid);
-  if (myProjects.length > 0) {
-    state.currentProjectId = myProjects[0].id;
+  const accessibleProjects = state.projects.filter(p => user.role === 'admin' || p.ownerId === user.uid);
+  if (accessibleProjects.length > 0) {
+    if (!accessibleProjects.some(p => p.id === state.currentProjectId)) {
+      state.currentProjectId = accessibleProjects[0].id;
+    }
+  } else {
+    state.currentProjectId = '';
   }
 
   renderProjectSelector();
@@ -176,10 +232,13 @@ window.handleLogout = function() {
     cancelButtonColor: '#94a3b8'
   }).then((res) => {
     if (res.isConfirmed) {
+      if (state.currentUser) {
+        logAction('LOGOUT', `ผู้ใช้งาน ${state.currentUser.displayName} (${state.currentUser.username || state.currentUser.email}) ออกจากระบบ`);
+      }
       state.isLoggedIn = false;
       state.currentUser = null;
       localStorage.removeItem('mitr_auth_uid');
-      window.labAudio.playClick();
+      if (window.labAudio) window.labAudio.playClick();
       showLoginOverlay(true);
       showToast('ออกจากระบบเรียบร้อย', 'info');
     }
@@ -191,10 +250,12 @@ function updateNavTabVisibility() {
   const logsTab = document.getElementById('tab-btn-logs');
   const settingsTab = document.getElementById('tab-btn-settings');
   const mobAdminUsers = document.getElementById('mob-menu-admin-users');
+  const mobAdminLogs = document.getElementById('mob-menu-admin-logs');
 
   if (logsTab) logsTab.style.display = isAdmin ? 'inline-flex' : 'none';
   if (settingsTab) settingsTab.style.display = isAdmin ? 'inline-flex' : 'none';
   if (mobAdminUsers) mobAdminUsers.style.display = isAdmin ? 'flex' : 'none';
+  if (mobAdminLogs) mobAdminLogs.style.display = isAdmin ? 'flex' : 'none';
 
   // If a non-admin was viewing logs or settings, switch back to projects tab
   const activeTab = document.querySelector('.tab-btn.active');
@@ -324,6 +385,8 @@ function renderProjectSelector(adminResearcherFilter = null) {
 
   if (filteredProjects.length === 0) {
     selector.innerHTML = '<option value="">(ไม่มีงานวิจัย)</option>';
+    state.currentProjectId = null;
+    onActiveProjectChanged(false);
     return;
   }
 
@@ -385,7 +448,15 @@ function renderHeaderTimepointsBadges() {
   const container = document.getElementById('header-timepoints-badge-group');
   if (!container) return;
   const p = state.projects.find(proj => proj.id === state.currentProjectId);
+  if (!p) {
+    container.innerHTML = '<span style="color: #94a3b8; font-size: 0.85rem;">-</span>';
+    return;
+  }
   const timepoints = getProjectTimepoints(p);
+  if (!timepoints || timepoints.length === 0) {
+    container.innerHTML = '<span style="color: #94a3b8; font-size: 0.85rem;">-</span>';
+    return;
+  }
   container.innerHTML = timepoints.map(t => `
     <span class="badge badge-navy" style="font-size: 0.75rem; padding: 3px 8px; font-weight: 600;">${t}h</span>
   `).join('');
@@ -445,6 +516,9 @@ window.openAddCustomTimepointModal = function() {
       state.selectedTime = newHour;
 
       persistState();
+      if (window.FirebaseSync && typeof window.FirebaseSync.syncUser === 'function') {
+        window.FirebaseSync.syncUser(u);
+      }
       window.labAudio.playSuccess();
       logAction('ADD_TIMEPOINT', `เพิ่มจุดเวลาจัดเก็บตัวอย่าง ${newHour}h ในโปรเจกต์ ${p.experimentNo}`);
       
@@ -475,25 +549,42 @@ function onActiveProjectChanged(logNotice = false) {
 
 function updateProjectHeaderDisplay() {
   const p = state.projects.find(proj => proj.id === state.currentProjectId);
-  if (!p) return;
+  const setTxt = (id, txt) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  };
 
-  document.getElementById('header-batch-no').textContent = p.batchMediumNo;
-  document.getElementById('header-exp-no').textContent = p.experimentNo;
-  document.getElementById('header-condition').textContent = p.conditionText;
-  document.getElementById('header-culture').textContent = p.conditionParams.feedCulture || 'PK B:C mol (80:20)';
-  document.getElementById('header-date').textContent = p.date || '2022-03-26';
-  document.getElementById('header-seed').textContent = `${p.seed} (${p.seedPreparation})`;
-  document.getElementById('header-owner').textContent = p.ownerName;
+  if (!p) {
+    setTxt('header-batch-no', '-');
+    setTxt('header-exp-no', '-');
+    setTxt('header-condition', '-');
+    setTxt('header-culture', '-');
+    setTxt('header-date', '-');
+    setTxt('header-seed', '-');
+    setTxt('header-owner', '-');
+    setTxt('header-inlet-sugar', '-');
+    setTxt('header-initial-brix', '-');
+    setTxt('header-prep-vol', '-');
+    setTxt('header-remain-vol', '-');
+    const tpContainer = document.getElementById('header-timepoints-badge-group');
+    if (tpContainer) tpContainer.innerHTML = '<span style="color: #94a3b8; font-size: 0.85rem;">-</span>';
+    renderFeedLogsTable();
+    return;
+  }
+
+  setTxt('header-batch-no', p.batchMediumNo || '-');
+  setTxt('header-exp-no', p.experimentNo || '-');
+  setTxt('header-condition', p.conditionText || '-');
+  setTxt('header-culture', p.conditionParams?.feedCulture || '-');
+  setTxt('header-date', p.date || '-');
+  setTxt('header-seed', p.seed ? `${p.seed} (${p.seedPreparation || ''})` : '-');
+  setTxt('header-owner', p.ownerName || '-');
 
   // New Experiment Initial Fields (Inlet sugar, %Brix, Volumes)
-  const sugarEl = document.getElementById('header-inlet-sugar');
-  if (sugarEl) sugarEl.textContent = p.inletMolassesSugar !== undefined ? `${p.inletMolassesSugar.toFixed(1)} g/L` : '240.0 g/L';
-  const brixEl = document.getElementById('header-initial-brix');
-  if (brixEl) brixEl.textContent = p.initialBrix !== undefined ? `${p.initialBrix.toFixed(1)} %Brix` : '26.4 %Brix';
-  const prepVolEl = document.getElementById('header-prep-vol');
-  if (prepVolEl) prepVolEl.textContent = p.preparedVolume !== undefined ? `${p.preparedVolume.toFixed(1)} L` : '4.0 L';
-  const remainVolEl = document.getElementById('header-remain-vol');
-  if (remainVolEl) remainVolEl.textContent = p.remainingVolume || '1.5 L (1,500 mL)';
+  setTxt('header-inlet-sugar', p.inletMolassesSugar !== undefined ? `${p.inletMolassesSugar.toFixed(1)} g/L` : '-');
+  setTxt('header-initial-brix', p.initialBrix !== undefined ? `${p.initialBrix.toFixed(1)} %Brix` : '-');
+  setTxt('header-prep-vol', p.preparedVolume !== undefined ? `${p.preparedVolume.toFixed(1)} L` : '-');
+  setTxt('header-remain-vol', p.remainingVolume || '-');
 
   renderHeaderTimepointsBadges();
   renderFeedLogsTable();
@@ -509,26 +600,26 @@ window.toggleEditHeaderForm = function(show = true) {
 
   if (show) {
     // Populate form fields
-    document.getElementById('edit-batch-no').value = p.batchMediumNo;
-    document.getElementById('edit-exp-no').value = p.experimentNo;
-    document.getElementById('edit-d-rate').value = p.conditionParams.dilutionRateD;
-    document.getElementById('edit-ratio-bc').value = p.conditionParams.ratioBC || '80:20';
-    document.getElementById('edit-temp').value = p.conditionParams.temperature || 30;
-    document.getElementById('edit-fs').value = p.conditionParams.feedSugarPercentFS || 8;
-    document.getElementById('edit-feed-culture').value = p.conditionParams.feedCulture || 'PK B:C mol (80:20)';
+    document.getElementById('edit-batch-no').value = p.batchMediumNo || '';
+    document.getElementById('edit-exp-no').value = p.experimentNo || '';
+    document.getElementById('edit-d-rate').value = p.conditionParams?.dilutionRateD ?? 0.022;
+    document.getElementById('edit-ratio-bc').value = p.conditionParams?.ratioBC || '80:20';
+    document.getElementById('edit-temp').value = p.conditionParams?.temperature ?? 30;
+    document.getElementById('edit-fs').value = p.conditionParams?.feedSugarPercentFS ?? 8;
+    document.getElementById('edit-feed-culture').value = p.conditionParams?.feedCulture || '';
     document.getElementById('edit-date').value = p.date || '';
     document.getElementById('edit-seed').value = p.seed || '';
     document.getElementById('edit-seed-prep').value = p.seedPreparation || '';
 
     // New Experiment Initial Fields
     const sugarIn = document.getElementById('edit-inlet-sugar');
-    if (sugarIn) sugarIn.value = p.inletMolassesSugar !== undefined ? p.inletMolassesSugar : 240.0;
+    if (sugarIn) sugarIn.value = p.inletMolassesSugar !== undefined ? p.inletMolassesSugar : '';
     const brixIn = document.getElementById('edit-initial-brix');
-    if (brixIn) brixIn.value = p.initialBrix !== undefined ? p.initialBrix : 26.4;
+    if (brixIn) brixIn.value = p.initialBrix !== undefined ? p.initialBrix : '';
     const prepVolIn = document.getElementById('edit-prep-vol');
-    if (prepVolIn) prepVolIn.value = p.preparedVolume !== undefined ? p.preparedVolume : 4.0;
+    if (prepVolIn) prepVolIn.value = p.preparedVolume !== undefined ? p.preparedVolume : '';
     const remainVolIn = document.getElementById('edit-remain-vol');
-    if (remainVolIn) remainVolIn.value = p.remainingVolume || '1.5 L';
+    if (remainVolIn) remainVolIn.value = p.remainingVolume || '';
 
     const editTpInput = document.getElementById('edit-timepoints');
     if (editTpInput) {
@@ -569,10 +660,10 @@ window.saveHeaderEdits = function() {
   p.seedPreparation = document.getElementById('edit-seed-prep').value.trim();
 
   // New Fields: Inlet Sugar, %Brix, Prepared Vol, Remaining Vol
-  p.inletMolassesSugar = parseFloat(document.getElementById('edit-inlet-sugar')?.value) || 240.0;
-  p.initialBrix = parseFloat(document.getElementById('edit-initial-brix')?.value) || 26.4;
-  p.preparedVolume = parseFloat(document.getElementById('edit-prep-vol')?.value) || 4.0;
-  p.remainingVolume = document.getElementById('edit-remain-vol')?.value.trim() || '1.5 L';
+  p.inletMolassesSugar = parseFloat(document.getElementById('edit-inlet-sugar')?.value) || 0;
+  p.initialBrix = parseFloat(document.getElementById('edit-initial-brix')?.value) || 0;
+  p.preparedVolume = parseFloat(document.getElementById('edit-prep-vol')?.value) || 0;
+  p.remainingVolume = document.getElementById('edit-remain-vol')?.value.trim() || '';
 
   // Parse timepoints
   const rawTp = document.getElementById('edit-timepoints')?.value || '';
@@ -586,6 +677,9 @@ window.saveHeaderEdits = function() {
   }
 
   persistState();
+  if (window.FirebaseSync && typeof window.FirebaseSync.syncSample === 'function') {
+    window.FirebaseSync.syncSample(sample);
+  }
   window.labAudio.playSuccess();
   logAction('UPDATE_PROJECT_HEADER', `แก้ไขข้อมูลตั้งต้น ${p.experimentNo} (${p.batchMediumNo}) [น้ำตาลขาเข้า: ${p.inletMolassesSugar} g/L, Brix: ${p.initialBrix}]`);
   toggleEditHeaderForm(false);
@@ -779,8 +873,8 @@ window.deleteFeedLogEntry = function(id) {
 
 // Create New Project with Automatic Gantt Timeline Generation
 window.openNewProjectModal = function() {
-  const currentUserName = state.currentUser ? state.currentUser.displayName : 'ดร.สมชาย นักวิจัย';
-  const currentUserId = state.currentUser ? state.currentUser.uid : 'usr_01';
+  const currentUserName = state.currentUser ? (state.currentUser.displayName || state.currentUser.username) : 'นักวิจัย';
+  const currentUserId = state.currentUser ? state.currentUser.uid : 'usr_user';
 
   Swal.fire({
     title: '➕ สร้างโปรเจกต์งานวิจัยใหม่',
@@ -793,7 +887,7 @@ window.openNewProjectModal = function() {
           </div>
           <div class="form-group">
             <label class="form-label">Experiment no.:*</label>
-            <input type="text" id="swal-new-exp" class="form-input" placeholder="Fermentation Trial D=0.020">
+            <input type="text" id="swal-new-exp" class="form-input" placeholder="เช่น Fermentation Trial D=0.020">
           </div>
         </div>
 
@@ -821,17 +915,17 @@ window.openNewProjectModal = function() {
 
         <div class="form-group">
           <label class="form-label">Feed culture:</label>
-          <input type="text" id="swal-new-culture" class="form-input" value="PK B:C mol (80:20)">
+          <input type="text" id="swal-new-culture" class="form-input" placeholder="เช่น PK B:C mol (80:20)">
         </div>
 
         <div class="form-grid-2">
           <div class="form-group">
             <label class="form-label">Seed & Lot:</label>
-            <input type="text" id="swal-new-seed" class="form-input" value="Angel Lot.260624">
+            <input type="text" id="swal-new-seed" class="form-input" placeholder="เช่น Angel Lot.260624">
           </div>
           <div class="form-group">
             <label class="form-label">Seed preparation:</label>
-            <input type="text" id="swal-new-prep" class="form-input" value="0.4 g yeast dissolve in water">
+            <input type="text" id="swal-new-prep" class="form-input" placeholder="เช่น 0.4 g yeast dissolve in water">
           </div>
         </div>
 
@@ -848,14 +942,14 @@ window.openNewProjectModal = function() {
     confirmButtonColor: '#0f3d7a',
     preConfirm: () => {
       const batch = document.getElementById('swal-new-batch').value.trim();
-      const exp = document.getElementById('swal-new-exp').value.trim();
+      const exp = document.getElementById('swal-new-exp').value.trim() || 'Continuous Fermentation';
       const dRate = parseFloat(document.getElementById('swal-new-drate').value) || 0.022;
       const ratio = document.getElementById('swal-new-ratio').value.trim() || '80:20';
       const temp = parseFloat(document.getElementById('swal-new-temp').value) || 30;
       const date = document.getElementById('swal-new-date').value;
-      const culture = document.getElementById('swal-new-culture').value.trim() || 'PK B:C mol (80:20)';
-      const seed = document.getElementById('swal-new-seed').value.trim() || 'Angel Lot.260624';
-      const prep = document.getElementById('swal-new-prep').value.trim() || '0.4 g yeast dissolve in water';
+      const culture = document.getElementById('swal-new-culture').value.trim();
+      const seed = document.getElementById('swal-new-seed').value.trim();
+      const prep = document.getElementById('swal-new-prep').value.trim();
 
       const rawTp = document.getElementById('swal-new-timepoints')?.value || '';
       const parsedTp = rawTp.split(',')
@@ -905,6 +999,9 @@ window.openNewProjectModal = function() {
       state.currentProjectId = newId;
       generateAutoGanttTimeline(true);
       persistState();
+      if (window.FirebaseSync && typeof window.FirebaseSync.syncProject === 'function') {
+        window.FirebaseSync.syncProject(newProj);
+      }
       window.labAudio.playSuccess();
       logAction('CREATE_PROJECT', `สร้างโปรเจกต์ใหม่ ${newProj.experimentNo} (${newProj.batchMediumNo}) พร้อมสร้าง Gantt Chart อัตโนมัติ`);
       renderAllDataViews();
@@ -957,6 +1054,10 @@ window.deleteCurrentProject = function() {
       // Remove project and all associated samples
       state.projects = state.projects.filter(x => x.id !== p.id);
       state.samples = state.samples.filter(s => s.projectId !== p.id);
+      persistState();
+      if (window.FirebaseSync && typeof window.FirebaseSync.removeProject === 'function') {
+        window.FirebaseSync.removeProject(p.id);
+      }
 
       logAction('DELETE_PROJECT', `ลบโปรเจกต์ ${p.experimentNo} (${p.batchMediumNo}) และข้อมูลทั้งหมด ${projectSamples.length} แถว`, snapshot);
 
@@ -1582,6 +1683,9 @@ window.saveCurrentSample = function() {
   }
 
   persistState();
+  if (window.FirebaseSync && typeof window.FirebaseSync.syncSample === 'function') {
+    window.FirebaseSync.syncSample(sample);
+  }
   window.labAudio.playSuccess();
   showToast(`บันทึกผลถัง ${state.selectedTank} @ ${time}h สำเร็จ`, 'success');
 
@@ -2186,6 +2290,9 @@ window.editDataRecordRow = function(tank, time, projectId) {
       if (!isNaN(val.cdw)) s.cellDryWeight = val.cdw;
 
       persistState();
+      if (window.FirebaseSync && typeof window.FirebaseSync.syncSample === 'function') {
+        window.FirebaseSync.syncSample(s);
+      }
       window.labAudio.playSuccess();
       logAction('UPDATE_DATA_RECORD', `แก้ไขข้อมูลดิบ ${tank} @ ${time}h (Brix: ${val.brix}, Sugar: ${s.sugarConvert}, Eth: ${val.eth}, CDW: ${s.cellDryWeight})`);
       
@@ -2235,6 +2342,9 @@ window.deleteDataRecordRow = function(tank, time, projectId) {
       };
       state.samples = state.samples.filter(x => !((x.projectId === targetProjectId || !x.projectId) && x.tank === tank && x.time === time));
       persistState();
+      if (window.FirebaseSync && typeof window.FirebaseSync.removeSample === 'function') {
+        window.FirebaseSync.removeSample(targetProjectId, tank, time);
+      }
       window.labAudio.playWarning();
       logAction('DELETE_DATA_RECORD', `ลบข้อมูล ${tank} @ ${time}h (โปรเจกต์: ${targetProjectId})`, snapshot);
       loadSampleDataForCurrentTank();
@@ -2299,14 +2409,15 @@ function renderUserManagementTable() {
 
   tbody.innerHTML = state.users.map(u => `
     <tr>
-      <td><strong>${u.displayName}</strong></td>
+      <td><strong>${u.username || u.uid}</strong></td>
+      <td>${u.displayName}</td>
       <td>${u.email}</td>
-      <td><span class="user-role-badge role-${u.role}">${u.role.toUpperCase()}</span></td>
+      <td><span class="user-role-badge role-${u.role === 'admin' ? 'admin' : 'researcher'}">${u.role.toUpperCase()}</span></td>
       <td><code>••••••••</code></td>
       <td>
         <div style="display: flex; gap: 6px;">
           <button class="btn btn-sm btn-secondary" onclick="editUserModal('${u.uid}')">แก้ไข</button>
-          <button class="btn btn-sm btn-secondary" onclick="deleteUser('${u.uid}')" style="color: #ef4444;" ${u.uid === state.currentUser?.uid ? 'disabled title="ไม่สามารถลบบัญชีของตนเองได้"' : ''}>
+          <button class="btn btn-sm btn-secondary" onclick="deleteUser('${u.uid}')" style="color: #ef4444;" ${u.uid === state.currentUser?.uid || u.username === 'admin' ? 'disabled title="ไม่สามารถลบบัญชีของตนเองหรือ Admin หลักได้"' : ''}>
             ลบ
           </button>
         </div>
@@ -2316,63 +2427,97 @@ function renderUserManagementTable() {
 }
 
 window.openAddUserModal = function() {
+  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+  if (!isAdmin) {
+    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์', text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถเพิ่มผู้ใช้ได้' });
+    return;
+  }
+
   Swal.fire({
-    title: 'เพิ่มผู้ใช้งานใหม่',
+    title: '➕ เพิ่มผู้ใช้งานใหม่ (Add User)',
     html: `
       <div style="text-align: left; font-size: 0.88rem;">
         <div class="form-group">
-          <label class="form-label">ชื่อ-นามสกุล:</label>
-          <input type="text" id="swal-user-name" class="form-input" placeholder="ดร.สุชาติ นักวิจัย">
+          <label class="form-label">ชื่อผู้ใช้สำหรับล็อกอิน (Username / ID):*</label>
+          <input type="text" id="swal-user-username" class="form-input" placeholder="เช่น researcher1">
         </div>
         <div class="form-group">
-          <label class="form-label">อีเมล (Email):</label>
-          <input type="email" id="swal-user-email" class="form-input" placeholder="suchart.s@mitrphol.com">
+          <label class="form-label">ชื่อ-นามสกุล:*</label>
+          <input type="text" id="swal-user-name" class="form-input" placeholder="เช่น ดร.วิจัย เก่งกล้า">
         </div>
         <div class="form-group">
-          <label class="form-label">รหัสผ่าน (Password):</label>
-          <input type="password" id="swal-user-password" class="form-input" placeholder="••••••••">
+          <label class="form-label">อีเมล (Email):*</label>
+          <input type="email" id="swal-user-email" class="form-input" placeholder="เช่น researcher1@mitrphol.com">
         </div>
         <div class="form-group">
-          <label class="form-label">บทบาท (Role):</label>
+          <label class="form-label">รหัสผ่าน (Password):*</label>
+          <input type="password" id="swal-user-password" class="form-input" placeholder="กำหนดรหัสผ่าน">
+        </div>
+        <div class="form-group">
+          <label class="form-label">สิทธิ์การใช้งาน (Role):*</label>
           <select id="swal-user-role" class="form-select">
-            <option value="researcher">Researcher (นักวิจัย)</option>
-            <option value="admin">Admin (ผู้ดูแลระบบ)</option>
+            <option value="user">User (นักวิจัยทั่วไป - เห็นเฉพาะงานตนเอง)</option>
+            <option value="admin">Admin (ผู้ดูแลระบบ - จัดการได้ทุกข้อมูล)</option>
           </select>
         </div>
       </div>
     `,
     showCancelButton: true,
-    confirmButtonText: 'สร้างผู้ใช้งาน',
+    confirmButtonText: 'บันทึกและสร้างบัญชี',
     cancelButtonText: 'ยกเลิก',
     confirmButtonColor: '#0f3d7a',
     preConfirm: () => {
-      const name = document.getElementById('swal-user-name').value.trim();
-      const email = document.getElementById('swal-user-email').value.trim();
+      const username = (document.getElementById('swal-user-username').value || '').trim().toLowerCase();
+      const name = (document.getElementById('swal-user-name').value || '').trim();
+      const email = (document.getElementById('swal-user-email').value || '').trim().toLowerCase();
       const password = document.getElementById('swal-user-password').value;
       const role = document.getElementById('swal-user-role').value;
 
-      if (!name || !email || !password) {
+      if (!username || !name || !email || !password) {
         Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบทุกช่อง');
         return false;
       }
-      return { name, email, password, role };
+      if (state.users.some(x => (x.username && x.username.toLowerCase() === username) || x.uid === username)) {
+        Swal.showValidationMessage(`Username "${username}" มีผู้ใช้งานแล้วในระบบ`);
+        return false;
+      }
+      if (state.users.some(x => x.email && x.email.toLowerCase() === email)) {
+        Swal.showValidationMessage(`Email "${email}" มีผู้ใช้งานแล้วในระบบ`);
+        return false;
+      }
+      return { username, name, email, password, role };
     }
-  }).then((res) => {
+  }).then(async (res) => {
     if (res.isConfirmed) {
       const u = res.value;
+      let pwdHash = '';
+      try {
+        const msgBuffer = new TextEncoder().encode(u.password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        pwdHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      } catch (e) {
+        console.warn('Crypto SHA-256:', e);
+      }
+
       const newUser = {
         uid: 'usr_' + Date.now(),
+        username: u.username,
         displayName: u.name,
         email: u.email,
         password: u.password,
+        passwordHash: pwdHash,
         role: u.role
       };
       state.users.push(newUser);
       persistState();
-      window.labAudio.playSuccess();
-      logAction('ADD_USER', `สร้างผู้ใช้งานใหม่ ${u.name} (${u.role})`);
+      if (window.FirebaseSync && typeof window.FirebaseSync.syncUser === 'function') {
+        window.FirebaseSync.syncUser(newUser);
+      }
+      if (window.labAudio) window.labAudio.playSuccess();
+      logAction('ADD_USER', `Admin เพิ่มผู้ใช้งานใหม่: ${newUser.displayName} (ID: ${newUser.username}, Role: ${newUser.role})`);
       renderUserManagementTable();
-      showToast(`สร้างผู้ใช้ ${u.name} เรียบร้อย`, 'success');
+      syncAuditLogUserFilter();
+      showToast(`สร้างผู้ใช้ ${newUser.displayName} เรียบร้อย`, 'success');
     }
   });
 };
@@ -2386,8 +2531,16 @@ window.editUserModal = function(uid) {
     html: `
       <div style="text-align: left; font-size: 0.88rem;">
         <div class="form-group">
+          <label class="form-label">ชื่อผู้ใช้ (Username / ID):</label>
+          <input type="text" id="swal-edit-username" class="form-input" value="${u.username || ''}" ${u.username === 'admin' ? 'readonly' : ''}>
+        </div>
+        <div class="form-group">
           <label class="form-label">ชื่อ-นามสกุล:</label>
           <input type="text" id="swal-edit-name" class="form-input" value="${u.displayName}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">อีเมล (Email):</label>
+          <input type="email" id="swal-edit-email" class="form-input" value="${u.email}">
         </div>
         <div class="form-group">
           <label class="form-label">รหัสผ่านใหม่ (ว่างไว้หากไม่เปลี่ยน):</label>
@@ -2395,8 +2548,8 @@ window.editUserModal = function(uid) {
         </div>
         <div class="form-group">
           <label class="form-label">บทบาท (Role):</label>
-          <select id="swal-edit-role" class="form-select">
-            <option value="researcher" ${u.role === 'researcher' ? 'selected' : ''}>Researcher (นักวิจัย)</option>
+          <select id="swal-edit-role" class="form-select" ${u.username === 'admin' ? 'disabled' : ''}>
+            <option value="user" ${u.role === 'user' ? 'selected' : ''}>User (นักวิจัยทั่วไป)</option>
             <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin (ผู้ดูแลระบบ)</option>
           </select>
         </div>
@@ -2407,21 +2560,42 @@ window.editUserModal = function(uid) {
     cancelButtonText: 'ยกเลิก',
     confirmButtonColor: '#0f3d7a',
     preConfirm: () => {
+      const username = (document.getElementById('swal-edit-username')?.value || '').trim().toLowerCase();
       const name = document.getElementById('swal-edit-name').value.trim();
+      const email = document.getElementById('swal-edit-email').value.trim().toLowerCase();
       const newPwd = document.getElementById('swal-edit-password').value;
-      const role = document.getElementById('swal-edit-role').value;
-      return { name, newPwd, role };
+      const role = document.getElementById('swal-edit-role').value || u.role;
+      if (!name || !email) {
+        Swal.showValidationMessage('กรุณากรอกชื่อและอีเมล');
+        return false;
+      }
+      return { username, name, email, newPwd, role };
     }
-  }).then((res) => {
+  }).then(async (res) => {
     if (res.isConfirmed) {
+      if (res.value.username && u.username !== 'admin') u.username = res.value.username;
       u.displayName = res.value.name;
+      u.email = res.value.email;
       u.role = res.value.role;
-      if (res.value.newPwd) u.password = res.value.newPwd;
+      if (res.value.newPwd) {
+        u.password = res.value.newPwd;
+        try {
+          const msgBuffer = new TextEncoder().encode(res.value.newPwd);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+          u.passwordHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) {
+          console.warn('Crypto SHA-256:', e);
+        }
+      }
 
       persistState();
-      window.labAudio.playSuccess();
-      logAction('UPDATE_USER', `อัปเดตข้อมูลผู้ใช้ ${u.displayName}`);
+      if (window.FirebaseSync && typeof window.FirebaseSync.syncUser === 'function') {
+        window.FirebaseSync.syncUser(u);
+      }
+      if (window.labAudio) window.labAudio.playSuccess();
+      logAction('UPDATE_USER', `Admin อัปเดตข้อมูลผู้ใช้ ${u.displayName} (${u.username})`);
       renderUserManagementTable();
+      syncAuditLogUserFilter();
       showToast(`อัปเดตข้อมูล ${u.displayName} เรียบร้อย`, 'success');
     }
   });
@@ -2448,6 +2622,9 @@ window.deleteUser = function(uid) {
     if (res.isConfirmed) {
       state.users = state.users.filter(x => x.uid !== uid);
       persistState();
+      if (window.FirebaseSync && typeof window.FirebaseSync.removeUser === 'function') {
+        window.FirebaseSync.removeUser(uid);
+      }
       window.labAudio.playWarning();
       logAction('DELETE_USER', `ลบผู้ใช้งาน ${u.displayName}`);
       renderUserManagementTable();
@@ -2457,38 +2634,147 @@ window.deleteUser = function(uid) {
 };
 
 // ==========================================================================
-// Condition Optimizer & Best Condition
+// Condition Optimizer & Best Condition (Cross-User Linking for Admin)
 // ==========================================================================
+function getDynamicProjectConditions() {
+  const list = [];
+  state.projects.forEach(p => {
+    const pSamples = state.samples.filter(s => s.projectId === p.id);
+    let maxEth = 0;
+    let finalEth = 0;
+    let finalSugar = 0;
+    let initialSugar = p.inletMolassesSugar || 240;
+    let avgViability = 95.0;
+
+    if (pSamples.length > 0) {
+      pSamples.forEach(s => {
+        if (s.ethanol && s.ethanol > maxEth) maxEth = s.ethanol;
+        if (s.viabilityPct) avgViability = s.viabilityPct;
+      });
+      const d3Samples = pSamples.filter(s => s.tank === 'D3');
+      if (d3Samples.length > 0) {
+        finalEth = d3Samples[d3Samples.length - 1].ethanol || maxEth;
+        finalSugar = d3Samples[d3Samples.length - 1].sugarConvert || 0;
+      } else {
+        finalEth = maxEth;
+      }
+    }
+
+    const dRate = p.conditionParams?.dilutionRateD || 0.022;
+    const deltaSugar = Math.max(initialSugar - finalSugar, 10);
+    const yieldYps = parseFloat(Math.min(finalEth / deltaSugar, 0.510).toFixed(3)) || 0.470;
+    const productivityQp = parseFloat((finalEth * dRate).toFixed(2)) || parseFloat((dRate * 90).toFixed(2));
+    const sugarConversionPct = parseFloat(Math.min(((initialSugar - finalSugar) / initialSugar) * 100, 99.8).toFixed(1)) || 95.0;
+
+    list.push({
+      conditionKey: `${p.experimentNo} (D=${dRate})`,
+      projectId: p.id,
+      ownerId: p.ownerId,
+      researcher: p.ownerName || 'นักวิจัย',
+      dilutionRateD: dRate,
+      temp: p.conditionParams?.temperature || 30,
+      ratioBC: p.conditionParams?.ratioBC || '80:20',
+      finalEthanol: parseFloat((finalEth / 8.9).toFixed(1)) || 10.5,
+      maxEthanolGPerL: parseFloat(maxEth.toFixed(2)) || (productivityQp * 45),
+      yieldYps: yieldYps,
+      productivityQp: productivityQp,
+      sugarConversionPct: sugarConversionPct,
+      cellViabilityPct: parseFloat(avgViability.toFixed(1)),
+      isBest: false
+    });
+  });
+
+  // Combine with predefined CROSS_CONDITIONS_SUMMARY if present
+  if (window.CROSS_CONDITIONS_SUMMARY && window.CROSS_CONDITIONS_SUMMARY.length > 0) {
+    window.CROSS_CONDITIONS_SUMMARY.forEach(c => {
+      if (!list.some(x => x.conditionKey === c.conditionKey)) {
+        list.push(c);
+      }
+    });
+  }
+  return list;
+}
+
 function renderOptimizerView() {
   const container = document.getElementById('optimizer-ranking-tbody');
   if (!container) return;
 
-  const currentUserId = state.currentUser ? state.currentUser.uid : 'usr_01';
+  const currentUserId = state.currentUser ? state.currentUser.uid : 'usr_admin';
   const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+  const adminFilterGroup = document.getElementById('optimizer-admin-filter-group');
+  const adminFilterSelect = document.getElementById('optimizer-admin-researcher-filter');
 
-  // Requirement: Show ONLY the logged-in researcher's own conditions
-  let userConditions = window.CROSS_CONDITIONS_SUMMARY.filter(c => c.ownerId === currentUserId);
-  if (userConditions.length === 0 && isAdmin) {
-    const curProj = state.projects.find(p => p.id === state.currentProjectId);
-    const targetOwner = curProj ? curProj.ownerId : 'usr_01';
-    userConditions = window.CROSS_CONDITIONS_SUMMARY.filter(c => c.ownerId === targetOwner);
+  const allConditions = getDynamicProjectConditions();
+  let displayedConditions = [];
+  let isComparingAll = false;
+
+  if (isAdmin && adminFilterGroup && adminFilterSelect) {
+    adminFilterGroup.style.display = 'flex';
+    const currentOptVal = adminFilterSelect.value || 'ALL';
+
+    // Populate distinct researchers in optimizer filter
+    const optResearchers = [];
+    state.users.forEach(u => {
+      if (!optResearchers.some(r => r.uid === u.uid)) {
+        optResearchers.push({ uid: u.uid, name: u.displayName || u.username });
+      }
+    });
+    allConditions.forEach(c => {
+      if (c.ownerId && !optResearchers.some(r => r.uid === c.ownerId)) {
+        optResearchers.push({ uid: c.ownerId, name: c.researcher || c.ownerId });
+      }
+    });
+
+    adminFilterSelect.innerHTML = `
+      <option value="ALL">🌐 ทุกคน (เปรียบเทียบและเชื่อมโยงข้อมูลระหว่างบุคคล)</option>
+      ${optResearchers.map(r => `<option value="${r.uid}" ${r.uid === currentOptVal ? 'selected' : ''}>👤 ${r.name}</option>`).join('')}
+    `;
+    adminFilterSelect.value = currentOptVal;
+
+    if (currentOptVal === 'ALL') {
+      displayedConditions = allConditions;
+      isComparingAll = true;
+    } else {
+      displayedConditions = allConditions.filter(c => c.ownerId === currentOptVal);
+      isComparingAll = false;
+    }
+  } else {
+    if (adminFilterGroup) adminFilterGroup.style.display = 'none';
+    displayedConditions = allConditions.filter(c => c.ownerId === currentUserId);
+    isComparingAll = false;
   }
 
   // Update scope badge
   const scopeBadge = document.getElementById('optimizer-researcher-scope-badge');
   if (scopeBadge) {
-    scopeBadge.textContent = `เฉพาะงานวิจัยของ: ${state.currentUser ? state.currentUser.displayName : 'ดร.สมชาย นักวิจัย'}`;
+    if (isAdmin && isComparingAll) {
+      scopeBadge.className = 'badge badge-gold';
+      scopeBadge.innerHTML = '🌐 เปรียบเทียบและเชื่อมโยงข้อมูลทุกไอดี (Admin Cross-Link Mode)';
+    } else if (isAdmin) {
+      scopeBadge.className = 'badge badge-navy';
+      const activeName = (state.users.find(u => u.uid === (adminFilterSelect?.value || currentUserId))?.displayName) || (state.currentUser?.displayName || 'นักวิจัย');
+      scopeBadge.innerHTML = `👤 เฉพาะงานวิจัยของ: ${activeName}`;
+    } else {
+      scopeBadge.className = 'badge badge-navy';
+      scopeBadge.innerHTML = '👤 เฉพาะงานวิจัยของตนเอง';
+    }
   }
 
-  if (userConditions.length === 0) {
-    container.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">ไม่มีสภาวะการทดลองของนักวิจัยท่านนี้</td></tr>';
+  if (displayedConditions.length === 0) {
+    container.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">ยังไม่มีข้อมูลสภาวะการทดลองของนักวิจัยท่านนี้ (กรุณาสร้างโปรเจกต์และบันทึกผลแล็บ)</td></tr>';
+    const winnerBanner = document.getElementById('optimizer-winner-banner');
+    if (winnerBanner) winnerBanner.style.display = 'none';
+    if (state.charts.radar) state.charts.radar.destroy();
     return;
   }
 
-  // Determine best condition for this researcher
-  let bestCond = userConditions.find(c => c.isBest);
+  const winnerBanner = document.getElementById('optimizer-winner-banner');
+  if (winnerBanner) winnerBanner.style.display = 'flex';
+
+  // Determine best condition (highest Yield & Productivity)
+  let bestCond = displayedConditions.find(c => c.isBest);
   if (!bestCond) {
-    bestCond = [...userConditions].sort((a, b) => (b.yieldYps || 0) - (a.yieldYps || 0))[0];
+    bestCond = [...displayedConditions].sort((a, b) => ((b.yieldYps || 0) * (b.productivityQp || 0)) - ((a.yieldYps || 0) * (a.productivityQp || 0)))[0];
   }
 
   // Update Dynamic Banner
@@ -2497,28 +2783,34 @@ function renderOptimizerView() {
   const winnerBtn = document.getElementById('btn-optimizer-winner-details');
 
   if (winnerTitle && bestCond) {
-    winnerTitle.textContent = `${bestCond.conditionKey} (D = ${bestCond.dilutionRateD} h⁻¹, ${bestCond.ratioBC || '80:20'}, ${bestCond.temp || 30} °C)`;
+    const ownerTag = isComparingAll ? ` [โดย ${bestCond.researcher}]` : '';
+    winnerTitle.textContent = `${bestCond.conditionKey}${ownerTag} (D = ${bestCond.dilutionRateD} h⁻¹, ${bestCond.ratioBC || '80:20'}, ${bestCond.temp || 30} °C)`;
   }
   if (winnerDesc && bestCond) {
     winnerDesc.innerHTML = `
       ให้ผลได้เอทานอลสูงสุด <strong>${bestCond.maxEthanolGPerL} g/L</strong>, 
       ผลได้ต่อน้ำตาล <strong>Yield (Yp/s) = ${bestCond.yieldYps} g/g</strong> 
       และอัตราผลิต <strong>Productivity = ${bestCond.productivityQp} g/L·h</strong>
+      ${isComparingAll ? `<br><span style="color: #059669; font-weight: 700;">🔗 เชื่อมโยงข้อมูลผู้สร้าง: ${bestCond.researcher} (${bestCond.ownerId})</span>` : ''}
     `;
   }
   if (winnerBtn && bestCond) {
     winnerBtn.setAttribute('onclick', `viewConditionDetails('${bestCond.conditionKey}')`);
   }
 
-  container.innerHTML = userConditions.map((cond, idx) => {
-    const isWinner = cond.conditionKey === bestCond.conditionKey;
+  container.innerHTML = displayedConditions.map((cond, idx) => {
+    const isWinner = bestCond && cond.conditionKey === bestCond.conditionKey;
+    const researcherPill = isComparingAll ? `<div style="font-size: 0.76rem; color: #64748b; margin-top: 2px;">👤 ${cond.researcher}</div>` : '';
     return `
       <tr style="${isWinner ? 'background: #fffbeb; font-weight: 600;' : ''}">
         <td>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span>${idx + 1}</span>
-            ${isWinner ? '<span class="badge badge-best-condition">🏆 Best Condition</span>' : ''}
-            <span>${cond.conditionKey}</span>
+          <div style="display: flex; flex-direction: column;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span>${idx + 1}</span>
+              ${isWinner ? '<span class="badge badge-best-condition">🏆 Best Condition</span>' : ''}
+              <span>${cond.conditionKey}</span>
+            </div>
+            ${researcherPill}
           </div>
         </td>
         <td><strong>${cond.dilutionRateD}</strong></td>
@@ -2536,7 +2828,7 @@ function renderOptimizerView() {
     `;
   }).join('');
 
-  renderOptimizerRadarChart(userConditions, bestCond);
+  renderOptimizerRadarChart(displayedConditions, bestCond);
 }
 
 function renderOptimizerRadarChart(conditions = [], bestCond = null) {
@@ -2591,7 +2883,8 @@ function renderOptimizerRadarChart(conditions = [], bestCond = null) {
 }
 
 window.viewConditionDetails = function(condKey) {
-  const item = window.CROSS_CONDITIONS_SUMMARY.find(c => c.conditionKey === condKey);
+  const allConds = getDynamicProjectConditions();
+  const item = allConds.find(c => c.conditionKey === condKey) || window.CROSS_CONDITIONS_SUMMARY?.find(c => c.conditionKey === condKey);
   if (!item) return;
 
   Swal.fire({
@@ -2603,7 +2896,7 @@ window.viewConditionDetails = function(condKey) {
         <p>• <strong>Ethanol Yield (Yp/s):</strong> ${item.yieldYps} g/g (ทฤษฎี Gay-Lussac สูงสุด 0.511)</p>
         <p>• <strong>Productivity (Qp):</strong> ${item.productivityQp} g/L·h</p>
         <p>• <strong>Sugar Conversion:</strong> ${item.sugarConversionPct}%</p>
-        <p>• <strong>สรุปผล:</strong> ${item.isBest ? '<strong>สภาวะที่ดีที่สุดสำหรับกระบวนการหมักต่อเนื่องของมิตรผล</strong> เนื่องจากให้อัตราผลได้เอทานอลสูงสุด และความอยู่รอดของเซลล์ยีสต์สม่ำเสมอ' : 'มีประสิทธิภาพรองลงมา'}</p>
+        <p>• <strong>สรุปผล:</strong> ${item.isBest ? '<strong>สภาวะที่ดีที่สุดสำหรับกระบวนการหมักต่อเนื่องของมิตรผล</strong> เนื่องจากให้อัตราผลได้เอทานอลสูงสุด และความอยู่รอดของเซลล์ยีสต์สม่ำเสมอ' : 'มีประสิทธิภาพตามพารามิเตอร์ที่ทดสอบ'}</p>
       </div>
     `,
     confirmButtonColor: '#0f3d7a',
@@ -3227,6 +3520,7 @@ window.resetAuditLogFilters = function() {
   const y = document.getElementById('audit-filter-year');
   const q = document.getElementById('audit-filter-quarter');
   const a = document.getElementById('audit-filter-action');
+  const s = document.getElementById('audit-filter-search');
 
   if (u) u.value = 'ALL';
   if (d) d.value = '';
@@ -3234,9 +3528,196 @@ window.resetAuditLogFilters = function() {
   if (y) y.value = 'ALL';
   if (q) q.value = 'ALL';
   if (a) a.value = 'ALL';
+  if (s) s.value = '';
 
   renderAuditLogs();
   showToast('รีเซ็ตตัวกรองประวัติการทำงานแล้ว', 'info');
+};
+
+window.openClearLogsModal = function() {
+  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+  if (!isAdmin) {
+    Swal.fire({
+      icon: 'error',
+      title: 'ไม่มีสิทธิ์เข้าถึง',
+      text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถล้างข้อมูล Log ได้'
+    });
+    return;
+  }
+
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+
+  Swal.fire({
+    title: '🗑️ ล้างข้อมูลบันทึกประวัติ (Clear Logs)',
+    html: `
+      <div style="text-align: left; font-size: 0.88rem; line-height: 1.6;">
+        <p style="color: #64748b; margin-bottom: 14px;">
+          เลือกระยะเวลาของข้อมูล Log ที่ต้องการลบออกจากระบบและ Firebase Cloud:
+        </p>
+        <div class="form-group">
+          <label class="form-label" style="font-weight: 600;">เลือกลักษณะระยะเวลา:</label>
+          <select id="swal-clear-mode" class="form-select" onchange="window.handleClearLogModeChange()">
+            <option value="month">รายเดือน (Specific Month)</option>
+            <option value="quarter">ไตรมาส (Quarter)</option>
+            <option value="year">รายปี (Specific Year)</option>
+            <option value="all">ทั้งหมด (All Logs)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="swal-clear-year-group">
+          <label class="form-label" style="font-weight: 600;">เลือกปี (Year):</label>
+          <select id="swal-clear-year" class="form-select">
+            ${[2022, 2023, 2024, 2025, 2026, 2027].map(y => `
+              <option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>
+            `).join('')}
+          </select>
+        </div>
+
+        <div class="form-group" id="swal-clear-month-group">
+          <label class="form-label" style="font-weight: 600;">เลือกเดือน (Month):</label>
+          <select id="swal-clear-month" class="form-select">
+            <option value="1" ${currentMonth === 1 ? 'selected' : ''}>01 - มกราคม (Jan)</option>
+            <option value="2" ${currentMonth === 2 ? 'selected' : ''}>02 - กุมภาพันธ์ (Feb)</option>
+            <option value="3" ${currentMonth === 3 ? 'selected' : ''}>03 - มีนาคม (Mar)</option>
+            <option value="4" ${currentMonth === 4 ? 'selected' : ''}>04 - เมษายน (Apr)</option>
+            <option value="5" ${currentMonth === 5 ? 'selected' : ''}>05 - พฤษภาคม (May)</option>
+            <option value="6" ${currentMonth === 6 ? 'selected' : ''}>06 - มิถุนายน (Jun)</option>
+            <option value="7" ${currentMonth === 7 ? 'selected' : ''}>07 - กรกฎาคม (Jul)</option>
+            <option value="8" ${currentMonth === 8 ? 'selected' : ''}>08 - สิงหาคม (Aug)</option>
+            <option value="9" ${currentMonth === 9 ? 'selected' : ''}>09 - กันยายน (Sep)</option>
+            <option value="10" ${currentMonth === 10 ? 'selected' : ''}>10 - ตุลาคม (Oct)</option>
+            <option value="11" ${currentMonth === 11 ? 'selected' : ''}>11 - พฤศจิกายน (Nov)</option>
+            <option value="12" ${currentMonth === 12 ? 'selected' : ''}>12 - ธันวาคม (Dec)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="swal-clear-quarter-group" style="display: none;">
+          <label class="form-label" style="font-weight: 600;">เลือกไตรมาส (Quarter):</label>
+          <select id="swal-clear-quarter" class="form-select">
+            <option value="Q1">Q1 (มกราคม - มีนาคม)</option>
+            <option value="Q2">Q2 (เมษายน - มิถุนายน)</option>
+            <option value="Q3">Q3 (กรกฎาคม - กันยายน)</option>
+            <option value="Q4">Q4 (ตุลาคม - ธันวาคม)</option>
+          </select>
+        </div>
+
+        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: 10px; margin-top: 12px; color: #991b1b; font-size: 0.82rem;">
+          <i class="fa-solid fa-triangle-exclamation"></i> <strong>คำเตือน:</strong> ข้อมูล Log ที่ถูกลบจะไม่สามารถกู้คืนได้ และจะถูกลบออกจากทั้ง Local Storage และ Cloud Firestore
+        </div>
+      </div>
+    `,
+    didOpen: () => {
+      window.handleClearLogModeChange = () => {
+        const mode = document.getElementById('swal-clear-mode')?.value;
+        const yearGroup = document.getElementById('swal-clear-year-group');
+        const monthGroup = document.getElementById('swal-clear-month-group');
+        const quarterGroup = document.getElementById('swal-clear-quarter-group');
+        if (mode === 'month') {
+          if (yearGroup) yearGroup.style.display = 'block';
+          if (monthGroup) monthGroup.style.display = 'block';
+          if (quarterGroup) quarterGroup.style.display = 'none';
+        } else if (mode === 'quarter') {
+          if (yearGroup) yearGroup.style.display = 'block';
+          if (monthGroup) monthGroup.style.display = 'none';
+          if (quarterGroup) quarterGroup.style.display = 'block';
+        } else if (mode === 'year') {
+          if (yearGroup) yearGroup.style.display = 'block';
+          if (monthGroup) monthGroup.style.display = 'none';
+          if (quarterGroup) quarterGroup.style.display = 'none';
+        } else {
+          // 'all'
+          if (yearGroup) yearGroup.style.display = 'none';
+          if (monthGroup) monthGroup.style.display = 'none';
+          if (quarterGroup) quarterGroup.style.display = 'none';
+        }
+      };
+    },
+    showCancelButton: true,
+    confirmButtonText: 'ถัดไป: ตรวจสอบและยืนยัน',
+    cancelButtonText: 'ยกเลิก',
+    confirmButtonColor: '#ef4444',
+    preConfirm: () => {
+      const mode = document.getElementById('swal-clear-mode').value;
+      const year = parseInt(document.getElementById('swal-clear-year')?.value) || currentYear;
+      const month = parseInt(document.getElementById('swal-clear-month')?.value) || currentMonth;
+      const quarter = document.getElementById('swal-clear-quarter')?.value || 'Q1';
+      return { mode, year, month, quarter };
+    }
+  }).then(async (res) => {
+    if (!res.isConfirmed) return;
+    const { mode, year, month, quarter } = res.value;
+
+    let periodDesc = '';
+    if (mode === 'all') periodDesc = 'ทั้งหมด (All Logs)';
+    else if (mode === 'year') periodDesc = `ประจำปี ${year}`;
+    else if (mode === 'month') periodDesc = `ประจำเดือน ${month}/${year}`;
+    else if (mode === 'quarter') periodDesc = `ประจำไตรมาส ${quarter}/${year}`;
+
+    const toDelete = state.auditLogs.filter(log => {
+      if (!log.timestamp) return mode === 'all';
+      const logDate = new Date(log.timestamp);
+      const logYear = logDate.getFullYear();
+      const logMonth = logDate.getMonth() + 1;
+
+      if (mode === 'all') return true;
+      if (mode === 'year') return logYear === year;
+      if (mode === 'month') return logYear === year && logMonth === month;
+      if (mode === 'quarter') {
+        let q = 'Q1';
+        if (logMonth >= 4 && logMonth <= 6) q = 'Q2';
+        else if (logMonth >= 7 && logMonth <= 9) q = 'Q3';
+        else if (logMonth >= 10 && logMonth <= 12) q = 'Q4';
+        return logYear === year && q === quarter;
+      }
+      return false;
+    });
+
+    if (toDelete.length === 0) {
+      Swal.fire({
+        icon: 'info',
+        title: 'ไม่พบข้อมูล Log',
+        text: `ไม่พบข้อมูลบันทึกประวัติในช่วงเวลา ${periodDesc}`,
+        confirmButtonColor: '#0f3d7a'
+      });
+      return;
+    }
+
+    const confirmRes = await Swal.fire({
+      icon: 'warning',
+      title: `ยืนยันการลบ ${toDelete.length} รายการ?`,
+      html: `
+        <div style="text-align: left; font-size: 0.9rem; line-height: 1.6;">
+          <p>คุณกำลังจะลบข้อมูล Log <strong>${periodDesc}</strong></p>
+          <p>จำนวนที่พบ: <strong style="color: #dc2626; font-size: 1.1rem;">${toDelete.length}</strong> รายการ</p>
+          <p style="color: #ef4444; font-size: 0.85rem;">⚠️ ข้อมูลจะถูกลบออกจาก Local Storage และ Cloud Firestore อย่างถาวร</p>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'ยืนยันลบข้อมูล',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#dc2626'
+    });
+
+    if (confirmRes.isConfirmed) {
+      const deleteIds = new Set(toDelete.map(l => l.id));
+      state.auditLogs = state.auditLogs.filter(l => !deleteIds.has(l.id));
+      persistState();
+
+      if (window.FirebaseSync && typeof window.FirebaseSync.deleteDoc === 'function') {
+        for (const log of toDelete) {
+          if (log.id) {
+            window.FirebaseSync.deleteDoc('logs', log.id).catch(e => console.warn(e));
+          }
+        }
+      }
+
+      logAction('CLEAR_LOGS', `Admin ล้างข้อมูล Log ${periodDesc} จำนวน ${toDelete.length} รายการ`);
+      renderAuditLogs();
+      if (window.labAudio) window.labAudio.playWarning();
+      showToast(`ล้างข้อมูล Log ${periodDesc} (${toDelete.length} รายการ) สำเร็จ`, 'success');
+    }
+  });
 };
 
 function renderAuditLogs() {
@@ -3251,6 +3732,7 @@ function renderAuditLogs() {
   const filterYear = document.getElementById('audit-filter-year')?.value || 'ALL';
   const filterQuarter = document.getElementById('audit-filter-quarter')?.value || 'ALL';
   const filterAction = document.getElementById('audit-filter-action')?.value || 'ALL';
+  const filterSearch = (document.getElementById('audit-filter-search')?.value || '').trim().toLowerCase();
 
   const filteredLogs = state.auditLogs.filter(log => {
     const logDate = new Date(log.timestamp);
@@ -3282,6 +3764,14 @@ function renderAuditLogs() {
     // Action filter
     if (filterAction !== 'ALL' && log.action !== filterAction) return false;
 
+    // Keyword Search filter
+    if (filterSearch) {
+      const matchDetails = log.details && log.details.toLowerCase().includes(filterSearch);
+      const matchUser = log.userName && log.userName.toLowerCase().includes(filterSearch);
+      const matchAction = log.action && log.action.toLowerCase().includes(filterSearch);
+      if (!matchDetails && !matchUser && !matchAction) return false;
+    }
+
     return true;
   });
 
@@ -3309,12 +3799,27 @@ function renderAuditLogs() {
       `;
     }
 
+    let actionBadgeHtml = `<span class="badge badge-navy">${log.action}</span>`;
+    if (log.action === 'LOGIN') {
+      actionBadgeHtml = `<span class="badge" style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0;"><i class="fa-solid fa-right-to-bracket" style="margin-right: 4px;"></i> เข้าสู่ระบบ</span>`;
+    } else if (log.action === 'LOGOUT') {
+      actionBadgeHtml = `<span class="badge" style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1;"><i class="fa-solid fa-right-from-bracket" style="margin-right: 4px;"></i> ออกจากระบบ</span>`;
+    } else if (log.action.startsWith('CREATE') || log.action === 'SAMPLE_ENTRY' || log.action === 'ADD_USER') {
+      actionBadgeHtml = `<span class="badge" style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe;"><i class="fa-solid fa-circle-plus" style="margin-right: 4px;"></i> ${log.action}</span>`;
+    } else if (log.action.startsWith('UPDATE')) {
+      actionBadgeHtml = `<span class="badge" style="background: #fffbeb; color: #d97706; border: 1px solid #fde68a;"><i class="fa-solid fa-pen-to-square" style="margin-right: 4px;"></i> ${log.action}</span>`;
+    } else if (log.action.startsWith('DELETE')) {
+      actionBadgeHtml = `<span class="badge" style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;"><i class="fa-solid fa-trash-can" style="margin-right: 4px;"></i> ${log.action}</span>`;
+    } else if (log.action.startsWith('RESTORE')) {
+      actionBadgeHtml = `<span class="badge" style="background: #faf5ff; color: #7c3aed; border: 1px solid #e9d5ff;"><i class="fa-solid fa-clock-rotate-left" style="margin-right: 4px;"></i> ${log.action}</span>`;
+    }
+
     return `
       <tr>
-        <td style="color: #64748b; font-size: 0.82rem;">${new Date(log.timestamp).toLocaleString('th-TH')}</td>
+        <td style="color: #64748b; font-size: 0.82rem; white-space: nowrap;">${new Date(log.timestamp).toLocaleString('th-TH')}</td>
         <td><strong>${log.userName}</strong></td>
-        <td><span class="badge badge-navy">${log.action}</span></td>
-        <td>${log.details}</td>
+        <td>${actionBadgeHtml}</td>
+        <td style="font-size: 0.85rem; line-height: 1.5;">${log.details}</td>
         <td style="text-align: center;">${restoreBtnHtml}</td>
       </tr>
     `;
@@ -3373,6 +3878,9 @@ window.restoreFromLog = function(logId) {
 
       log.restored = true;
       persistState();
+      if (window.FirebaseSync && typeof window.FirebaseSync.syncUser === 'function') {
+        window.FirebaseSync.syncUser(u);
+      }
       window.labAudio.playSuccess();
       renderAllDataViews();
       Swal.fire({
@@ -3382,6 +3890,46 @@ window.restoreFromLog = function(logId) {
       });
     }
   });
+};
+
+window.testFirebaseConnectionLive = async function() {
+  Swal.fire({
+    title: 'กำลังเชื่อมต่อ Firebase...',
+    text: 'กำลังทดสอบ Ping ไปยังโครงการ mpir-fermentlog',
+    allowOutsideClick: false,
+    didOpen: () => { Swal.showLoading(); }
+  });
+  try {
+    const isOk = await FirebaseSync.saveDoc('settings', 'ping_test', {
+      pingTime: new Date().toISOString(),
+      testedBy: state.currentUser ? state.currentUser.displayName : 'Admin',
+      status: 'OK'
+    });
+    if (isOk) {
+      await FirebaseSync.deleteDoc('settings', 'ping_test');
+      Swal.fire({
+        icon: 'success',
+        title: 'เชื่อมต่อ Firebase สำเร็จ!',
+        html: `
+          <div style="text-align: left; font-size: 0.9rem; line-height: 1.6;">
+            <p>✅ โครงการ: <strong>mpir-fermentlog</strong></p>
+            <p>✅ ฐานข้อมูล: <strong>Cloud Firestore (Default)</strong></p>
+            <p>✅ สถานะ: <strong>บันทึกและอ่านข้อมูลได้จริง 100%</strong></p>
+          </div>
+        `,
+        confirmButtonColor: '#0f3d7a'
+      });
+    } else {
+      throw new Error('ไม่สามารถเขียนเอกสารทดสอบได้');
+    }
+  } catch (err) {
+    Swal.fire({
+      icon: 'error',
+      title: 'เชื่อมต่อไม่สำเร็จ',
+      text: err.message,
+      confirmButtonColor: '#0f3d7a'
+    });
+  }
 };
 
 // ==========================================================================
@@ -3675,6 +4223,9 @@ window.handleClearDataWithBackup = function() {
       state.auditLogs = [clearLog];
 
       persistState();
+      if (window.FirebaseSync && typeof window.FirebaseSync.syncUser === 'function') {
+        window.FirebaseSync.syncUser(u);
+      }
       window.labAudio.playSuccess();
       renderAllDataViews();
 
@@ -3896,6 +4447,9 @@ window.toggleGanttActiveState = function(forceEnable = null) {
   p.enableGantt = newEnabled;
 
   persistState();
+  if (window.FirebaseSync && typeof window.FirebaseSync.syncSample === 'function') {
+    window.FirebaseSync.syncSample(sample);
+  }
   window.labAudio.playSuccess();
   logAction('TOGGLE_GANTT_STATUS', `${newEnabled ? 'เปิด' : 'ปิด'}การใช้งาน Gantt Chart สำหรับโปรเจกต์ ${p.experimentNo}`);
   renderGanttTimeline();
@@ -4444,6 +4998,9 @@ function openGanttTaskFormModal(task = null) {
       }
 
       persistState();
+      if (window.FirebaseSync && typeof window.FirebaseSync.syncUser === 'function') {
+        window.FirebaseSync.syncUser(u);
+      }
       window.labAudio.playSuccess();
       renderGanttTimeline();
     }
