@@ -3,31 +3,140 @@
  * Implements Domain Logic, Auth, Permissions, Calculations, Charting, Custom Sandbox & Presentation.
  */
 
-// Application State & Clean Migration
-(() => {
+// Safe Storage, Encoding & Crypto Helpers
+function safeStorageGet(key, fallback = null) {
   try {
-    const cachedUsers = JSON.parse(localStorage.getItem('mitr_users') || 'null');
-    // If cached users still contain old mock accounts (somchai, araya, admin.lab), wipe clean
-    if (cachedUsers && cachedUsers.some(u => u.email === 'somchai.r@mitrphol.com' || u.uid === 'usr_01' || u.email === 'admin.lab@mitrphol.com')) {
-      localStorage.removeItem('mitr_users');
-      localStorage.removeItem('mitr_projects');
-      localStorage.removeItem('mitr_samples');
-      localStorage.removeItem('mitr_logs');
-      localStorage.removeItem('mitr_auth_uid');
-      console.log('[Init] Cleared legacy test credentials & data');
+    const val = localStorage.getItem(key);
+    return val !== null ? val : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function safeStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (e) {
+    console.warn('[Storage] Write skipped:', e);
+    return false;
+  }
+}
+
+function safeStorageRemove(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch (e) {}
+}
+
+function safeJsonParse(str, fallback) {
+  if (!str) return fallback;
+  try {
+    const parsed = JSON.parse(str);
+    return parsed !== null && parsed !== undefined ? parsed : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function escapeHtml(val) {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function csvSafe(val) {
+  let s = String(val ?? '');
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+// SHA-256 with pure-JS fallback when Web Crypto is unavailable (e.g. non-HTTPS mobile LAN)
+async function sha256Hex(str) {
+  try {
+    if (window.crypto && window.crypto.subtle && typeof TextEncoder !== 'undefined') {
+      const msgBuffer = new TextEncoder().encode(str);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgBuffer);
+      return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
   } catch (e) {
-    console.warn(e);
+    console.warn('Web Crypto SHA-256 fallback:', e);
+  }
+  const bytes = unescape(encodeURIComponent(str));
+  const words = [];
+  for (let i = 0; i < bytes.length; i++) words[i >> 2] |= bytes.charCodeAt(i) << (24 - (i % 4) * 8);
+  words[bytes.length >> 2] |= 0x80 << (24 - (bytes.length % 4) * 8);
+  words[(((bytes.length + 8) >> 6) << 4) + 15] = bytes.length * 8;
+  const K = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+  ];
+  let H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+  const rrot = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let i = 0; i < words.length; i += 16) {
+    const w = words.slice(i, i + 16);
+    for (let j = 16; j < 64; j++) {
+      const s0 = rrot(w[j - 15], 7) ^ rrot(w[j - 15], 18) ^ (w[j - 15] >>> 3);
+      const s1 = rrot(w[j - 2], 17) ^ rrot(w[j - 2], 19) ^ (w[j - 2] >>> 10);
+      w[j] = (w[j - 16] + s0 + w[j - 7] + s1) | 0;
+    }
+    let [a, b, c, d, e, f, g, h] = H;
+    for (let j = 0; j < 64; j++) {
+      const S1 = rrot(e, 6) ^ rrot(e, 11) ^ rrot(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const t1 = (h + S1 + ch + K[j] + (w[j] | 0)) | 0;
+      const S0 = rrot(a, 2) ^ rrot(a, 13) ^ rrot(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + maj) | 0;
+      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    H = H.map((v, idx) => (v + [a, b, c, d, e, f, g, h][idx]) | 0);
+  }
+  return H.map(v => (v >>> 0).toString(16).padStart(8, '0')).join('');
+}
+
+// Application State & Clean Migration
+(() => {
+  const cachedUsers = safeJsonParse(safeStorageGet('mitr_users'), null);
+  if (Array.isArray(cachedUsers)) {
+    if (cachedUsers.some(u => u.email === 'somchai.r@mitrphol.com' || u.uid === 'usr_01' || u.email === 'admin.lab@mitrphol.com')) {
+      safeStorageRemove('mitr_users');
+      safeStorageRemove('mitr_projects');
+      safeStorageRemove('mitr_samples');
+      safeStorageRemove('mitr_logs');
+      safeStorageRemove('mitr_auth_uid');
+    } else if (cachedUsers.some(u => 'password' in u)) {
+      const cleaned = cachedUsers.map(u => {
+        const copy = { ...u };
+        delete copy.password;
+        return copy;
+      });
+      safeStorageSet('mitr_users', JSON.stringify(cleaned));
+    }
   }
 })();
+
+const parsedUsers = safeJsonParse(safeStorageGet('mitr_users'), null);
+const parsedProjects = safeJsonParse(safeStorageGet('mitr_projects'), null);
+const parsedSamples = safeJsonParse(safeStorageGet('mitr_samples'), null);
+const parsedLogs = safeJsonParse(safeStorageGet('mitr_logs'), null);
 
 const state = {
   isLoggedIn: false,
   currentUser: null,
-  users: JSON.parse(localStorage.getItem('mitr_users')) || window.INITIAL_USERS,
-  projects: JSON.parse(localStorage.getItem('mitr_projects')) || (window.INITIAL_PROJECTS || []),
-  samples: JSON.parse(localStorage.getItem('mitr_samples')) || (window.SEED_SAMPLES_220326 || []),
-  auditLogs: JSON.parse(localStorage.getItem('mitr_logs')) || (window.INITIAL_LOGS || []),
+  users: Array.isArray(parsedUsers) && parsedUsers.length > 0 ? parsedUsers : window.INITIAL_USERS,
+  projects: Array.isArray(parsedProjects) ? parsedProjects : (window.INITIAL_PROJECTS || []),
+  samples: Array.isArray(parsedSamples) ? parsedSamples : (window.SEED_SAMPLES_220326 || []),
+  auditLogs: Array.isArray(parsedLogs) ? parsedLogs : (window.INITIAL_LOGS || []),
   currentProjectId: '',
   selectedTank: 'PF',
   selectedTime: 0,
@@ -46,21 +155,30 @@ const state = {
   dataRecordSort: { field: 'tank', dir: 'asc' }
 };
 
-// Save state to LocalStorage
+// Save state to LocalStorage without plaintext passwords
 function persistState() {
-  localStorage.setItem('mitr_users', JSON.stringify(state.users));
-  localStorage.setItem('mitr_projects', JSON.stringify(state.projects));
-  localStorage.setItem('mitr_samples', JSON.stringify(state.samples));
-  localStorage.setItem('mitr_logs', JSON.stringify(state.auditLogs));
+  const sanitizedUsers = (state.users || []).map(u => {
+    const copy = { ...u };
+    delete copy.password;
+    return copy;
+  });
+  safeStorageSet('mitr_users', JSON.stringify(sanitizedUsers));
+  safeStorageSet('mitr_projects', JSON.stringify(state.projects));
+  safeStorageSet('mitr_samples', JSON.stringify(state.samples));
+  safeStorageSet('mitr_logs', JSON.stringify(state.auditLogs));
 }
 
 // Check Edit Permission (Admin can edit all; User can edit only their own)
-function canEditCurrentProject() {
+function canEditProject(projectId) {
   if (!state.currentUser) return false;
   if (state.currentUser.role === 'admin') return true;
-  const project = state.projects.find(p => p.id === state.currentProjectId);
+  const project = state.projects.find(p => p.id === projectId);
   if (!project) return false;
   return project.ownerId === state.currentUser.uid;
+}
+
+function canEditCurrentProject() {
+  return canEditProject(state.currentProjectId);
 }
 
 // Log an action to Audit Trail with Snapshot support for Restore
@@ -84,140 +202,167 @@ function logAction(action, details, snapshot = null) {
 }
 
 // ==========================================================================
-// Initialization & Authentication
+// Initialization, Authentication & Fullscreen
 // ==========================================================================
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   setupNavigation();
   setupMicroscopeInputs();
   setupHPLCInputs();
   setupPresentationDeck();
   if (typeof initMobileUI === 'function') initMobileUI();
 
-  // Initialize Firebase Cloud Firestore synchronization
-  if (window.FirebaseSync && typeof window.FirebaseSync.init === 'function') {
-    try {
-      await window.FirebaseSync.init();
-    } catch (e) {
-      console.warn('Firebase init deferred:', e);
-    }
-  }
-
-  // Check saved session to keep user logged in across page reloads
-  const savedUid = localStorage.getItem('mitr_auth_uid');
+  // Check saved session immediately without blocking on cloud network call
+  const savedUid = safeStorageGet('mitr_auth_uid');
   if (savedUid) {
     const user = state.users.find(u => u.uid === savedUid || u.username === savedUid || u.email === savedUid);
     if (user) {
       applyLoginSuccess(user);
-      return;
+    } else {
+      showLoginOverlay(true);
     }
+  } else {
+    showLoginOverlay(true);
   }
 
-  showLoginOverlay(true);
+  // Non-blocking background sync with Cloud Firestore
+  if (window.FirebaseSync && typeof window.FirebaseSync.init === 'function') {
+    window.FirebaseSync.init()
+      .then(() => {
+        if (state.isLoggedIn) {
+          renderAllDataViews();
+        }
+      })
+      .catch(e => console.warn('Firebase init deferred:', e));
+  }
 });
 
 function showLoginOverlay(show) {
   const overlay = document.getElementById('login-modal-overlay');
   if (overlay) {
+    overlay.classList.toggle('hidden', !show);
     overlay.style.display = show ? 'flex' : 'none';
+    overlay.setAttribute('aria-hidden', show ? 'false' : 'true');
+  }
+  document.body.classList.toggle('login-open', !!show);
+  if (!show) {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    try { window.scrollTo(0, 0); } catch (e) {}
   }
 }
 
 window.handleLoginSubmit = async function(event) {
-  event.preventDefault();
-  const userEl = document.getElementById('login-username') || document.getElementById('login-email');
-  const passEl = document.getElementById('login-password');
-  const identifier = (userEl ? userEl.value : '').trim();
-  const password = passEl ? passEl.value : '';
-
-  if (!identifier || !password) {
-    Swal.fire({
-      icon: 'warning',
-      title: 'กรุณากรอกข้อมูล',
-      text: 'กรุณากรอกชื่อผู้ใช้งานและรหัสผ่าน',
-      confirmButtonColor: '#0f3d7a'
-    });
-    return;
+  if (event && typeof event.preventDefault === 'function') {
+    event.preventDefault();
   }
 
-  // Compute SHA-256 for secure verification
-  let pwdHash = '';
   try {
-    const msgBuffer = new TextEncoder().encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    pwdHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  } catch (e) {
-    console.warn('Web Crypto SHA-256 fallback:', e);
-  }
+    const userEl = document.getElementById('login-username') || document.getElementById('login-email');
+    const passEl = document.getElementById('login-password');
+    const identifier = (userEl ? userEl.value : '').trim();
+    const password = passEl ? passEl.value : '';
 
-  const foundUser = state.users.find(u => {
-    const matchId = (u.username && u.username.toLowerCase() === identifier.toLowerCase()) ||
-                    (u.email && u.email.toLowerCase() === identifier.toLowerCase()) ||
-                    (u.uid && u.uid === identifier);
-    if (!matchId) return false;
-    const matchPwd = (u.password && u.password === password) ||
-                     (u.passwordHash && (u.passwordHash === pwdHash || u.passwordHash === password));
-    return matchPwd;
-  });
+    if (!identifier || !password) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'กรุณากรอกข้อมูล',
+        text: 'กรุณากรอกชื่อผู้ใช้งานและรหัสผ่าน',
+        confirmButtonColor: '#0f3d7a'
+      });
+      return;
+    }
 
-  if (foundUser) {
-    applyLoginSuccess(foundUser);
-    logAction('LOGIN', `ผู้ใช้งาน ${foundUser.displayName} (${foundUser.username || foundUser.email}) เข้าสู่ระบบสำเร็จ`);
-    if (window.labAudio) window.labAudio.playSuccess();
-    showToast(`ยินดีต้อนรับ ${foundUser.displayName}`, 'success');
-  } else {
-    if (window.labAudio) window.labAudio.playWarning();
+    const pwdHash = await sha256Hex(password);
+
+    const foundUser = (state.users || []).find(u => {
+      const matchId = (u.username && u.username.toLowerCase() === identifier.toLowerCase()) ||
+                      (u.email && u.email.toLowerCase() === identifier.toLowerCase()) ||
+                      (u.uid && u.uid === identifier);
+      if (!matchId) return false;
+      return Boolean(u.passwordHash && u.passwordHash === pwdHash);
+    });
+
+    if (foundUser) {
+      if (passEl) passEl.value = '';
+      applyLoginSuccess(foundUser);
+      logAction('LOGIN', `ผู้ใช้งาน ${foundUser.displayName || foundUser.username} (${foundUser.username || foundUser.email}) เข้าสู่ระบบสำเร็จ`);
+      if (window.labAudio) window.labAudio.playSuccess();
+      showToast(`ยินดีต้อนรับ ${foundUser.displayName || foundUser.username}`, 'success');
+    } else {
+      if (window.labAudio) window.labAudio.playWarning();
+      Swal.fire({
+        icon: 'error',
+        title: 'เข้าสู่ระบบไม่สำเร็จ',
+        text: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง',
+        confirmButtonColor: '#0f3d7a'
+      });
+    }
+  } catch (err) {
+    console.error('[Auth] Login error:', err);
     Swal.fire({
       icon: 'error',
-      title: 'เข้าสู่ระบบไม่สำเร็จ',
-      text: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง',
+      title: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ',
+      text: 'กรุณารีเฟรชหน้าจอแล้วลองใหม่อีกครั้ง',
       confirmButtonColor: '#0f3d7a'
     });
   }
 };
 
 function applyLoginSuccess(user) {
+  if (!user) return;
+  const displayName = user.displayName || user.username || 'User';
+  const role = user.role || 'user';
+  const avatarChar = (user.username || displayName).charAt(0).toUpperCase();
+
   state.currentUser = user;
   state.isLoggedIn = true;
-  localStorage.setItem('mitr_auth_uid', user.uid);
+  safeStorageSet('mitr_auth_uid', user.uid);
+
+  // Dismiss login overlay immediately before downstream UI renders
+  showLoginOverlay(false);
 
   // Update profile header
   const desktopName = document.getElementById('current-user-name');
-  if (desktopName) desktopName.textContent = user.displayName;
+  if (desktopName) desktopName.textContent = displayName;
   const desktopAvatar = document.getElementById('current-user-avatar');
-  if (desktopAvatar) desktopAvatar.textContent = (user.username || user.displayName).charAt(0).toUpperCase();
+  if (desktopAvatar) desktopAvatar.textContent = avatarChar;
   const roleBadge = document.getElementById('current-user-role');
   if (roleBadge) {
-    roleBadge.textContent = user.role.toUpperCase();
-    roleBadge.className = `user-role-badge role-${user.role}`;
+    roleBadge.textContent = role.toUpperCase();
+    roleBadge.className = `user-role-badge role-${role}`;
   }
 
   // Update mobile header
   const mobName = document.getElementById('mobile-user-name');
-  if (mobName) mobName.textContent = user.displayName.split(' ')[0] || user.displayName;
+  if (mobName) mobName.textContent = displayName.split(' ')[0] || displayName;
   const mobAvatar = document.getElementById('mobile-top-avatar');
-  if (mobAvatar) mobAvatar.textContent = (user.username || user.displayName).charAt(0).toUpperCase();
-
-  // Hide login overlay
-  showLoginOverlay(false);
+  if (mobAvatar) mobAvatar.textContent = avatarChar;
 
   // Role-based Navigation Tabs Visibility: Hide Settings & Data Log if not admin
-  updateNavTabVisibility();
+  try {
+    updateNavTabVisibility();
 
-  // Find user's accessible projects
-  const accessibleProjects = state.projects.filter(p => user.role === 'admin' || p.ownerId === user.uid);
-  if (accessibleProjects.length > 0) {
-    if (!accessibleProjects.some(p => p.id === state.currentProjectId)) {
-      state.currentProjectId = accessibleProjects[0].id;
+    const accessibleProjects = (state.projects || []).filter(p => role === 'admin' || p.ownerId === user.uid);
+    if (accessibleProjects.length > 0) {
+      if (!accessibleProjects.some(p => p.id === state.currentProjectId)) {
+        state.currentProjectId = accessibleProjects[0].id;
+      }
+    } else {
+      state.currentProjectId = '';
     }
-  } else {
-    state.currentProjectId = '';
-  }
 
-  renderProjectSelector();
-  renderTankMatrix();
-  renderAllDataViews();
-  loadSampleDataForCurrentTank();
+    renderProjectSelector();
+    renderTankMatrix();
+    renderAllDataViews();
+    loadSampleDataForCurrentTank();
+
+    if (window.innerWidth <= 768 && typeof window.switchMobileTab === 'function') {
+      window.switchMobileTab('home');
+    }
+  } catch (renderErr) {
+    console.warn('[Auth] Post-login render warning:', renderErr);
+  }
 }
 
 window.handleLogout = function() {
@@ -233,16 +378,93 @@ window.handleLogout = function() {
   }).then((res) => {
     if (res.isConfirmed) {
       if (state.currentUser) {
-        logAction('LOGOUT', `ผู้ใช้งาน ${state.currentUser.displayName} (${state.currentUser.username || state.currentUser.email}) ออกจากระบบ`);
+        logAction('LOGOUT', `ผู้ใช้งาน ${state.currentUser.displayName || state.currentUser.username} (${state.currentUser.username || state.currentUser.email}) ออกจากระบบ`);
       }
       state.isLoggedIn = false;
       state.currentUser = null;
-      localStorage.removeItem('mitr_auth_uid');
+      safeStorageRemove('mitr_auth_uid');
       if (window.labAudio) window.labAudio.playClick();
       showLoginOverlay(true);
       showToast('ออกจากระบบเรียบร้อย', 'info');
     }
   });
+};
+
+// Fullscreen Toggle (Desktop & Mobile)
+function syncFullscreenButtons() {
+  const isFull = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+  const deskBtn = document.getElementById('btn-fullscreen-desktop');
+  if (deskBtn) {
+    deskBtn.innerHTML = isFull
+      ? '<i class="fa-solid fa-compress"></i><span>ย่อหน้าจอ</span>'
+      : '<i class="fa-solid fa-expand"></i><span>เต็มหน้าจอ</span>';
+    deskBtn.title = isFull ? 'ออกจากโหมดเต็มหน้าจอ' : 'แสดงเต็มหน้าจอ';
+  }
+  const mobBtn = document.getElementById('btn-fullscreen-mobile');
+  if (mobBtn) {
+    mobBtn.innerHTML = isFull ? '<i class="fa-solid fa-compress"></i>' : '<i class="fa-solid fa-expand"></i>';
+    mobBtn.title = isFull ? 'ออกจากโหมดเต็มหน้าจอ' : 'แสดงเต็มหน้าจอ';
+  }
+}
+
+window.toggleFullscreen = async function() {
+  if (window.labAudio) window.labAudio.playClick();
+  const docEl = document.documentElement;
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  try {
+    if (!fsEl) {
+      if (docEl.requestFullscreen) {
+        await docEl.requestFullscreen();
+      } else if (docEl.webkitRequestFullscreen) {
+        docEl.webkitRequestFullscreen();
+      } else {
+        showToast('เบราว์เซอร์นี้ไม่รองรับโหมดเต็มหน้าจออัตโนมัติ (แนะนำเพิ่มลงหน้าจอโฮม)', 'info');
+      }
+    } else {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
+  } catch (err) {
+    showToast('เบราว์เซอร์นี้ไม่รองรับโหมดเต็มหน้าจออัตโนมัติ (แนะนำเพิ่มลงหน้าจอโฮม)', 'info');
+  }
+  syncFullscreenButtons();
+};
+
+document.addEventListener('fullscreenchange', syncFullscreenButtons);
+document.addEventListener('webkitfullscreenchange', syncFullscreenButtons);
+
+// Ensure viewport switches between mobile and desktop restore an active section
+let resizeSyncTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeSyncTimer);
+  resizeSyncTimer = setTimeout(() => {
+    if (window.innerWidth > 768) {
+      const anyActive = document.querySelector('.content-section.active');
+      if (!anyActive) {
+        const defaultTab = document.querySelector('.tab-btn[data-target="sec-projects"]');
+        if (defaultTab) defaultTab.click();
+      }
+    } else if (state.isLoggedIn && !document.querySelector('.content-section.active') && document.getElementById('mobile-profile-view')?.style.display !== 'block' && document.getElementById('mobile-notifications-view')?.style.display !== 'block') {
+      const homeSec = document.getElementById('mobile-home-view');
+      if (homeSec) homeSec.style.display = 'block';
+    }
+  }, 150);
+});
+
+// Unified section navigation (works consistently on both Desktop and Mobile)
+window.navigateToSection = function(sectionId, mobileTitle = '') {
+  if (window.innerWidth <= 768 && typeof window.mobileNavigateTo === 'function') {
+    window.mobileNavigateTo(sectionId, mobileTitle);
+    return;
+  }
+  const tab = document.querySelector(`.tab-btn[data-target="${sectionId}"]`);
+  if (tab) {
+    tab.click();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 };
 
 function updateNavTabVisibility() {
@@ -316,7 +538,7 @@ function updatePermissionBanner() {
         <span style="font-size: 1.2rem;">🔒</span>
         <div>
           <strong>โหมดอ่านอย่างเดียว (Read-Only):</strong> 
-          งานวิจัยนี้สร้างโดย <u>${project.ownerName}</u> ท่านสามารถเปิดดูผลและกราฟได้ แต่ไม่สามารถแก้ไขหรือลบข้อมูลได้
+          งานวิจัยนี้สร้างโดย <u>${escapeHtml(project.ownerName)}</u> ท่านสามารถเปิดดูผลและกราฟได้ แต่ไม่สามารถแก้ไขหรือลบข้อมูลได้
         </div>
       `;
       enableFormInputs(false);
@@ -368,7 +590,7 @@ function renderProjectSelector(adminResearcherFilter = null) {
     adminFilterSelect.innerHTML = `
       <option value="ALL">👥 นักวิจัยทุกคน (All)</option>
       ${distinctResearchers.map(r => `
-        <option value="${r.uid}" ${r.uid === currentFilterVal ? 'selected' : ''}>${r.name}</option>
+        <option value="${escapeHtml(r.uid)}" ${r.uid === currentFilterVal ? 'selected' : ''}>${escapeHtml(r.name)}</option>
       `).join('')}
     `;
     adminFilterSelect.value = currentFilterVal;
@@ -396,10 +618,9 @@ function renderProjectSelector(adminResearcherFilter = null) {
   }
 
   selector.innerHTML = filteredProjects.map(p => {
-    const isOwner = p.ownerId === state.currentUser?.uid;
-    const ownerLabel = isAdmin ? ` [${p.ownerName}]` : '';
-    return `<option value="${p.id}" ${p.id === state.currentProjectId ? 'selected' : ''}>
-      ${p.experimentNo} (${p.batchMediumNo}) - D=${p.conditionParams.dilutionRateD}${ownerLabel}
+    const ownerLabel = isAdmin ? ` [${escapeHtml(p.ownerName)}]` : '';
+    return `<option value="${escapeHtml(p.id)}" ${p.id === state.currentProjectId ? 'selected' : ''}>
+      ${escapeHtml(p.experimentNo)} (${escapeHtml(p.batchMediumNo)}) - D=${escapeHtml(p.conditionParams?.dilutionRateD)}${ownerLabel}
     </option>`;
   }).join('');
 
@@ -516,8 +737,8 @@ window.openAddCustomTimepointModal = function() {
       state.selectedTime = newHour;
 
       persistState();
-      if (window.FirebaseSync && typeof window.FirebaseSync.syncUser === 'function') {
-        window.FirebaseSync.syncUser(u);
+      if (window.FirebaseSync && typeof window.FirebaseSync.syncProject === 'function') {
+        window.FirebaseSync.syncProject(p);
       }
       window.labAudio.playSuccess();
       logAction('ADD_TIMEPOINT', `เพิ่มจุดเวลาจัดเก็บตัวอย่าง ${newHour}h ในโปรเจกต์ ${p.experimentNo}`);
@@ -677,8 +898,8 @@ window.saveHeaderEdits = function() {
   }
 
   persistState();
-  if (window.FirebaseSync && typeof window.FirebaseSync.syncSample === 'function') {
-    window.FirebaseSync.syncSample(sample);
+  if (window.FirebaseSync && typeof window.FirebaseSync.syncProject === 'function') {
+    window.FirebaseSync.syncProject(p);
   }
   window.labAudio.playSuccess();
   logAction('UPDATE_PROJECT_HEADER', `แก้ไขข้อมูลตั้งต้น ${p.experimentNo} (${p.batchMediumNo}) [น้ำตาลขาเข้า: ${p.inletMolassesSugar} g/L, Brix: ${p.initialBrix}]`);
@@ -714,19 +935,19 @@ window.renderFeedLogsTable = function() {
 
   tbody.innerHTML = p.feedLogs.map((log, idx) => `
     <tr>
-      <td><strong>${log.dateTime || '-'}</strong></td>
-      <td><span class="badge badge-navy">${log.medium || '-'}</span></td>
-      <td><strong>${log.feedNo || '-'}</strong></td>
-      <td style="text-align: center; color: #b45309; font-weight: 700;">${log.brix !== undefined ? log.brix + ' °Bx' : '-'}</td>
-      <td style="text-align: right; color: #059669; font-weight: 600;">${log.initialVol || '-'}</td>
-      <td style="text-align: right; color: #1e40af; font-weight: 700;">${log.remainingVol || '-'}</td>
-      <td style="color: #475569; font-size: 0.8rem;">${log.remarks || '-'}</td>
+      <td><strong>${escapeHtml(log.dateTime || '-')}</strong></td>
+      <td><span class="badge badge-navy">${escapeHtml(log.medium || '-')}</span></td>
+      <td><strong>${escapeHtml(log.feedNo || '-')}</strong></td>
+      <td style="text-align: center; color: #b45309; font-weight: 700;">${log.brix !== undefined ? escapeHtml(log.brix) + ' °Bx' : '-'}</td>
+      <td style="text-align: right; color: #059669; font-weight: 600;">${escapeHtml(log.initialVol || '-')}</td>
+      <td style="text-align: right; color: #1e40af; font-weight: 700;">${escapeHtml(log.remainingVol || '-')}</td>
+      <td style="color: #475569; font-size: 0.8rem;">${escapeHtml(log.remarks || '-')}</td>
       <td style="text-align: center;">
         <div style="display: flex; gap: 4px; justify-content: center;">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="openAddFeedLogModal('${log.id}')" style="padding: 3px 6px; font-size: 0.72rem;" ${!editable ? 'disabled title="ไม่มีสิทธิ์แก้ไข"' : ''}>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openAddFeedLogModal('${escapeHtml(log.id)}')" style="padding: 3px 6px; font-size: 0.72rem;" ${!editable ? 'disabled title="ไม่มีสิทธิ์แก้ไข"' : ''}>
             ✏️
           </button>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="deleteFeedLogEntry('${log.id}')" style="padding: 3px 6px; font-size: 0.72rem; color: #ef4444;" ${!editable ? 'disabled title="ไม่มีสิทธิ์ลบ"' : ''}>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="deleteFeedLogEntry('${escapeHtml(log.id)}')" style="padding: 3px 6px; font-size: 0.72rem; color: #ef4444;" ${!editable ? 'disabled title="ไม่มีสิทธิ์ลบ"' : ''}>
             🗑️
           </button>
         </div>
@@ -835,6 +1056,9 @@ window.saveFeedLogEntry = function() {
   }
 
   persistState();
+  if (window.FirebaseSync && typeof window.FirebaseSync.syncProject === 'function') {
+    window.FirebaseSync.syncProject(p);
+  }
   if (window.labAudio) window.labAudio.playSuccess();
   closeAddFeedLogModal();
   renderFeedLogsTable();
@@ -863,6 +1087,9 @@ window.deleteFeedLogEntry = function(id) {
     if (res.isConfirmed) {
       p.feedLogs = p.feedLogs.filter(l => l.id !== id);
       persistState();
+      if (window.FirebaseSync && typeof window.FirebaseSync.syncProject === 'function') {
+        window.FirebaseSync.syncProject(p);
+      }
       renderFeedLogsTable();
       if (window.labAudio) window.labAudio.playWarning();
       showToast('ลบรายการ Feed อาหารเรียบร้อย', 'info');
@@ -1026,10 +1253,10 @@ window.deleteCurrentProject = function() {
   const projectSamples = state.samples.filter(s => s.projectId === p.id);
 
   Swal.fire({
-    title: `ลบโปรเจกต์ ${p.experimentNo}?`,
+    title: `ลบโปรเจกต์ ${escapeHtml(p.experimentNo)}?`,
     html: `
       <div style="text-align: left; font-size: 0.9rem; line-height: 1.6;">
-        <p>• <strong>Batch Medium:</strong> ${p.batchMediumNo}</p>
+        <p>• <strong>Batch Medium:</strong> ${escapeHtml(p.batchMediumNo)}</p>
         <p>• <strong>ข้อมูลตัวอย่างทั้งหมด:</strong> ${projectSamples.length} แถว</p>
         <p style="color: #b91c1c; margin-top: 8px;">
           ⚠️ โปรเจกต์และข้อมูลดิบทุกแถวในโปรเจกต์นี้จะถูกลบออกจากฐานข้อมูล
@@ -1405,6 +1632,10 @@ window.loadCDWExampleData = function() {
 };
 
 window.saveCDWToCurrentSample = function() {
+  if (!canEditCurrentProject()) {
+    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    return;
+  }
   const res = calcCDWFromInputs();
   if (res.cdw <= 0) {
     Swal.fire({
@@ -1452,6 +1683,9 @@ window.saveCDWToCurrentSample = function() {
   if (mobCdwIn) mobCdwIn.value = cdwFixed;
 
   persistState();
+  if (window.FirebaseSync && typeof window.FirebaseSync.syncSample === 'function') {
+    window.FirebaseSync.syncSample(sample);
+  }
   if (window.labAudio) window.labAudio.playSuccess();
   closeCDWModal();
   calculateCellKinetics();
@@ -2032,8 +2266,8 @@ function syncDataRecordProjectFilter() {
   filterSelect.innerHTML = `
     <option value="ALL">📂 ทุกโปรเจกต์ (All Projects)</option>
     ${availableProjects.map(p => `
-      <option value="${p.id}" ${p.id === currentVal ? 'selected' : ''}>
-        ${p.experimentNo} (${p.batchMediumNo}) - D=${p.conditionParams.dilutionRateD}${isAdmin ? ` [${p.ownerName}]` : ''}
+      <option value="${escapeHtml(p.id)}" ${p.id === currentVal ? 'selected' : ''}>
+        ${escapeHtml(p.experimentNo)} (${escapeHtml(p.batchMediumNo)}) - D=${escapeHtml(p.conditionParams?.dilutionRateD)}${isAdmin ? ` [${escapeHtml(p.ownerName)}]` : ''}
       </option>
     `).join('')}
   `;
@@ -2063,7 +2297,7 @@ window.handleDataRecordSort = function(field) {
 };
 
 function updateDataRecordSortIcons() {
-  const fields = ['tank', 'time', 'brix', 'sugarConvert', 'sucrose', 'glucose', 'fructose', 'ethanol', 'glycerol', 'cellCount', 'buddingPct', 'viabilityPct'];
+  const fields = ['tank', 'time', 'brix', 'sugarConvert', 'sucrose', 'glucose', 'fructose', 'ethanol', 'glycerol', 'cellCount', 'buddingPct', 'viabilityPct', 'cellDryWeight'];
   const activeField = state.dataRecordSort?.field || 'tank';
   const activeDir = state.dataRecordSort?.dir || 'asc';
 
@@ -2103,12 +2337,24 @@ function renderDataRecordTable() {
   const tbody = document.getElementById('data-record-tbody');
   if (!tbody) return;
 
+  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+  const ownedProjectIds = new Set(
+    (state.projects || [])
+      .filter(p => isAdmin || p.ownerId === state.currentUser?.uid)
+      .map(p => p.id)
+  );
+
   const filterProject = document.getElementById('data-record-project-filter')?.value || state.currentProjectId;
   const filterTank = document.getElementById('data-record-tank-filter')?.value || 'ALL';
   const filterTime = document.getElementById('data-record-time-filter')?.value || 'ALL';
   const searchQuery = (document.getElementById('data-record-search-input')?.value || '').trim().toLowerCase();
 
   const filteredSamples = state.samples.filter(s => {
+    const projId = s.projectId || state.currentProjectId;
+    if (!isAdmin && !ownedProjectIds.has(projId)) {
+      return false;
+    }
+
     // Project filter
     if (filterProject !== 'ALL' && s.projectId && s.projectId !== filterProject) {
       return false;
@@ -2182,27 +2428,31 @@ function renderDataRecordTable() {
   tbody.innerHTML = filteredSamples.map(s => {
     const tankDef = window.LAB_TANKS.find(t => t.id === s.tank) || { color: '#0f3d7a' };
     const pId = s.projectId || state.currentProjectId;
+    const rowEditable = canEditProject(pId);
+    const safeTank = escapeHtml(s.tank);
+    const safePid = escapeHtml(pId);
+    const timeNum = Number(s.time) || 0;
     return `
       <tr>
-        <td><strong><span style="color: ${tankDef.color};">●</span> ${s.tank}</strong></td>
-        <td><strong>${s.time} h</strong></td>
-        <td>${s.brix !== undefined ? s.brix : '-'}</td>
+        <td><strong><span style="color: ${tankDef.color};">●</span> ${safeTank}</strong></td>
+        <td><strong>${timeNum} h</strong></td>
+        <td>${s.brix !== undefined && s.brix !== null ? escapeHtml(s.brix) : '-'}</td>
         <td><strong>${s.sugarConvert !== undefined && s.sugarConvert !== null ? Number(s.sugarConvert).toFixed(3) : '-'}</strong></td>
-        <td>${s.sucrose !== undefined ? s.sucrose : '-'}</td>
-        <td>${s.glucose !== undefined ? s.glucose : '-'}</td>
-        <td>${s.fructose !== undefined ? s.fructose : '-'}</td>
-        <td><strong style="color: #ea580c;">${s.ethanol !== undefined ? s.ethanol : '-'}</strong></td>
-        <td>${s.glycerol !== undefined ? s.glycerol : '-'}</td>
+        <td>${s.sucrose !== undefined && s.sucrose !== null ? escapeHtml(s.sucrose) : '-'}</td>
+        <td>${s.glucose !== undefined && s.glucose !== null ? escapeHtml(s.glucose) : '-'}</td>
+        <td>${s.fructose !== undefined && s.fructose !== null ? escapeHtml(s.fructose) : '-'}</td>
+        <td><strong style="color: #ea580c;">${s.ethanol !== undefined && s.ethanol !== null ? escapeHtml(s.ethanol) : '-'}</strong></td>
+        <td>${s.glycerol !== undefined && s.glycerol !== null ? escapeHtml(s.glycerol) : '-'}</td>
         <td>${s.cellCount ? formatCfuDisplay(s.cellCount) : '-'}</td>
-        <td>${s.buddingPct ? s.buddingPct + '%' : '11.1%'}</td>
-        <td>${s.viabilityPct ? s.viabilityPct + '%' : '97.4%'}</td>
-        <td style="color: #92400e; font-weight: 700;">${s.cellDryWeight !== undefined ? s.cellDryWeight + ' g/L' : '-'}</td>
+        <td>${s.buddingPct !== undefined && s.buddingPct !== null ? escapeHtml(s.buddingPct) + '%' : '-'}</td>
+        <td>${s.viabilityPct !== undefined && s.viabilityPct !== null ? escapeHtml(s.viabilityPct) + '%' : '-'}</td>
+        <td style="color: #92400e; font-weight: 700;">${s.cellDryWeight !== undefined && s.cellDryWeight !== null ? escapeHtml(s.cellDryWeight) + ' g/L' : '-'}</td>
         <td>
           <div style="display: flex; gap: 6px;">
-            <button class="btn btn-sm btn-secondary" onclick="editDataRecordRow('${s.tank}', ${s.time}, '${pId}')" ${!editable ? 'disabled title="ไม่มีสิทธิ์แก้ไข"' : ''}>
+            <button class="btn btn-sm btn-secondary" onclick="editDataRecordRow('${safeTank}', ${timeNum}, '${safePid}')" ${!rowEditable ? 'disabled title="ไม่มีสิทธิ์แก้ไข"' : ''}>
               ✏️
             </button>
-            <button class="btn btn-sm btn-secondary" onclick="deleteDataRecordRow('${s.tank}', ${s.time}, '${pId}')" style="color: #ef4444;" ${!editable ? 'disabled title="ไม่มีสิทธิ์ลบ"' : ''}>
+            <button class="btn btn-sm btn-secondary" onclick="deleteDataRecordRow('${safeTank}', ${timeNum}, '${safePid}')" style="color: #ef4444;" ${!rowEditable ? 'disabled title="ไม่มีสิทธิ์ลบ"' : ''}>
               🗑️
             </button>
           </div>
@@ -2213,12 +2463,12 @@ function renderDataRecordTable() {
 }
 
 window.editDataRecordRow = function(tank, time, projectId) {
-  if (!canEditCurrentProject()) {
+  const targetProjectId = projectId || state.currentProjectId;
+  if (!canEditProject(targetProjectId)) {
     Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
     return;
   }
 
-  const targetProjectId = projectId || state.currentProjectId;
   const s = state.samples.find(x => (x.projectId === targetProjectId || !x.projectId) && x.tank === tank && x.time === time);
   if (!s) return;
 
@@ -2308,21 +2558,21 @@ window.editDataRecordRow = function(tank, time, projectId) {
 };
 
 window.deleteDataRecordRow = function(tank, time, projectId) {
-  if (!canEditCurrentProject()) {
+  const targetProjectId = projectId || state.currentProjectId;
+  if (!canEditProject(targetProjectId)) {
     Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์ลบ', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
     return;
   }
 
-  const targetProjectId = projectId || state.currentProjectId;
   const sampleToDelete = state.samples.find(x => (x.projectId === targetProjectId || !x.projectId) && x.tank === tank && x.time === time);
   if (!sampleToDelete) return;
 
   Swal.fire({
-    title: `ลบตัวอย่าง ${tank} @ ${time}h?`,
+    title: `ลบตัวอย่าง ${escapeHtml(tank)} @ ${escapeHtml(time)}h?`,
     html: `
       <div style="text-align: left; font-size: 0.9rem; line-height: 1.6;">
-        <p>• ถังหมัก: <strong>${tank}</strong> | เวลา: <strong>${time} h</strong></p>
-        <p>• โปรเจกต์: <strong>${targetProjectId}</strong></p>
+        <p>• ถังหมัก: <strong>${escapeHtml(tank)}</strong> | เวลา: <strong>${escapeHtml(time)} h</strong></p>
+        <p>• โปรเจกต์: <strong>${escapeHtml(targetProjectId)}</strong></p>
         <p style="color: #b91c1c; margin-top: 8px;">
           ⚠️ ข้อมูลแถวนี้จะถูกลบออกจากฐานข้อมูล
           <br><strong>(ท่านสามารถกู้คืนย้อนหลังได้ทุกเมื่อผ่านปุ่ม "กู้คืนข้อมูล" ใน Data Log)</strong>
@@ -2358,11 +2608,19 @@ window.deleteDataRecordRow = function(tank, time, projectId) {
 };
 
 window.exportDataRecordCSV = function() {
+  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+  const ownedProjectIds = new Set(
+    (state.projects || [])
+      .filter(p => isAdmin || p.ownerId === state.currentUser?.uid)
+      .map(p => p.id)
+  );
   const filterProject = document.getElementById('data-record-project-filter')?.value || state.currentProjectId;
   const filterTank = document.getElementById('data-record-tank-filter')?.value || 'ALL';
   const filterTime = document.getElementById('data-record-time-filter')?.value || 'ALL';
 
   const exportList = state.samples.filter(s => {
+    const projId = s.projectId || state.currentProjectId;
+    if (!isAdmin && !ownedProjectIds.has(projId)) return false;
     if (filterProject !== 'ALL' && s.projectId && s.projectId !== filterProject) return false;
     if (filterTank !== 'ALL' && s.tank !== filterTank) return false;
     if (filterTime !== 'ALL' && s.time !== parseFloat(filterTime)) return false;
@@ -2385,16 +2643,18 @@ window.exportDataRecordCSV = function() {
     s.buddingPct ?? '',
     s.viabilityPct ?? '',
     s.cellDryWeight ?? ''
-  ]);
+  ].map(csvSafe));
 
-  let csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-  const encodedUri = encodeURI(csvContent);
+  const csvBody = '\uFEFF' + [headers.map(csvSafe).join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csvBody], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  link.setAttribute('href', encodedUri);
+  link.setAttribute('href', url);
   link.setAttribute('download', `MitrPhol_DataRecords_${new Date().toISOString().slice(0,10)}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 
   window.labAudio.playSuccess();
   showToast(`ส่งออกข้อมูล CSV (${exportList.length} แถว) เรียบร้อย`, 'success');
@@ -2407,23 +2667,27 @@ function renderUserManagementTable() {
   const tbody = document.getElementById('user-management-tbody');
   if (!tbody) return;
 
-  tbody.innerHTML = state.users.map(u => `
+  tbody.innerHTML = state.users.map(u => {
+    const role = u.role || 'user';
+    const uidSafe = escapeHtml(u.uid);
+    return `
     <tr>
-      <td><strong>${u.username || u.uid}</strong></td>
-      <td>${u.displayName}</td>
-      <td>${u.email}</td>
-      <td><span class="user-role-badge role-${u.role === 'admin' ? 'admin' : 'researcher'}">${u.role.toUpperCase()}</span></td>
+      <td><strong>${escapeHtml(u.username || u.uid)}</strong></td>
+      <td>${escapeHtml(u.displayName)}</td>
+      <td>${escapeHtml(u.email)}</td>
+      <td><span class="user-role-badge role-${role === 'admin' ? 'admin' : 'researcher'}">${escapeHtml(role.toUpperCase())}</span></td>
       <td><code>••••••••</code></td>
       <td>
         <div style="display: flex; gap: 6px;">
-          <button class="btn btn-sm btn-secondary" onclick="editUserModal('${u.uid}')">แก้ไข</button>
-          <button class="btn btn-sm btn-secondary" onclick="deleteUser('${u.uid}')" style="color: #ef4444;" ${u.uid === state.currentUser?.uid || u.username === 'admin' ? 'disabled title="ไม่สามารถลบบัญชีของตนเองหรือ Admin หลักได้"' : ''}>
+          <button class="btn btn-sm btn-secondary" onclick="editUserModal('${uidSafe}')">แก้ไข</button>
+          <button class="btn btn-sm btn-secondary" onclick="deleteUser('${uidSafe}')" style="color: #ef4444;" ${u.uid === state.currentUser?.uid || u.username === 'admin' ? 'disabled title="ไม่สามารถลบบัญชีของตนเองหรือ Admin หลักได้"' : ''}>
             ลบ
           </button>
         </div>
       </td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 }
 
 window.openAddUserModal = function() {
@@ -2478,11 +2742,11 @@ window.openAddUserModal = function() {
         return false;
       }
       if (state.users.some(x => (x.username && x.username.toLowerCase() === username) || x.uid === username)) {
-        Swal.showValidationMessage(`Username "${username}" มีผู้ใช้งานแล้วในระบบ`);
+        Swal.showValidationMessage(`Username "${escapeHtml(username)}" มีผู้ใช้งานแล้วในระบบ`);
         return false;
       }
       if (state.users.some(x => x.email && x.email.toLowerCase() === email)) {
-        Swal.showValidationMessage(`Email "${email}" มีผู้ใช้งานแล้วในระบบ`);
+        Swal.showValidationMessage(`Email "${escapeHtml(email)}" มีผู้ใช้งานแล้วในระบบ`);
         return false;
       }
       return { username, name, email, password, role };
@@ -2490,21 +2754,13 @@ window.openAddUserModal = function() {
   }).then(async (res) => {
     if (res.isConfirmed) {
       const u = res.value;
-      let pwdHash = '';
-      try {
-        const msgBuffer = new TextEncoder().encode(u.password);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-        pwdHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-      } catch (e) {
-        console.warn('Crypto SHA-256:', e);
-      }
+      const pwdHash = await sha256Hex(u.password);
 
       const newUser = {
         uid: 'usr_' + Date.now(),
         username: u.username,
         displayName: u.name,
         email: u.email,
-        password: u.password,
         passwordHash: pwdHash,
         role: u.role
       };
@@ -2523,24 +2779,28 @@ window.openAddUserModal = function() {
 };
 
 window.editUserModal = function(uid) {
+  if (!state.currentUser || state.currentUser.role !== 'admin') {
+    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์', text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถแก้ไขบัญชีผู้ใช้ได้' });
+    return;
+  }
   const u = state.users.find(x => x.uid === uid);
   if (!u) return;
 
   Swal.fire({
-    title: `แก้ไขผู้ใช้งาน: ${u.displayName}`,
+    title: `แก้ไขผู้ใช้งาน: ${escapeHtml(u.displayName)}`,
     html: `
       <div style="text-align: left; font-size: 0.88rem;">
         <div class="form-group">
           <label class="form-label">ชื่อผู้ใช้ (Username / ID):</label>
-          <input type="text" id="swal-edit-username" class="form-input" value="${u.username || ''}" ${u.username === 'admin' ? 'readonly' : ''}>
+          <input type="text" id="swal-edit-username" class="form-input" value="${escapeHtml(u.username || '')}" ${u.username === 'admin' ? 'readonly' : ''}>
         </div>
         <div class="form-group">
           <label class="form-label">ชื่อ-นามสกุล:</label>
-          <input type="text" id="swal-edit-name" class="form-input" value="${u.displayName}">
+          <input type="text" id="swal-edit-name" class="form-input" value="${escapeHtml(u.displayName)}">
         </div>
         <div class="form-group">
           <label class="form-label">อีเมล (Email):</label>
-          <input type="email" id="swal-edit-email" class="form-input" value="${u.email}">
+          <input type="email" id="swal-edit-email" class="form-input" value="${escapeHtml(u.email)}">
         </div>
         <div class="form-group">
           <label class="form-label">รหัสผ่านใหม่ (ว่างไว้หากไม่เปลี่ยน):</label>
@@ -2576,16 +2836,10 @@ window.editUserModal = function(uid) {
       if (res.value.username && u.username !== 'admin') u.username = res.value.username;
       u.displayName = res.value.name;
       u.email = res.value.email;
-      u.role = res.value.role;
+      u.role = u.username === 'admin' ? 'admin' : res.value.role;
+      delete u.password;
       if (res.value.newPwd) {
-        u.password = res.value.newPwd;
-        try {
-          const msgBuffer = new TextEncoder().encode(res.value.newPwd);
-          const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-          u.passwordHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-        } catch (e) {
-          console.warn('Crypto SHA-256:', e);
-        }
+        u.passwordHash = await sha256Hex(res.value.newPwd);
       }
 
       persistState();
@@ -2602,16 +2856,20 @@ window.editUserModal = function(uid) {
 };
 
 window.deleteUser = function(uid) {
+  if (!state.currentUser || state.currentUser.role !== 'admin') {
+    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์', text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถลบบัญชีผู้ใช้ได้' });
+    return;
+  }
   const u = state.users.find(x => x.uid === uid);
   if (!u) return;
 
-  if (u.uid === state.currentUser?.uid) {
-    Swal.fire({ icon: 'error', title: 'ไม่สามารถลบได้', text: 'ไม่สามารถลบบัญชีที่กำลังล็อกอินอยู่ได้' });
+  if (u.uid === state.currentUser?.uid || u.username === 'admin') {
+    Swal.fire({ icon: 'error', title: 'ไม่สามารถลบได้', text: 'ไม่สามารถลบบัญชีที่กำลังล็อกอินอยู่หรือบัญชี Admin หลักได้' });
     return;
   }
 
   Swal.fire({
-    title: `ลบผู้ใช้งาน ${u.displayName}?`,
+    title: `ลบผู้ใช้งาน ${escapeHtml(u.displayName)}?`,
     text: 'ผู้ใช้นี้จะไม่สามารถเข้าสู่ระบบได้อีกต่อไป',
     icon: 'warning',
     showCancelButton: true,
@@ -2727,7 +2985,7 @@ function renderOptimizerView() {
 
     adminFilterSelect.innerHTML = `
       <option value="ALL">🌐 ทุกคน (เปรียบเทียบและเชื่อมโยงข้อมูลระหว่างบุคคล)</option>
-      ${optResearchers.map(r => `<option value="${r.uid}" ${r.uid === currentOptVal ? 'selected' : ''}>👤 ${r.name}</option>`).join('')}
+      ${optResearchers.map(r => `<option value="${escapeHtml(r.uid)}" ${r.uid === currentOptVal ? 'selected' : ''}>👤 ${escapeHtml(r.name)}</option>`).join('')}
     `;
     adminFilterSelect.value = currentOptVal;
 
@@ -2752,8 +3010,8 @@ function renderOptimizerView() {
       scopeBadge.innerHTML = '🌐 เปรียบเทียบและเชื่อมโยงข้อมูลทุกไอดี (Admin Cross-Link Mode)';
     } else if (isAdmin) {
       scopeBadge.className = 'badge badge-navy';
-      const activeName = (state.users.find(u => u.uid === (adminFilterSelect?.value || currentUserId))?.displayName) || (state.currentUser?.displayName || 'นักวิจัย');
-      scopeBadge.innerHTML = `👤 เฉพาะงานวิจัยของ: ${activeName}`;
+      const activeName = (state.users.find(u => u.uid === (adminFilterSelect?.value || currentUserId))?.displayName) || 'นักวิจัย';
+      scopeBadge.innerHTML = `👤 เฉพาะงานวิจัยของ: ${escapeHtml(activeName)}`;
     } else {
       scopeBadge.className = 'badge badge-navy';
       scopeBadge.innerHTML = '👤 เฉพาะงานวิจัยของตนเอง';
@@ -2788,19 +3046,20 @@ function renderOptimizerView() {
   }
   if (winnerDesc && bestCond) {
     winnerDesc.innerHTML = `
-      ให้ผลได้เอทานอลสูงสุด <strong>${bestCond.maxEthanolGPerL} g/L</strong>, 
-      ผลได้ต่อน้ำตาล <strong>Yield (Yp/s) = ${bestCond.yieldYps} g/g</strong> 
-      และอัตราผลิต <strong>Productivity = ${bestCond.productivityQp} g/L·h</strong>
-      ${isComparingAll ? `<br><span style="color: #059669; font-weight: 700;">🔗 เชื่อมโยงข้อมูลผู้สร้าง: ${bestCond.researcher} (${bestCond.ownerId})</span>` : ''}
+      ให้ผลได้เอทานอลสูงสุด <strong>${escapeHtml(bestCond.maxEthanolGPerL)} g/L</strong>, 
+      ผลได้ต่อน้ำตาล <strong>Yield (Yp/s) = ${escapeHtml(bestCond.yieldYps)} g/g</strong> 
+      และอัตราผลิต <strong>Productivity = ${escapeHtml(bestCond.productivityQp)} g/L·h</strong>
+      ${isComparingAll ? `<br><span style="color: #059669; font-weight: 700;">🔗 เชื่อมโยงข้อมูลผู้สร้าง: ${escapeHtml(bestCond.researcher)} (${escapeHtml(bestCond.ownerId)})</span>` : ''}
     `;
   }
   if (winnerBtn && bestCond) {
-    winnerBtn.setAttribute('onclick', `viewConditionDetails('${bestCond.conditionKey}')`);
+    winnerBtn.onclick = () => viewConditionDetails(bestCond.conditionKey);
   }
 
   container.innerHTML = displayedConditions.map((cond, idx) => {
     const isWinner = bestCond && cond.conditionKey === bestCond.conditionKey;
-    const researcherPill = isComparingAll ? `<div style="font-size: 0.76rem; color: #64748b; margin-top: 2px;">👤 ${cond.researcher}</div>` : '';
+    const researcherPill = isComparingAll ? `<div style="font-size: 0.76rem; color: #64748b; margin-top: 2px;">👤 ${escapeHtml(cond.researcher)}</div>` : '';
+    const safeKey = escapeHtml(cond.conditionKey);
     return `
       <tr style="${isWinner ? 'background: #fffbeb; font-weight: 600;' : ''}">
         <td>
@@ -2808,19 +3067,19 @@ function renderOptimizerView() {
             <div style="display: flex; align-items: center; gap: 8px;">
               <span>${idx + 1}</span>
               ${isWinner ? '<span class="badge badge-best-condition">🏆 Best Condition</span>' : ''}
-              <span>${cond.conditionKey}</span>
+              <span>${safeKey}</span>
             </div>
             ${researcherPill}
           </div>
         </td>
-        <td><strong>${cond.dilutionRateD}</strong></td>
-        <td>${cond.maxEthanolGPerL} g/L</td>
-        <td><span class="badge ${isWinner ? 'badge-gold' : 'badge-navy'}">${cond.yieldYps} g/g</span></td>
-        <td><strong>${cond.productivityQp}</strong> g/L·h</td>
-        <td>${cond.sugarConversionPct} %</td>
-        <td>${cond.cellViabilityPct} %</td>
+        <td><strong>${escapeHtml(cond.dilutionRateD)}</strong></td>
+        <td>${escapeHtml(cond.maxEthanolGPerL)} g/L</td>
+        <td><span class="badge ${isWinner ? 'badge-gold' : 'badge-navy'}">${escapeHtml(cond.yieldYps)} g/g</span></td>
+        <td><strong>${escapeHtml(cond.productivityQp)}</strong> g/L·h</td>
+        <td>${escapeHtml(cond.sugarConversionPct)} %</td>
+        <td>${escapeHtml(cond.cellViabilityPct)} %</td>
         <td>
-          <button class="btn btn-sm btn-secondary" onclick="viewConditionDetails('${cond.conditionKey}')">
+          <button class="btn btn-sm btn-secondary" onclick="viewConditionDetails('${safeKey}')">
             ดูรายละเอียด
           </button>
         </td>
@@ -2888,14 +3147,14 @@ window.viewConditionDetails = function(condKey) {
   if (!item) return;
 
   Swal.fire({
-    title: `วิเคราะห์สภาวะ ${item.conditionKey}`,
+    title: `วิเคราะห์สภาวะ ${escapeHtml(item.conditionKey)}`,
     html: `
       <div style="text-align: left; font-size: 0.9rem; line-height: 1.8;">
-        <p>• <strong>Dilution Rate (D):</strong> ${item.dilutionRateD} h⁻¹</p>
-        <p>• <strong>Max Ethanol Produced:</strong> ${item.maxEthanolGPerL} g/L</p>
-        <p>• <strong>Ethanol Yield (Yp/s):</strong> ${item.yieldYps} g/g (ทฤษฎี Gay-Lussac สูงสุด 0.511)</p>
-        <p>• <strong>Productivity (Qp):</strong> ${item.productivityQp} g/L·h</p>
-        <p>• <strong>Sugar Conversion:</strong> ${item.sugarConversionPct}%</p>
+        <p>• <strong>Dilution Rate (D):</strong> ${escapeHtml(item.dilutionRateD)} h⁻¹</p>
+        <p>• <strong>Max Ethanol Produced:</strong> ${escapeHtml(item.maxEthanolGPerL)} g/L</p>
+        <p>• <strong>Ethanol Yield (Yp/s):</strong> ${escapeHtml(item.yieldYps)} g/g (ทฤษฎี Gay-Lussac สูงสุด 0.511)</p>
+        <p>• <strong>Productivity (Qp):</strong> ${escapeHtml(item.productivityQp)} g/L·h</p>
+        <p>• <strong>Sugar Conversion:</strong> ${escapeHtml(item.sugarConversionPct)}%</p>
         <p>• <strong>สรุปผล:</strong> ${item.isBest ? '<strong>สภาวะที่ดีที่สุดสำหรับกระบวนการหมักต่อเนื่องของมิตรผล</strong> เนื่องจากให้อัตราผลได้เอทานอลสูงสุด และความอยู่รอดของเซลล์ยีสต์สม่ำเสมอ' : 'มีประสิทธิภาพตามพารามิเตอร์ที่ทดสอบ'}</p>
       </div>
     `,
@@ -2953,7 +3212,7 @@ function updateSlideContent() {
   if (counterEl) counterEl.textContent = `Slide ${state.slideIndex} of ${state.totalSlides}`;
   const container = document.getElementById('slide-inner-content');
   if (!container) return;
-  const project = state.projects.find(p => p.id === state.currentProjectId) || state.projects[0];
+  const project = state.projects.find(p => p.id === state.currentProjectId) || state.projects[0] || {};
 
   if (state.slideIndex === 1) {
     container.innerHTML = `
@@ -2962,14 +3221,14 @@ function updateSlideContent() {
           Mitr Phol Biotech Research & Development
         </span>
         <h1 style="font-size: 2rem; color: #0a2540; margin: 16px 0;">รายงานสรุปผลการทดลองการหมักชีวภาพต่อเนื่อง</h1>
-        <h3 style="color: #475569; font-weight: 500;">Batch: ${project.batchMediumNo || '-'} | Experiment: ${project.experimentNo || '-'}</h3>
+        <h3 style="color: #475569; font-weight: 500;">Batch: ${escapeHtml(project.batchMediumNo || '-')} | Experiment: ${escapeHtml(project.experimentNo || '-')}</h3>
         
         <div style="max-width: 650px; margin: 30px auto; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; text-align: left;">
-          <p><strong>• สภาวะการทดลอง (Condition):</strong> ${project.conditionText || '-'}</p>
-          <p>• <strong>สัดส่วน Feed Culture:</strong> ${project.conditionParams ? project.conditionParams.feedCulture : '-'}</p>
-          <p>• <strong>สายพันธุ์ยีสต์ (Seed):</strong> ${project.seed || '-'}</p>
-          <p>• <strong>นักวิจัยผู้รับผิดชอบ:</strong> ${project.ownerName || '-'}</p>
-          <p>• <strong>วันที่เริ่มการทดลอง:</strong> ${project.date || '-'}</p>
+          <p><strong>• สภาวะการทดลอง (Condition):</strong> ${escapeHtml(project.conditionText || '-')}</p>
+          <p>• <strong>สัดส่วน Feed Culture:</strong> ${escapeHtml(project.conditionParams?.feedCulture || '-')}</p>
+          <p>• <strong>สายพันธุ์ยีสต์ (Seed):</strong> ${escapeHtml(project.seed || '-')}</p>
+          <p>• <strong>นักวิจัยผู้รับผิดชอบ:</strong> ${escapeHtml(project.ownerName || '-')}</p>
+          <p>• <strong>วันที่เริ่มการทดลอง:</strong> ${escapeHtml(project.date || '-')}</p>
         </div>
       </div>
     `;
@@ -3173,23 +3432,23 @@ function updateSlideContent() {
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
           <div class="kpi-stat-card" style="padding: 12px 14px;">
             <span class="kpi-label">น้ำตาลกากน้ำตาลขาเข้า (Inlet Sugar)</span>
-            <div class="kpi-value" style="color: #0f3d7a; font-size: 1.3rem;">${project.inletMolassesSugar !== undefined ? project.inletMolassesSugar + ' g/L' : '-'}</div>
-            <span class="kpi-desc">Initial Brix: ${project.initialBrix !== undefined ? project.initialBrix + '°' : '-'}</span>
+            <div class="kpi-value" style="color: #0f3d7a; font-size: 1.3rem;">${project.inletMolassesSugar !== undefined ? escapeHtml(project.inletMolassesSugar) + ' g/L' : '-'}</div>
+            <span class="kpi-desc">Initial Brix: ${project.initialBrix !== undefined ? escapeHtml(project.initialBrix) + '°' : '-'}</span>
           </div>
           <div class="kpi-stat-card" style="padding: 12px 14px;">
             <span class="kpi-label">ปริมาตรอาหารเตรียม / คงเหลือ</span>
-            <div class="kpi-value" style="color: #059669; font-size: 1.3rem;">${project.preparedVolume || '-'} / ${project.remainingVolume || '-'} L</div>
+            <div class="kpi-value" style="color: #059669; font-size: 1.3rem;">${escapeHtml(project.preparedVolume || '-')} / ${escapeHtml(project.remainingVolume || '-')} L</div>
             <span class="kpi-desc">ปริมาตรในถังเตรียมสารละลายอาหาร</span>
           </div>
           <div class="kpi-stat-card" style="padding: 12px 14px;">
             <span class="kpi-label">รอบการป้อนอาหาร (Feed Cycles)</span>
             <div class="kpi-value" style="color: #d97706; font-size: 1.3rem;">${totalCycles} รอบ</div>
-            <span class="kpi-desc">สูตรอาหาร: ${mediaSet.length > 0 ? mediaSet.join(', ') : 'BF.1, BF.2'} (เฉลี่ย ${avgBrix}°Bx)</span>
+            <span class="kpi-desc">สูตรอาหาร: ${mediaSet.length > 0 ? escapeHtml(mediaSet.join(', ')) : 'BF.1, BF.2'} (เฉลี่ย ${avgBrix}°Bx)</span>
           </div>
           <div class="kpi-stat-card" style="padding: 12px 14px;">
             <span class="kpi-label">อัตราป้อนอาหารเฉลี่ย (Feed Rate)</span>
             <div class="kpi-value" style="color: #7c3aed; font-size: 1.3rem;">150–200 mL/h</div>
-            <span class="kpi-desc">สอดคล้องกับ Dilution Rate D = ${project.conditionParams?.dilutionRateD || '0.022'} h⁻¹</span>
+            <span class="kpi-desc">สอดคล้องกับ Dilution Rate D = ${escapeHtml(project.conditionParams?.dilutionRateD || '0.022')} h⁻¹</span>
           </div>
         </div>
 
@@ -3211,14 +3470,14 @@ function updateSlideContent() {
             <tbody>
               ${feedLogs.length > 0 ? feedLogs.map((item, idx) => `
                 <tr>
-                  <td><strong>${item.date || '-'}</strong></td>
-                  <td>${item.time || '-'}</td>
-                  <td><span class="badge ${item.medium === 'BF.1' ? 'badge-navy' : 'badge-gold'}" style="font-size: 0.75rem;">${item.medium || '-'}</span></td>
-                  <td><strong>${item.feedNo || (idx + 1)}</strong></td>
-                  <td style="color: #d97706; font-weight: 600;">${item.brix !== undefined ? item.brix + '°' : '-'}</td>
-                  <td>${item.initialVolume || '-'}</td>
-                  <td>${item.remainingVolume || '-'}</td>
-                  <td>${item.remark ? `<span style="color: #059669; font-weight: 500;">${item.remark}</span>` : '-'}</td>
+                  <td><strong>${escapeHtml(item.date || item.dateTime || '-')}</strong></td>
+                  <td>${escapeHtml(item.time || '-')}</td>
+                  <td><span class="badge ${item.medium === 'BF.1' ? 'badge-navy' : 'badge-gold'}" style="font-size: 0.75rem;">${escapeHtml(item.medium || '-')}</span></td>
+                  <td><strong>${escapeHtml(item.feedNo || (idx + 1))}</strong></td>
+                  <td style="color: #d97706; font-weight: 600;">${item.brix !== undefined ? escapeHtml(item.brix) + '°' : '-'}</td>
+                  <td>${escapeHtml(item.initialVolume || item.initialVol || '-')}</td>
+                  <td>${escapeHtml(item.remainingVolume || item.remainingVol || '-')}</td>
+                  <td>${(item.remark || item.remarks) ? `<span style="color: #059669; font-weight: 500;">${escapeHtml(item.remark || item.remarks)}</span>` : '-'}</td>
                 </tr>
               `).join('') : `
                 <tr>
@@ -3508,7 +3767,7 @@ function syncAuditLogUserFilter() {
   userSelect.innerHTML = `
     <option value="ALL">ทุกคน (All Researchers)</option>
     ${Array.from(userSet).map(name => `
-      <option value="${name}" ${name === currentVal ? 'selected' : ''}>${name}</option>
+      <option value="${escapeHtml(name)}" ${name === currentVal ? 'selected' : ''}>${escapeHtml(name)}</option>
     `).join('')}
   `;
 }
@@ -3817,9 +4076,9 @@ function renderAuditLogs() {
     return `
       <tr>
         <td style="color: #64748b; font-size: 0.82rem; white-space: nowrap;">${new Date(log.timestamp).toLocaleString('th-TH')}</td>
-        <td><strong>${log.userName}</strong></td>
+        <td><strong>${escapeHtml(log.userName)}</strong></td>
         <td>${actionBadgeHtml}</td>
-        <td style="font-size: 0.85rem; line-height: 1.5;">${log.details}</td>
+        <td style="font-size: 0.85rem; line-height: 1.5;">${escapeHtml(log.details)}</td>
         <td style="text-align: center;">${restoreBtnHtml}</td>
       </tr>
     `;
@@ -3828,6 +4087,10 @@ function renderAuditLogs() {
 
 // Restore Function from Audit Trail (Requirement 3)
 window.restoreFromLog = function(logId) {
+  if (!state.currentUser || state.currentUser.role !== 'admin') {
+    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์', text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถกู้คืนข้อมูลได้' });
+    return;
+  }
   const log = state.auditLogs.find(l => l.id === logId);
   if (!log || !log.snapshot) return;
 
@@ -3837,7 +4100,7 @@ window.restoreFromLog = function(logId) {
     title: 'กู้คืนข้อมูลย้อนหลัง?',
     html: `
       <div style="text-align: left; font-size: 0.88rem; line-height: 1.65;">
-        <p>• <strong>การกระทำเดิม:</strong> ${log.details}</p>
+        <p>• <strong>การกระทำเดิม:</strong> ${escapeHtml(log.details)}</p>
         <p>• <strong>ประเภทข้อมูล:</strong> ${isProject ? 'โปรเจกต์งานวิจัยและข้อมูลทุกแถว' : 'ข้อมูลตัวอย่างแถวเดี่ยว'}</p>
         <p style="color: #059669; margin-top: 10px; font-weight: 600;">
           🛡️ ระบบจะนำข้อมูลนี้กลับคืนสู่ฐานข้อมูลทันที ป้องกันข้อมูลสูญหาย
@@ -3853,33 +4116,37 @@ window.restoreFromLog = function(logId) {
     if (res.isConfirmed) {
       if (log.snapshot.type === 'SAMPLE_ROW') {
         const row = log.snapshot.data;
-        // Remove existing duplicate if any, then insert restored row
         state.samples = state.samples.filter(x => !((x.projectId === row.projectId || !x.projectId) && x.tank === row.tank && x.time === row.time));
         state.samples.push(row);
+        if (window.FirebaseSync && typeof window.FirebaseSync.syncSample === 'function') {
+          window.FirebaseSync.syncSample(row);
+        }
         logAction('RESTORE_DATA', `กู้คืนข้อมูล ${row.tank} @ ${row.time}h (โปรเจกต์: ${row.projectId || state.currentProjectId})`);
       } else if (log.snapshot.type === 'PROJECT') {
         const proj = log.snapshot.project;
         const samples = log.snapshot.samples || [];
 
-        // Re-add project if missing
         if (!state.projects.some(p => p.id === proj.id)) {
           state.projects.unshift(proj);
         }
         state.currentProjectId = proj.id;
 
-        // Re-add samples without duplicates
         samples.forEach(s => {
           const exists = state.samples.some(x => (x.projectId === s.projectId || (!x.projectId && s.projectId === proj.id)) && x.tank === s.tank && x.time === s.time);
           if (!exists) state.samples.push(s);
         });
 
+        if (window.FirebaseSync && typeof window.FirebaseSync.syncProject === 'function') {
+          window.FirebaseSync.syncProject(proj);
+          samples.forEach(s => window.FirebaseSync.syncSample(s));
+        }
         logAction('RESTORE_DATA', `กู้คืนโปรเจกต์ ${proj.experimentNo} (${proj.batchMediumNo}) พร้อมข้อมูล ${samples.length} แถว`);
       }
 
       log.restored = true;
       persistState();
-      if (window.FirebaseSync && typeof window.FirebaseSync.syncUser === 'function') {
-        window.FirebaseSync.syncUser(u);
+      if (window.FirebaseSync && typeof window.FirebaseSync.syncLog === 'function') {
+        window.FirebaseSync.syncLog(log);
       }
       window.labAudio.playSuccess();
       renderAllDataViews();
@@ -4057,13 +4324,22 @@ window.openChartInfoModal = function(chartKey) {
 // Admin Backup, Restore & Clear Data (Requirements 4 & 7)
 // ==========================================================================
 window.exportFullSystemBackup = function(silent = false) {
+  if (!state.currentUser || state.currentUser.role !== 'admin') {
+    if (!silent) Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์', text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถส่งออกไฟล์ Backup ได้' });
+    return;
+  }
   const factorEl = document.getElementById('setting-haemacytometer-factor');
+  const safeUsers = (state.users || []).map(u => {
+    const copy = { ...u };
+    delete copy.password;
+    return copy;
+  });
   const backupData = {
     system: "Mitr Phol Fermentation Lab Tracker",
     version: "2.1.0",
     exportedAt: new Date().toISOString(),
     exportedBy: state.currentUser ? state.currentUser.displayName : 'Admin',
-    users: state.users,
+    users: safeUsers,
     projects: state.projects,
     samples: state.samples,
     auditLogs: state.auditLogs,
@@ -4107,18 +4383,31 @@ window.handleImportBackupFile = function(event) {
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
-      const data = JSON.parse(e.target.result);
-      if (!data.projects || !data.samples) {
+      const rawData = JSON.parse(e.target.result);
+      if (!rawData || typeof rawData !== 'object' || !Array.isArray(rawData.projects) || !Array.isArray(rawData.samples)) {
         throw new Error('โครงสร้างไฟล์ Backup ไม่ถูกต้อง (ขาดข้อมูล projects หรือ samples)');
       }
+      const stripUnsafeKeys = (obj) => {
+        if (Array.isArray(obj)) return obj.map(stripUnsafeKeys);
+        if (obj && typeof obj === 'object') {
+          const out = {};
+          for (const k of Object.keys(obj)) {
+            if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+            out[k] = stripUnsafeKeys(obj[k]);
+          }
+          return out;
+        }
+        return obj;
+      };
+      const data = stripUnsafeKeys(rawData);
 
       Swal.fire({
         title: 'ยืนยันการนำเข้าไฟล์ Backup?',
         html: `
           <div style="text-align: left; font-size: 0.88rem; line-height: 1.7;">
-            <p>• <strong>เวอร์ชันไฟล์:</strong> ${data.version || '1.0'}</p>
+            <p>• <strong>เวอร์ชันไฟล์:</strong> ${escapeHtml(data.version || '1.0')}</p>
             <p>• <strong>วันที่แบคอัพ:</strong> ${data.exportedAt ? new Date(data.exportedAt).toLocaleString('th-TH') : 'ไม่ระบุ'}</p>
-            <p>• <strong>ผู้ส่งออก:</strong> ${data.exportedBy || 'ไม่ระบุ'}</p>
+            <p>• <strong>ผู้ส่งออก:</strong> ${escapeHtml(data.exportedBy || 'ไม่ระบุ')}</p>
             <hr style="margin: 8px 0; border: none; border-top: 1px solid #e2e8f0;">
             <p>• โปรเจกต์ทั้งหมด: <strong>${data.projects.length}</strong> รายการ</p>
             <p>• ข้อมูลตัวอย่างดิบ: <strong>${data.samples.length}</strong> แถว</p>
@@ -4136,7 +4425,16 @@ window.handleImportBackupFile = function(event) {
         confirmButtonColor: '#0f3d7a'
       }).then((res) => {
         if (res.isConfirmed) {
-          if (data.users && Array.isArray(data.users)) state.users = data.users;
+          if (data.users && Array.isArray(data.users) && data.users.length > 0) {
+            const sanitized = data.users.map(u => {
+              const copy = { ...u };
+              delete copy.password;
+              return copy;
+            });
+            if (sanitized.some(u => u.role === 'admin' && u.passwordHash)) {
+              state.users = sanitized;
+            }
+          }
           if (data.projects && Array.isArray(data.projects)) state.projects = data.projects;
           if (data.samples && Array.isArray(data.samples)) state.samples = data.samples;
           if (data.auditLogs && Array.isArray(data.auditLogs)) state.auditLogs = data.auditLogs;
@@ -4206,8 +4504,10 @@ window.handleClearDataWithBackup = function() {
       exportFullSystemBackup(true);
 
       // 2. Clear research data & samples
-      const clearedProjectsCount = state.projects.length;
-      const clearedSamplesCount = state.samples.length;
+      const oldProjects = state.projects.slice();
+      const oldSamples = state.samples.slice();
+      const clearedProjectsCount = oldProjects.length;
+      const clearedSamplesCount = oldSamples.length;
       state.projects = [];
       state.samples = [];
       state.currentProjectId = '';
@@ -4216,6 +4516,7 @@ window.handleClearDataWithBackup = function() {
       const clearLog = {
         id: 'log_' + Date.now(),
         timestamp: new Date().toISOString(),
+        userId: state.currentUser.uid,
         userName: state.currentUser.displayName,
         action: 'CLEAR_DATA',
         details: `ล้างข้อมูลระบบเริ่มต้นใหม่ (ล้างโปรเจกต์ ${clearedProjectsCount} รายการ, ข้อมูล ${clearedSamplesCount} แถว โดยดาวน์โหลดไฟล์ Backup ออฟไลน์แล้ว)`
@@ -4223,8 +4524,16 @@ window.handleClearDataWithBackup = function() {
       state.auditLogs = [clearLog];
 
       persistState();
-      if (window.FirebaseSync && typeof window.FirebaseSync.syncUser === 'function') {
-        window.FirebaseSync.syncUser(u);
+      if (window.FirebaseSync) {
+        if (typeof window.FirebaseSync.removeProject === 'function') {
+          oldProjects.forEach(op => window.FirebaseSync.removeProject(op.id));
+        }
+        if (typeof window.FirebaseSync.removeSample === 'function') {
+          oldSamples.forEach(os => window.FirebaseSync.removeSample(os.projectId, os.tank, os.time));
+        }
+        if (typeof window.FirebaseSync.syncLog === 'function') {
+          window.FirebaseSync.syncLog(clearLog);
+        }
       }
       window.labAudio.playSuccess();
       renderAllDataViews();
@@ -4424,6 +4733,9 @@ window.generateAutoGanttTimeline = function(force = false) {
 
   p.ganttTasks = defaultTasks;
   persistState();
+  if (window.FirebaseSync && typeof window.FirebaseSync.syncProject === 'function') {
+    window.FirebaseSync.syncProject(p);
+  }
 
   if (force) {
     window.labAudio.playSuccess();
@@ -4447,8 +4759,8 @@ window.toggleGanttActiveState = function(forceEnable = null) {
   p.enableGantt = newEnabled;
 
   persistState();
-  if (window.FirebaseSync && typeof window.FirebaseSync.syncSample === 'function') {
-    window.FirebaseSync.syncSample(sample);
+  if (window.FirebaseSync && typeof window.FirebaseSync.syncProject === 'function') {
+    window.FirebaseSync.syncProject(p);
   }
   window.labAudio.playSuccess();
   logAction('TOGGLE_GANTT_STATUS', `${newEnabled ? 'เปิด' : 'ปิด'}การใช้งาน Gantt Chart สำหรับโปรเจกต์ ${p.experimentNo}`);
@@ -4459,7 +4771,13 @@ window.toggleGanttActiveState = function(forceEnable = null) {
 // Render Gantt Timeline & Milestones
 window.renderGanttTimeline = function() {
   const p = state.projects.find(proj => proj.id === state.currentProjectId);
-  if (!p) return;
+  const disabledBanner = document.getElementById('gantt-disabled-banner');
+  const activeContent = document.getElementById('gantt-active-content');
+  if (!p) {
+    if (disabledBanner) disabledBanner.style.display = 'block';
+    if (activeContent) activeContent.style.display = 'none';
+    return;
+  }
 
   const isGanttEnabled = p.enableGantt !== false;
 
@@ -4469,8 +4787,6 @@ window.renderGanttTimeline = function() {
   const toggleBtnIcon = document.getElementById('btn-toggle-gantt-active-icon');
   const toggleBtnText = document.getElementById('btn-toggle-gantt-active-text');
   const actionGroup = document.getElementById('gantt-action-buttons-group');
-  const disabledBanner = document.getElementById('gantt-disabled-banner');
-  const activeContent = document.getElementById('gantt-active-content');
 
   if (statusBadge) {
     if (isGanttEnabled) {
@@ -4552,19 +4868,19 @@ window.renderGanttTimeline = function() {
           <div class="milestone-card ${statusClass}">
             <div>
               <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
-                <span class="badge badge-navy" style="font-size: 0.7rem; font-weight: 700;">${m.tank || 'All'}</span>
+                <span class="badge badge-navy" style="font-size: 0.7rem; font-weight: 700;">${escapeHtml(m.tank || 'All')}</span>
                 ${statusBadgeHtml}
               </div>
               <h4 style="font-size: 0.88rem; font-weight: 700; color: var(--mitr-navy-900); margin-bottom: 6px; line-height: 1.45;">
-                ${m.title}
+                ${escapeHtml(m.title)}
               </h4>
               <p style="font-size: 0.78rem; color: #475569; margin-bottom: 8px; line-height: 1.45;">
-                <strong>เกณฑ์วัด:</strong> ${m.criteria || '-'}
+                <strong>เกณฑ์วัด:</strong> ${escapeHtml(m.criteria || '-')}
               </p>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #64748b; border-top: 1px dashed #e2e8f0; padding-top: 8px; margin-top: 4px;">
-              <span>🕒 @ ${m.startHour}h (${timeStr.slice(0, 10)})</span>
-              <span style="font-weight: 600; color: var(--mitr-navy-800);">${m.responsible || '-'}</span>
+              <span>🕒 @ ${escapeHtml(m.startHour)}h (${escapeHtml(timeStr.slice(0, 10))})</span>
+              <span style="font-weight: 600; color: var(--mitr-navy-800);">${escapeHtml(m.responsible || '-')}</span>
             </div>
           </div>
         `;
@@ -4595,13 +4911,13 @@ window.renderGanttTimeline = function() {
       let barContentHtml = '';
       if (isMilestone) {
         barContentHtml = `
-          <div class="gantt-milestone-marker" style="left: ${leftPct}%;" title="${t.title} (@ ${startH}h)">
+          <div class="gantt-milestone-marker" style="left: ${leftPct}%;" title="${escapeHtml(t.title)} (@ ${startH}h)">
             🚩
           </div>
         `;
       } else {
         barContentHtml = `
-          <div class="gantt-bar-fill status-${t.status || 'pending'}" style="left: ${leftPct}%; width: ${widthPct}%;" title="${t.title} (${startH}h - ${endH}h)">
+          <div class="gantt-bar-fill status-${escapeHtml(t.status || 'pending')}" style="left: ${leftPct}%; width: ${widthPct}%;" title="${escapeHtml(t.title)} (${startH}h - ${endH}h)">
             ${duration >= 8 ? `${duration}h` : ''}
           </div>
         `;
@@ -4609,9 +4925,9 @@ window.renderGanttTimeline = function() {
 
       return `
         <div class="gantt-row">
-          <div class="gantt-row-label" title="${t.title}">
+          <div class="gantt-row-label" title="${escapeHtml(t.title)}">
             <span style="font-size: 0.85rem; margin-right: 4px; flex-shrink: 0;">${isMilestone ? '🚩' : '📌'}</span>
-            <span>${t.title}</span>
+            <span>${escapeHtml(t.title)}</span>
           </div>
           <div class="gantt-row-hours">
             ${isMilestone ? `@ ${startH}h` : `${startH}-${endH}h (${duration}h)`}
@@ -4660,18 +4976,18 @@ window.renderGanttTimeline = function() {
         <tr>
           <td style="text-align: center;">${typeBadge}</td>
           <td>
-            <strong style="color: var(--mitr-navy-900); line-height: 1.45;">${t.title}</strong>
-            ${t.notes ? `<div style="font-size: 0.76rem; color: #64748b; margin-top: 3px; line-height: 1.4;">💬 ${t.notes}</div>` : ''}
+            <strong style="color: var(--mitr-navy-900); line-height: 1.45;">${escapeHtml(t.title)}</strong>
+            ${t.notes ? `<div style="font-size: 0.76rem; color: #64748b; margin-top: 3px; line-height: 1.4;">💬 ${escapeHtml(t.notes)}</div>` : ''}
           </td>
-          <td><span class="badge badge-gold" style="font-size: 0.72rem;">${t.tank || '-'}</span></td>
+          <td><span class="badge badge-gold" style="font-size: 0.72rem;">${escapeHtml(t.tank || '-')}</span></td>
           <td style="font-weight: 600; color: var(--mitr-navy-900);">${hoursStr}</td>
-          <td style="font-size: 0.8rem; color: #475569;">${dateStr}</td>
-          <td>${t.responsible || '-'}</td>
-          <td style="font-size: 0.82rem; color: #334155; line-height: 1.4;">${t.criteria || '-'}</td>
+          <td style="font-size: 0.8rem; color: #475569;">${escapeHtml(dateStr)}</td>
+          <td>${escapeHtml(t.responsible || '-')}</td>
+          <td style="font-size: 0.82rem; color: #334155; line-height: 1.4;">${escapeHtml(t.criteria || '-')}</td>
           <td style="text-align: center;">${statusBadgeHtml}</td>
           <td style="text-align: center; white-space: nowrap;">
-            <button class="btn btn-sm btn-secondary" onclick="editGanttTask('${t.id}')" style="padding: 3px 6px; font-size: 0.74rem;" title="แก้ไข">✏️</button>
-            <button class="btn btn-sm btn-secondary" onclick="deleteGanttTask('${t.id}')" style="padding: 3px 6px; font-size: 0.74rem; color: #ef4444;" title="ลบ">🗑️</button>
+            <button class="btn btn-sm btn-secondary" onclick="editGanttTask('${escapeHtml(t.id)}')" style="padding: 3px 6px; font-size: 0.74rem;" title="แก้ไข">✏️</button>
+            <button class="btn btn-sm btn-secondary" onclick="deleteGanttTask('${escapeHtml(t.id)}')" style="padding: 3px 6px; font-size: 0.74rem; color: #ef4444;" title="ลบ">🗑️</button>
           </td>
         </tr>
       `;
@@ -4834,7 +5150,7 @@ function openGanttTaskFormModal(task = null) {
           </div>
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" style="font-weight: 700;">ชื่อกิจกรรม / หมุดหมาย:*</label>
-            <input type="text" id="swal-gantt-title" class="form-input" value="${initialTitle}" placeholder="เช่น หมักถังเพาะเชื้อ PF, ตรวจวัด HPLC กลางน้ำ">
+            <input type="text" id="swal-gantt-title" class="form-input" value="${escapeHtml(initialTitle)}" placeholder="เช่น หมักถังเพาะเชื้อ PF, ตรวจวัด HPLC กลางน้ำ">
           </div>
         </div>
 
@@ -4846,11 +5162,11 @@ function openGanttTaskFormModal(task = null) {
           <div class="form-grid-2">
             <div class="form-group">
               <label class="form-label" style="font-weight: 700;">เวลาเริ่มต้น (ชม. - Start Hour):*</label>
-              <input type="number" step="0.5" min="0" max="150" id="swal-gantt-starthour" class="form-input" value="${initialStartH}">
+              <input type="number" step="0.5" min="0" max="150" id="swal-gantt-starthour" class="form-input" value="${escapeHtml(initialStartH)}">
             </div>
             <div class="form-group" id="swal-gantt-endhour-group" style="${initialType === 'milestone' ? 'display: none;' : ''}">
               <label class="form-label" style="font-weight: 700;">เวลาสิ้นสุด (ชม. - End Hour):*</label>
-              <input type="number" step="0.5" min="0" max="150" id="swal-gantt-endhour" class="form-input" value="${initialEndH}">
+              <input type="number" step="0.5" min="0" max="150" id="swal-gantt-endhour" class="form-input" value="${escapeHtml(initialEndH)}">
             </div>
           </div>
           <div id="gantt-modal-date-preview" class="realtime-date-preview">
@@ -4867,7 +5183,7 @@ function openGanttTaskFormModal(task = null) {
             <div class="form-group">
               <label class="form-label" style="font-weight: 700;">ผู้รับผิดชอบ (Responsible):*</label>
               <select id="swal-gantt-responsible" class="form-select">
-                ${userOptions.map(u => `<option value="${u}" ${initialResponsible === u ? 'selected' : ''}>${u}</option>`).join('')}
+                ${userOptions.map(u => `<option value="${escapeHtml(u)}" ${initialResponsible === u ? 'selected' : ''}>${escapeHtml(u)}</option>`).join('')}
               </select>
             </div>
             <div class="form-group">
@@ -4888,11 +5204,11 @@ function openGanttTaskFormModal(task = null) {
           </div>
           <div class="form-group">
             <label class="form-label" style="font-weight: 700;">เกณฑ์วัดคุณภาพ / เงื่อนไขความสำเร็จ (Acceptance Criteria):</label>
-            <input type="text" id="swal-gantt-criteria" class="form-input" value="${initialCriteria}" placeholder="เช่น Brix 18 → 11.5 °Bx, Ethanol > 95 g/L, Viability ≥ 95%">
+            <input type="text" id="swal-gantt-criteria" class="form-input" value="${escapeHtml(initialCriteria)}" placeholder="เช่น Brix 18 → 11.5 °Bx, Ethanol > 95 g/L, Viability ≥ 95%">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" style="font-weight: 700;">หมายเหตุเพิ่มเติม / ข้อควรระวัง (Notes & Precaution):</label>
-            <textarea id="swal-gantt-notes" class="form-input" rows="2" placeholder="ระบุข้อควรระวังหรือขั้นตอนทางเทคนิคเพิ่มเติม">${initialNotes}</textarea>
+            <textarea id="swal-gantt-notes" class="form-input" rows="2" placeholder="ระบุข้อควรระวังหรือขั้นตอนทางเทคนิคเพิ่มเติม">${escapeHtml(initialNotes)}</textarea>
           </div>
         </div>
 
@@ -4998,8 +5314,8 @@ function openGanttTaskFormModal(task = null) {
       }
 
       persistState();
-      if (window.FirebaseSync && typeof window.FirebaseSync.syncUser === 'function') {
-        window.FirebaseSync.syncUser(u);
+      if (window.FirebaseSync && typeof window.FirebaseSync.syncProject === 'function') {
+        window.FirebaseSync.syncProject(p);
       }
       window.labAudio.playSuccess();
       renderGanttTimeline();
@@ -5032,6 +5348,9 @@ window.deleteGanttTask = function(taskId) {
     if (res.isConfirmed) {
       p.ganttTasks = p.ganttTasks.filter(t => t.id !== taskId);
       persistState();
+      if (window.FirebaseSync && typeof window.FirebaseSync.syncProject === 'function') {
+        window.FirebaseSync.syncProject(p);
+      }
       window.labAudio.playWarning();
       logAction('DELETE_GANTT_TASK', `ลบรายการ Gantt: ${targetTask.title}`);
       renderGanttTimeline();
@@ -5074,24 +5393,6 @@ function showToast(message, type = 'info') {
 // ==========================================================================
 // MOBILE TASKFLOW UI CONTROLLER & DATA BINDING
 // ==========================================================================
-
-window.quickFillLogin = function(email, password) {
-  const emailInput = document.getElementById('login-email');
-  const passInput = document.getElementById('login-password');
-  if (emailInput && passInput) {
-    emailInput.value = email;
-    passInput.value = password;
-    const form = document.getElementById('form-login');
-    if (form) {
-      if (typeof form.requestSubmit === 'function') {
-        form.requestSubmit();
-      } else {
-        const btn = form.querySelector('button[type="submit"]');
-        if (btn) btn.click();
-      }
-    }
-  }
-};
 
 window.switchMobileTab = function(tabKey) {
   const navItems = document.querySelectorAll('.mob-nav-item');
@@ -5233,7 +5534,8 @@ window.renderMobileNotificationsListPage = function() {
   const container = document.getElementById('mobile-notifications-page-list');
   if (!container) return;
 
-  let logs = state.auditLogs || [];
+  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+  let logs = (state.auditLogs || []).filter(l => isAdmin || !state.currentUser || l.userId === state.currentUser.uid);
   if (currentMobLogFilter === 'sample') {
     logs = logs.filter(l => l.action.includes('SAMPLE') || l.action.includes('CDW'));
   } else if (currentMobLogFilter === 'system') {
@@ -5265,12 +5567,12 @@ window.renderMobileNotificationsListPage = function() {
         </div>
         <div class="mob-notif-content" style="flex: 1;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px;">
-            <div class="mob-notif-title" style="font-weight: 700; font-size: 0.88rem; color: #0f172a;">${l.action}</div>
+            <div class="mob-notif-title" style="font-weight: 700; font-size: 0.88rem; color: #0f172a;">${escapeHtml(l.action)}</div>
             <span style="font-size: 0.72rem; color: #94a3b8; white-space: nowrap;">${dateFormatted} ${timeFormatted}</span>
           </div>
-          <div class="mob-notif-desc" style="font-size: 0.78rem; color: #475569; margin: 4px 0 6px; line-height: 1.4;">${l.details || '-'}</div>
+          <div class="mob-notif-desc" style="font-size: 0.78rem; color: #475569; margin: 4px 0 6px; line-height: 1.4;">${escapeHtml(l.details || '-')}</div>
           <div class="mob-notif-time" style="font-size: 0.72rem; color: #64748b; display: flex; align-items: center; gap: 6px;">
-            <i class="fa-regular fa-user"></i> ${l.userName || 'System'}
+            <i class="fa-regular fa-user"></i> ${escapeHtml(l.userName || 'System')}
           </div>
         </div>
       </div>
@@ -5294,24 +5596,28 @@ window.handleMobileProjectChange = function(projId) {
 };
 
 window.renderMobileHomeDashboard = function() {
-  if (!state.currentProjectId) return;
-  const project = state.projects.find(p => p.id === state.currentProjectId);
-  if (!project) return;
+  const accessible = (state.projects || []).filter(p => !state.currentUser || state.currentUser.role === 'admin' || p.ownerId === state.currentUser.uid);
+  const project = accessible.find(p => p.id === state.currentProjectId) || null;
 
   // 1. Populate project select in hero
   const mobProjSelect = document.getElementById('mobile-project-select');
   if (mobProjSelect) {
-    const accessible = state.projects.filter(p => !state.currentUser || state.currentUser.role === 'admin' || p.ownerId === state.currentUser.uid);
-    mobProjSelect.innerHTML = accessible.map(p => 
-      `<option value="${p.id}" ${p.id === state.currentProjectId ? 'selected' : ''}>${p.batchMediumNo} (${p.experimentNo})</option>`
-    ).join('');
+    if (accessible.length === 0) {
+      mobProjSelect.innerHTML = '<option value="">(ยังไม่มีโปรเจกต์)</option>';
+    } else {
+      mobProjSelect.innerHTML = accessible.map(p =>
+        `<option value="${escapeHtml(p.id)}" ${p.id === state.currentProjectId ? 'selected' : ''}>${escapeHtml(p.batchMediumNo)} (${escapeHtml(p.experimentNo)})</option>`
+      ).join('');
+    }
   }
 
   // 2. Compute sample stats
-  const curSamples = state.samples.filter(s => s.projectId === state.currentProjectId);
+  const curSamples = project ? state.samples.filter(s => s.projectId === project.id) : [];
   const totalCount = curSamples.length;
   const completedCount = curSamples.filter(s => (s.brix !== undefined && s.brix !== null) || s.ethanol || s.cellsPerMl).length;
-  const pendingCount = Math.max(0, (project.timepoints ? project.timepoints.length * 8 : 16) - completedCount);
+  const pendingCount = project
+    ? Math.max(0, (project.timepoints ? project.timepoints.length * 8 : 16) - completedCount)
+    : 0;
 
   const heroCountEl = document.getElementById('mobile-hero-sample-count');
   if (heroCountEl) heroCountEl.textContent = totalCount;
@@ -5320,13 +5626,16 @@ window.renderMobileHomeDashboard = function() {
   if (doneBadge) doneBadge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${completedCount} บันทึกผลแล้ว`;
 
   const pendingBadge = document.getElementById('mobile-hero-pending-badge');
-  if (pendingBadge) pendingBadge.innerHTML = `<i class="fa-regular fa-clock"></i> ${pendingCount > 0 ? pendingCount + ' รอจัดเก็บ' : '8 ถังสมบูรณ์'}`;
+  if (pendingBadge) {
+    pendingBadge.innerHTML = project
+      ? `<i class="fa-regular fa-clock"></i> ${pendingCount > 0 ? pendingCount + ' รอจัดเก็บ' : '8 ถังสมบูรณ์'}`
+      : `<i class="fa-solid fa-folder-plus"></i> พร้อมสร้างโปรเจกต์ใหม่`;
+  }
 
   // 3. Render Cascade 8-Tanks Status Strip
   const tanksRow = document.getElementById('mobile-tanks-scroll-row');
   if (tanksRow && window.LAB_TANKS) {
     tanksRow.innerHTML = window.LAB_TANKS.map(t => {
-      // Find latest sample for this tank
       const tankSamples = curSamples.filter(s => s.tank === t.id).sort((a,b) => b.time - a.time);
       const latest = tankSamples[0];
       const brixText = latest && latest.brix != null ? `${latest.brix}°Bx` : '-';
@@ -5346,7 +5655,17 @@ window.renderMobileHomeDashboard = function() {
   // 4. Render Today / Recent Samples Cards (Screen 3 & 5 style)
   const recentList = document.getElementById('mobile-home-recent-samples');
   if (recentList) {
-    if (curSamples.length === 0) {
+    if (!project) {
+      recentList.innerHTML = `
+        <div style="text-align: center; padding: 24px 16px; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 16px; color: #64748b; font-size: 0.86rem;">
+          <i class="fa-solid fa-flask-vial" style="font-size: 2rem; margin-bottom: 8px; color: #2563eb; opacity: 0.7;"></i>
+          <p style="margin-bottom: 12px;">ยังไม่มีโปรเจกต์งานวิจัย กดปุ่มด้านล่างเพื่อเริ่มต้นการทดลองใหม่</p>
+          <button type="button" class="btn btn-accent btn-sm" onclick="openNewProjectModal()" style="width: 100%; justify-content: center;">
+            <span>+</span> สร้างโปรเจกต์การทดลองแรก
+          </button>
+        </div>
+      `;
+    } else if (curSamples.length === 0) {
       recentList.innerHTML = `
         <div style="text-align: center; padding: 24px; color: #94a3b8; font-size: 0.85rem;">
           <i class="fa-solid fa-flask" style="font-size: 1.8rem; margin-bottom: 8px; opacity: 0.5;"></i>
@@ -5360,7 +5679,7 @@ window.renderMobileHomeDashboard = function() {
         const hasData = s.brix != null || s.ethanol != null || s.cellsPerMl != null;
         const brixStr = s.brix != null ? `${s.brix} °Bx` : 'ไม่มีค่า Brix';
         const ethStr = s.ethanol != null ? ` • EtOH: ${s.ethanol} g/L` : '';
-        const sampleKey = `${s.projectId}_${s.tank}_${s.time}`;
+        const sampleKey = escapeHtml(`${s.projectId}_${s.tank}_${s.time}`);
 
         return `
           <div class="mobile-sample-card" onclick="openMobileSampleDetail('${sampleKey}')">
@@ -5369,12 +5688,12 @@ window.renderMobileHomeDashboard = function() {
                 ${hasData ? '<i class="fa-solid fa-check"></i>' : ''}
               </div>
               <div class="sample-card-info">
-                <div class="sample-card-title">ถัง ${s.tank} (อายุถัง ${s.time} ชม.)</div>
-                <div class="sample-card-sub">${brixStr}${ethStr}</div>
+                <div class="sample-card-title">ถัง ${escapeHtml(s.tank)} (อายุถัง ${escapeHtml(s.time)} ชม.)</div>
+                <div class="sample-card-sub">${escapeHtml(brixStr)}${escapeHtml(ethStr)}</div>
               </div>
             </div>
             <span class="sample-card-badge" style="background: ${tankDef.color}15; color: ${tankDef.color}; border: 1px solid ${tankDef.color}30;">
-              ${s.tank}
+              ${escapeHtml(s.tank)}
             </span>
           </div>
         `;
@@ -5395,28 +5714,32 @@ window.selectMobileTank = function(tankId) {
 window.renderMobileProfile = function() {
   if (!state.currentUser) return;
   const u = state.currentUser;
+  const displayName = u.displayName || u.username || 'User';
+  const role = u.role || 'user';
   const mobAvatar = document.getElementById('mob-prof-avatar');
-  if (mobAvatar) mobAvatar.textContent = u.displayName.charAt(0);
+  if (mobAvatar) mobAvatar.textContent = displayName.charAt(0).toUpperCase();
   const mobName = document.getElementById('mob-prof-name');
-  if (mobName) mobName.textContent = u.displayName;
+  if (mobName) mobName.textContent = displayName;
   const mobEmail = document.getElementById('mob-prof-email');
-  if (mobEmail) mobEmail.textContent = u.email;
+  if (mobEmail) mobEmail.textContent = u.email || u.username || '';
   const mobRole = document.getElementById('mob-prof-role');
   if (mobRole) {
-    mobRole.textContent = u.role.toUpperCase();
-    mobRole.className = `mobile-profile-role-badge role-${u.role}`;
+    mobRole.textContent = role.toUpperCase();
+    mobRole.className = `mobile-profile-role-badge role-${role}`;
   }
 
   // Update stats counters
-  const accessibleProjects = state.projects.filter(p => u.role === 'admin' || p.ownerId === u.uid);
+  const accessibleProjects = state.projects.filter(p => role === 'admin' || p.ownerId === u.uid);
   const curSamples = state.samples.filter(s => s.projectId === state.currentProjectId);
   const pCount = document.getElementById('mob-stat-projects');
   if (pCount) pCount.textContent = accessibleProjects.length;
   const sCount = document.getElementById('mob-stat-samples');
   if (sCount) sCount.textContent = curSamples.length;
 
-  const adminItem = document.getElementById('mob-menu-admin-users');
-  if (adminItem) adminItem.style.display = u.role === 'admin' ? 'flex' : 'none';
+  const adminUsersItem = document.getElementById('mob-menu-admin-users');
+  if (adminUsersItem) adminUsersItem.style.display = role === 'admin' ? 'flex' : 'none';
+  const adminLogsItem = document.getElementById('mob-menu-admin-logs');
+  if (adminLogsItem) adminLogsItem.style.display = role === 'admin' ? 'flex' : 'none';
 };
 
 // Quick Add Sample Modal (TaskFlow Screen 4)
@@ -5636,7 +5959,11 @@ window.saveMobQuickSample = function() {
     state.samples.push(sampleObj);
   }
 
+  const syncedSample = existingIdx >= 0 ? state.samples[existingIdx] : sampleObj;
   persistState();
+  if (window.FirebaseSync && typeof window.FirebaseSync.syncSample === 'function') {
+    window.FirebaseSync.syncSample(syncedSample);
+  }
   logAction('SAVE_SAMPLE_MOBILE', `บันทึกตัวอย่างด่วน ถัง ${mobQuickSelectedTank} เวลา ${tVal}h [Brix: ${brixVal || '-'}, Sugar: ${sugarConvert !== null ? sugarConvert.toFixed(3) : '-'}, EtOH: ${ethVal || '-'}, Total: ${totalCfu ? formatCfuDisplay(totalCfu) + ' CFU/ml' : '-'}${cdwVal ? ', CDW: ' + cdwVal + ' g/L' : ''}]`);
   if (window.labAudio) window.labAudio.playSuccess();
   closeMobileQuickAddModal();
@@ -5658,25 +5985,25 @@ window.openMobileSampleDetail = function(sampleKey) {
   const content = document.getElementById('mobile-sample-detail-content');
   const modal = document.getElementById('mobile-sample-detail-modal');
 
-  const brixStr = sample.brix != null ? `${sample.brix} °Bx` : 'ยังไม่มีข้อมูล';
-  const ethStr = sample.ethanol != null ? `${sample.ethanol} g/L` : '-';
-  const viaStr = sample.viabilityPct != null ? `${sample.viabilityPct}%` : (sample.cellViabilityPercent != null ? `${sample.cellViabilityPercent.toFixed(1)}%` : '-');
-  const sugarStr = sample.sugarConvert != null ? `${Number(sample.sugarConvert).toFixed(3)} g/L` : '-';
+  const brixStr = escapeHtml(sample.brix != null ? `${sample.brix} °Bx` : 'ยังไม่มีข้อมูล');
+  const ethStr = escapeHtml(sample.ethanol != null ? `${sample.ethanol} g/L` : '-');
+  const viaStr = escapeHtml(sample.viabilityPct != null ? `${sample.viabilityPct}%` : (sample.cellViabilityPercent != null ? `${sample.cellViabilityPercent.toFixed(1)}%` : '-'));
+  const sugarStr = escapeHtml(sample.sugarConvert != null ? `${Number(sample.sugarConvert).toFixed(3)} g/L` : '-');
   const cellVal = sample.cellCount || sample.cellsPerMl;
-  const cellStr = cellVal ? `${formatCfuDisplay(cellVal)} CFU/ml` : '-';
-  const cdwStr = sample.cellDryWeight != null ? `${sample.cellDryWeight} g/L` : '-';
-  const budStr = sample.buddingCfu ? `${formatCfuDisplay(sample.buddingCfu)} CFU/ml (${sample.buddingPct || 0}%)` : (sample.buddingPct ? `${sample.buddingPct}%` : '-');
+  const cellStr = escapeHtml(cellVal ? `${formatCfuDisplay(cellVal)} CFU/ml` : '-');
+  const cdwStr = escapeHtml(sample.cellDryWeight != null ? `${sample.cellDryWeight} g/L` : '-');
+  const budStr = escapeHtml(sample.buddingCfu ? `${formatCfuDisplay(sample.buddingCfu)} CFU/ml (${sample.buddingPct || 0}%)` : (sample.buddingPct ? `${sample.buddingPct}%` : '-'));
 
   content.innerHTML = `
     <div style="margin-bottom: 16px;">
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
         <span class="sample-card-badge" style="background: ${tankDef.color}; color: #ffffff;">
-          ${tankId}
+          ${escapeHtml(tankId)}
         </span>
-        <span style="font-size: 0.82rem; color: #64748b;">${tankDef.label}</span>
+        <span style="font-size: 0.82rem; color: #64748b;">${escapeHtml(tankDef.label)}</span>
       </div>
       <h2 style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin-bottom: 4px;">
-        ตัวอย่างอายุถัง ${sample.time} ชม.
+        ตัวอย่างอายุถัง ${escapeHtml(sample.time)} ชม.
       </h2>
       <p style="font-size: 0.78rem; color: #64748b;">
         อัปเดตล่าสุด: ${sample.updatedAt ? new Date(sample.updatedAt).toLocaleString('th-TH') : '-'}
@@ -5777,7 +6104,8 @@ function renderMobileNotificationsList() {
   const container = document.getElementById('mobile-notifications-list');
   if (!container) return;
 
-  let logs = state.auditLogs || [];
+  const isAdmin = state.currentUser && state.currentUser.role === 'admin';
+  let logs = (state.auditLogs || []).filter(l => isAdmin || !state.currentUser || l.userId === state.currentUser.uid);
   if (currentMobLogFilter === 'sample') {
     logs = logs.filter(l => l.action.includes('SAMPLE'));
   } else if (currentMobLogFilter === 'system') {
@@ -5802,9 +6130,9 @@ function renderMobileNotificationsList() {
           <i class="fa-solid ${iconSymbol}"></i>
         </div>
         <div class="mob-notif-content">
-          <div class="mob-notif-title">${l.action}</div>
-          <div class="mob-notif-desc">${l.details || '-'}</div>
-          <div class="mob-notif-time">โดย ${l.userName || 'System'} • ${timeFormatted}</div>
+          <div class="mob-notif-title">${escapeHtml(l.action)}</div>
+          <div class="mob-notif-desc">${escapeHtml(l.details || '-')}</div>
+          <div class="mob-notif-time">โดย ${escapeHtml(l.userName || 'System')} • ${timeFormatted}</div>
         </div>
       </div>
     `;
@@ -5818,10 +6146,11 @@ window.mobileShowAccountInfo = function() {
     title: 'ข้อมูลบัญชีผู้ใช้งาน',
     html: `
       <div style="text-align: left; font-size: 0.9rem; line-height: 1.8;">
-        <p><strong>ชื่อ-นามสกุล:</strong> ${state.currentUser.displayName}</p>
-        <p><strong>อีเมล:</strong> ${state.currentUser.email}</p>
-        <p><strong>บทบาท:</strong> <span class="badge badge-navy">${state.currentUser.role.toUpperCase()}</span></p>
-        <p><strong>สิทธิ์การเข้าถึง:</strong> ${state.currentUser.role === 'admin' ? 'ผู้ดูแลระบบสูงสุด (Admin) เข้าถึงได้ทุกฟังก์ชัน' : 'นักวิจัย (Researcher) ดูได้ทุกโปรเจกต์ แก้ไขเฉพาะงานตนเอง'}</p>
+        <p><strong>ชื่อผู้ใช้ (ID):</strong> ${escapeHtml(state.currentUser.username || state.currentUser.uid)}</p>
+        <p><strong>ชื่อ-นามสกุล:</strong> ${escapeHtml(state.currentUser.displayName)}</p>
+        <p><strong>อีเมล:</strong> ${escapeHtml(state.currentUser.email)}</p>
+        <p><strong>บทบาท:</strong> <span class="badge badge-navy">${escapeHtml(state.currentUser.role.toUpperCase())}</span></p>
+        <p><strong>สิทธิ์การเข้าถึง:</strong> ${state.currentUser.role === 'admin' ? 'ผู้ดูแลระบบสูงสุด (Admin) เข้าถึงได้ทุกฟังก์ชัน' : 'นักวิจัย (User) จัดการข้อมูลและเปรียบเทียบเฉพาะงานตนเอง'}</p>
       </div>
     `,
     confirmButtonColor: '#0f3d7a',
@@ -5846,9 +6175,13 @@ window.mobileOpenAudioSettings = function() {
     cancelButtonColor: '#64748b'
   }).then((res) => {
     if (res.isConfirmed) {
-      if (window.labAudio) window.labAudio.playSuccess();
+      if (window.labAudio) {
+        window.labAudio.muted = false;
+        window.labAudio.playSuccess();
+      }
       showToast('เปิดระบบเสียงเรียบร้อย', 'success');
     } else if (res.dismiss === Swal.DismissReason.cancel) {
+      if (window.labAudio) window.labAudio.muted = true;
       showToast('ปิดระบบเสียงเรียบร้อย', 'info');
     }
   });

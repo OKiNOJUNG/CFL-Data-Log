@@ -36,7 +36,7 @@ window.FirebaseSync = {
       }
       this.initialized = true;
       this.updateConnectionBadge('connected');
-      
+
       // Auto-sync remote data on startup
       await this.pullFromCloud();
     } catch (err) {
@@ -148,7 +148,7 @@ window.FirebaseSync = {
       return res.ok;
     } catch (e) {
       console.warn(`[FirebaseSync] Error saving doc ${collection}/${docId}:`, e);
-      this.updateConnectionBadge('connected');
+      this.updateConnectionBadge('offline');
       return false;
     }
   },
@@ -168,7 +168,7 @@ window.FirebaseSync = {
       return res.ok;
     } catch (e) {
       console.warn(`[FirebaseSync] Error deleting doc ${collection}/${docId}:`, e);
-      this.updateConnectionBadge('connected');
+      this.updateConnectionBadge('offline');
       return false;
     }
   },
@@ -220,15 +220,21 @@ window.FirebaseSync = {
         localStorage.setItem('mitr_logs', JSON.stringify(state.auditLogs));
       }
       if (remoteUsers && remoteUsers.length > 0) {
-        // Ensure initial accounts admin and user are always present
+        // Ensure initial accounts admin and user are always present and strip any legacy plaintext passwords
         const mergedUsers = [...window.INITIAL_USERS];
         remoteUsers.forEach(ru => {
-          if (!mergedUsers.some(u => u.uid === ru.uid || u.username === ru.username)) {
-            mergedUsers.push(ru);
+          const cleanUser = { ...ru };
+          delete cleanUser.password;
+          if (!mergedUsers.some(u => u.uid === cleanUser.uid || u.username === cleanUser.username)) {
+            mergedUsers.push(cleanUser);
           }
         });
         state.users = mergedUsers;
-        localStorage.setItem('mitr_users', JSON.stringify(state.users));
+        try {
+          localStorage.setItem('mitr_users', JSON.stringify(state.users));
+        } catch (storageErr) {
+          console.warn('[FirebaseSync] localStorage quota/access error:', storageErr);
+        }
       }
 
       console.log(`[FirebaseSync] Pulled from Cloud: ${state.projects.length} projects, ${state.samples.length} samples, ${state.auditLogs.length} logs`);
@@ -271,7 +277,9 @@ window.FirebaseSync = {
 
   async syncUser(u) {
     if (!u || !u.uid) return;
-    return await this.saveDoc('users', u.uid, u);
+    const cleanUser = { ...u };
+    delete cleanUser.password;
+    return await this.saveDoc('users', cleanUser.uid, cleanUser);
   },
 
   async removeUser(uid) {

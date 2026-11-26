@@ -75,6 +75,10 @@
   padding: 0;
 }
 
+html, body {
+  overflow-x: clip;
+}
+
 body {
   font-family: 'Prompt', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: var(--bg-canvas);
@@ -84,6 +88,40 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+body.login-open {
+  overflow: hidden;
+  height: 100dvh;
+}
+
+.btn-header-glass {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-pill);
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  backdrop-filter: blur(8px);
+}
+
+.btn-header-glass:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: var(--accent-gold-400);
+  color: #ffffff;
+}
+
+.header-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.header-filter-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* Glass Header & Mitr Phol Branding */
@@ -571,17 +609,27 @@ body {
 .login-overlay {
   position: fixed;
   inset: 0;
+  min-height: 100dvh;
   background: linear-gradient(135deg, var(--mitr-navy-900) 0%, var(--mitr-navy-800) 100%);
   z-index: 3000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.login-overlay.hidden {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .login-card {
   width: 100%;
   max-width: 440px;
+  margin: auto;
   background: #ffffff;
   border-radius: var(--radius-xl);
   padding: 36px 30px;
@@ -1429,9 +1477,9 @@ body {
     border: 1.5px solid #ffffff;
   }
 
-  /* 2. Mobile Sub-page Back Bar */
+  /* 2. Mobile Sub-page Back Bar (Respect JS display toggling) */
   .mobile-subpage-back-bar {
-    display: flex !important;
+    display: flex;
     align-items: center;
     justify-content: space-between;
     background: #ffffff;
@@ -1500,7 +1548,22 @@ body {
     font-weight: 600;
     outline: none;
     cursor: pointer;
-    max-width: 170px;
+    max-width: 150px;
+  }
+
+  .mobile-hero-new-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    cursor: pointer;
+    flex-shrink: 0;
   }
 
   .mobile-hero-proj-select option {
@@ -1997,13 +2060,13 @@ body {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 72px;
+    height: calc(70px + env(safe-area-inset-bottom));
+    padding: 0 8px env(safe-area-inset-bottom);
     background: #ffffff;
     border-top: 1px solid #e2e8f0;
     box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
     justify-content: space-around;
     align-items: center;
-    padding: 0 8px;
     z-index: 999;
   }
 
@@ -2413,25 +2476,46 @@ body {
     font-size: 0.8rem;
   }
 
-  /* Profile page: strictly end at logout button, hide all sections below */
+  /* Home, Notifications & Profile views: hide desktop sections below cleanly */
+  .mobile-home-section:not([style*="display: none"]) ~ .content-section,
+  .mobile-home-section:not([style*="display: none"]) ~ #permission-notice-banner,
   .mobile-profile-section:not([style*="display: none"]) ~ .content-section,
-  .mobile-profile-section:not([style*="display: none"]) ~ #permission-notice-banner {
+  .mobile-profile-section:not([style*="display: none"]) ~ #permission-notice-banner,
+  .mobile-notifications-section:not([style*="display: none"]) ~ .content-section,
+  .mobile-notifications-section:not([style*="display: none"]) ~ #permission-notice-banner {
     display: none !important;
   }
 
   /* Mobile Touch & Layout Optimizations */
   .lab-card-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 12px;
   }
   .card-title-group h2 {
-    font-size: 1.1rem;
+    font-size: 1.08rem;
     line-height: 1.4;
   }
-  .lab-card-header .btn {
+  .header-actions-group {
     width: 100%;
+    gap: 8px;
+  }
+  .header-filter-item {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .header-filter-item select {
+    min-width: 0 !important;
+    flex: 1 1 auto;
+  }
+  .header-actions-group > .btn {
+    flex: 1 1 calc(50% - 4px);
     justify-content: center;
+    min-height: 40px;
+  }
+  .lab-modal-dialog {
+    max-width: 100% !important;
+    margin: 0 !important;
   }
   .form-select, .form-input {
     font-size: 16px !important; /* Prevents auto-zoom on iOS devices */

@@ -19,7 +19,6 @@ window.INITIAL_USERS = [
     uid: 'usr_admin',
     username: 'admin',
     email: 'admin@mitrphol.com',
-    password: 'admin321',
     passwordHash: '921443c5e72aac9f10321d52f095edd5ed04ab8deeca8cd0eb425ad46c135c14',
     displayName: 'Admin (ผู้ดูแลระบบ)',
     role: 'admin'
@@ -28,7 +27,6 @@ window.INITIAL_USERS = [
     uid: 'usr_user',
     username: 'user',
     email: 'user@mitrphol.com',
-    password: 'user123',
     passwordHash: 'e606e38b0d8c19b24cf0ee3808183162ea7cd63ff7912dbb22b5e803286b4446',
     displayName: 'User (นักวิจัย)',
     role: 'user'
