@@ -51,16 +51,16 @@ window.FirebaseSync = {
     if (!badge) return;
     if (status === 'connected') {
       badge.className = 'badge badge-green';
-      badge.innerHTML = '<i class="fa-solid fa-cloud" style="margin-right: 4px;"></i> Firebase Cloud: เชื่อมต่อสำเร็จ (mpir-fermentlog)';
+      badge.innerHTML = '<i class="fa-solid fa-cloud" style="margin-right: 4px;"></i> Firebase Cloud: Connected (mpir-fermentlog)';
     } else if (status === 'syncing') {
       badge.className = 'badge badge-orange';
-      badge.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin" style="margin-right: 4px;"></i> กำลังบันทึกขึ้น Cloud...';
+      badge.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin" style="margin-right: 4px;"></i> Syncing to Cloud...';
     } else if (status === 'fallback') {
       badge.className = 'badge badge-cyan';
       badge.innerHTML = '<i class="fa-solid fa-cloud-arrow-up" style="margin-right: 4px;"></i> Firebase Cloud REST Online';
     } else {
       badge.className = 'badge badge-gray';
-      badge.innerHTML = '<i class="fa-solid fa-cloud-slash" style="margin-right: 4px;"></i> ออฟไลน์ (บันทึกใน Local Storage)';
+      badge.innerHTML = '<i class="fa-solid fa-cloud-slash" style="margin-right: 4px;"></i> Offline (Saved in Local Storage)';
     }
   },
 

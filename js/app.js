@@ -114,13 +114,25 @@ async function sha256Hex(str) {
       safeStorageRemove('mitr_samples');
       safeStorageRemove('mitr_logs');
       safeStorageRemove('mitr_auth_uid');
-    } else if (cachedUsers.some(u => 'password' in u)) {
+    } else {
+      let changed = false;
       const cleaned = cachedUsers.map(u => {
         const copy = { ...u };
-        delete copy.password;
+        if ('password' in copy) {
+          delete copy.password;
+          changed = true;
+        }
+        if (copy.uid === 'usr_admin' && copy.displayName !== 'Admin (Administrator)') {
+          copy.displayName = 'Admin (Administrator)';
+          changed = true;
+        }
+        if (copy.uid === 'usr_user' && copy.displayName !== 'User (Researcher)') {
+          copy.displayName = 'User (Researcher)';
+          changed = true;
+        }
         return copy;
       });
-      safeStorageSet('mitr_users', JSON.stringify(cleaned));
+      if (changed) safeStorageSet('mitr_users', JSON.stringify(cleaned));
     }
   }
 })();
@@ -266,8 +278,8 @@ window.handleLoginSubmit = async function(event) {
     if (!identifier || !password) {
       Swal.fire({
         icon: 'warning',
-        title: 'กรุณากรอกข้อมูล',
-        text: 'กรุณากรอกชื่อผู้ใช้งานและรหัสผ่าน',
+        title: 'Please fill in the data',
+        text: 'Please enter both username and password',
         confirmButtonColor: '#0f3d7a'
       });
       return;
@@ -286,15 +298,15 @@ window.handleLoginSubmit = async function(event) {
     if (foundUser) {
       if (passEl) passEl.value = '';
       applyLoginSuccess(foundUser);
-      logAction('LOGIN', `ผู้ใช้งาน ${foundUser.displayName || foundUser.username} (${foundUser.username || foundUser.email}) เข้าสู่ระบบสำเร็จ`);
+      logAction('LOGIN', `Users ${foundUser.displayName || foundUser.username} (${foundUser.username || foundUser.email}) logged in successfully`);
       if (window.labAudio) window.labAudio.playSuccess();
-      showToast(`ยินดีต้อนรับ ${foundUser.displayName || foundUser.username}`, 'success');
+      showToast(`Welcome ${foundUser.displayName || foundUser.username}`, 'success');
     } else {
       if (window.labAudio) window.labAudio.playWarning();
       Swal.fire({
         icon: 'error',
-        title: 'เข้าสู่ระบบไม่สำเร็จ',
-        text: 'ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง',
+        title: 'Login failed',
+        text: 'Invalid username or password. Please try again',
         confirmButtonColor: '#0f3d7a'
       });
     }
@@ -302,8 +314,8 @@ window.handleLoginSubmit = async function(event) {
     console.error('[Auth] Login error:', err);
     Swal.fire({
       icon: 'error',
-      title: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ',
-      text: 'กรุณารีเฟรชหน้าจอแล้วลองใหม่อีกครั้ง',
+      title: 'An error occurred during sign-in',
+      text: 'Please refresh the page and try again',
       confirmButtonColor: '#0f3d7a'
     });
   }
@@ -367,25 +379,25 @@ function applyLoginSuccess(user) {
 
 window.handleLogout = function() {
   Swal.fire({
-    title: 'ออกจากระบบ?',
-    text: 'ท่านต้องการออกจากระบบห้องแล็บใช่หรือไม่',
+    title: 'Sign out?',
+    text: 'Are you sure you want to sign out?',
     icon: 'question',
     showCancelButton: true,
-    confirmButtonText: 'ออกจากระบบ',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: 'Sign Out',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#991b1b',
     cancelButtonColor: '#94a3b8'
   }).then((res) => {
     if (res.isConfirmed) {
       if (state.currentUser) {
-        logAction('LOGOUT', `ผู้ใช้งาน ${state.currentUser.displayName || state.currentUser.username} (${state.currentUser.username || state.currentUser.email}) ออกจากระบบ`);
+        logAction('LOGOUT', `Users ${state.currentUser.displayName || state.currentUser.username} (${state.currentUser.username || state.currentUser.email}) signed out`);
       }
       state.isLoggedIn = false;
       state.currentUser = null;
       safeStorageRemove('mitr_auth_uid');
       if (window.labAudio) window.labAudio.playClick();
       showLoginOverlay(true);
-      showToast('ออกจากระบบเรียบร้อย', 'info');
+      showToast('Logged out successfully', 'info');
     }
   });
 };
@@ -396,14 +408,14 @@ function syncFullscreenButtons() {
   const deskBtn = document.getElementById('btn-fullscreen-desktop');
   if (deskBtn) {
     deskBtn.innerHTML = isFull
-      ? '<i class="fa-solid fa-compress"></i><span>ย่อหน้าจอ</span>'
-      : '<i class="fa-solid fa-expand"></i><span>เต็มหน้าจอ</span>';
-    deskBtn.title = isFull ? 'ออกจากโหมดเต็มหน้าจอ' : 'แสดงเต็มหน้าจอ';
+      ? '<i class="fa-solid fa-compress"></i><span>Exit Full Screen</span>'
+      : '<i class="fa-solid fa-expand"></i><span>Full Screen</span>';
+    deskBtn.title = isFull ? 'Exit Fullscreen' : 'Fullscreen';
   }
   const mobBtn = document.getElementById('btn-fullscreen-mobile');
   if (mobBtn) {
     mobBtn.innerHTML = isFull ? '<i class="fa-solid fa-compress"></i>' : '<i class="fa-solid fa-expand"></i>';
-    mobBtn.title = isFull ? 'ออกจากโหมดเต็มหน้าจอ' : 'แสดงเต็มหน้าจอ';
+    mobBtn.title = isFull ? 'Exit Fullscreen' : 'Fullscreen';
   }
 }
 
@@ -418,7 +430,7 @@ window.toggleFullscreen = async function() {
       } else if (docEl.webkitRequestFullscreen) {
         docEl.webkitRequestFullscreen();
       } else {
-        showToast('เบราว์เซอร์นี้ไม่รองรับโหมดเต็มหน้าจออัตโนมัติ (แนะนำเพิ่มลงหน้าจอโฮม)', 'info');
+        showToast('This browser does not support automatic fullscreen (try Add to Home Screen)', 'info');
       }
     } else {
       if (document.exitFullscreen) {
@@ -428,7 +440,7 @@ window.toggleFullscreen = async function() {
       }
     }
   } catch (err) {
-    showToast('เบราว์เซอร์นี้ไม่รองรับโหมดเต็มหน้าจออัตโนมัติ (แนะนำเพิ่มลงหน้าจอโฮม)', 'info');
+    showToast('This browser does not support automatic fullscreen (try Add to Home Screen)', 'info');
   }
   syncFullscreenButtons();
 };
@@ -537,8 +549,8 @@ function updatePermissionBanner() {
       banner.innerHTML = `
         <span style="font-size: 1.2rem;">🔒</span>
         <div>
-          <strong>โหมดอ่านอย่างเดียว (Read-Only):</strong> 
-          งานวิจัยนี้สร้างโดย <u>${escapeHtml(project.ownerName)}</u> ท่านสามารถเปิดดูผลและกราฟได้ แต่ไม่สามารถแก้ไขหรือลบข้อมูลได้
+          <strong>Read-Only Mode:</strong> 
+          This research was created by <u>${escapeHtml(project.ownerName)}</u> You can view results and charts, but cannot edit or delete data
         </div>
       `;
       enableFormInputs(false);
@@ -588,7 +600,7 @@ function renderProjectSelector(adminResearcherFilter = null) {
     });
 
     adminFilterSelect.innerHTML = `
-      <option value="ALL">👥 นักวิจัยทุกคน (All)</option>
+      <option value="ALL">👥 All Researchers</option>
       ${distinctResearchers.map(r => `
         <option value="${escapeHtml(r.uid)}" ${r.uid === currentFilterVal ? 'selected' : ''}>${escapeHtml(r.name)}</option>
       `).join('')}
@@ -606,7 +618,7 @@ function renderProjectSelector(adminResearcherFilter = null) {
   }
 
   if (filteredProjects.length === 0) {
-    selector.innerHTML = '<option value="">(ไม่มีงานวิจัย)</option>';
+    selector.innerHTML = '<option value="">(No research)</option>';
     state.currentProjectId = null;
     onActiveProjectChanged(false);
     return;
@@ -627,7 +639,7 @@ function renderProjectSelector(adminResearcherFilter = null) {
   selector.onchange = (e) => {
     state.currentProjectId = e.target.value;
     onActiveProjectChanged();
-    showToast('เปลี่ยนโปรเจกต์เรียบร้อย', 'info');
+    showToast('Project switched', 'info');
   };
 
   onActiveProjectChanged(false);
@@ -683,10 +695,10 @@ function renderHeaderTimepointsBadges() {
   `).join('');
 }
 
-// Custom sampling timepoint modal (+ เพิ่มเวลา in Lab Entry)
+// Custom sampling timepoint modal (+ Add Time in Lab Entry)
 window.openAddCustomTimepointModal = function() {
   if (!canEditCurrentProject()) {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    Swal.fire({ icon: 'error', title: 'No edit permission', text: 'You are not the owner of this research project' });
     return;
   }
   const p = state.projects.find(proj => proj.id === state.currentProjectId);
@@ -695,33 +707,33 @@ window.openAddCustomTimepointModal = function() {
   const currentTimes = getProjectTimepoints(p);
 
   Swal.fire({
-    title: '⏱️ เพิ่มจุดเวลาจัดเก็บตัวอย่าง',
+    title: '⏱️ Add Sampling Timepoint',
     html: `
       <div style="text-align: left; font-size: 0.88rem;">
         <p style="color: #64748b; margin-bottom: 12px; line-height: 1.5;">
-          ระบุชั่วโมงอายุถังที่ต้องการจัดเก็บตัวอย่างเพิ่มเติม เช่น 26, 50 หรือ 76 ชม. จุดเวลานี้จะซิงค์และบันทึกลงในโปรเจกต์อัตโนมัติ
+          Specify the vessel age hour for additional sampling (e.g. 26, 50, or 76 h). This timepoint syncs and saves to the project automatically
         </p>
         <div class="form-group">
-          <label class="form-label">ชั่วโมงที่จัดเก็บ (Sampling Hour - h):*</label>
-          <input type="number" step="0.5" min="0" max="200" id="swal-custom-timepoint" class="form-input" placeholder="เช่น 26 หรือ 50">
+          <label class="form-label">Sampling Hour (h):*</label>
+          <input type="number" step="0.5" min="0" max="200" id="swal-custom-timepoint" class="form-input" placeholder="e.g. 26 or 50">
         </div>
         <div style="margin-top: 10px; font-size: 0.8rem; color: #475569; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px dashed #cbd5e1;">
-          <strong>จุดเวลาปัจจุบัน:</strong> ${currentTimes.join(', ')} hr
+          <strong>Current Time Point:</strong> ${currentTimes.join(', ')} hr
         </div>
       </div>
     `,
     showCancelButton: true,
-    confirmButtonText: '➕ เพิ่มจุดเวลา',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: '➕ Add Time Point',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#0f3d7a',
     preConfirm: () => {
       const val = parseFloat(document.getElementById('swal-custom-timepoint').value);
       if (isNaN(val) || val < 0) {
-        Swal.showValidationMessage('กรุณาระบุชั่วโมงที่ถูกต้อง (>= 0)');
+        Swal.showValidationMessage('Please enter a valid hour (>= 0)');
         return false;
       }
       if (currentTimes.includes(val)) {
-        Swal.showValidationMessage(`จุดเวลา ${val} hr มีอยู่ในโปรเจกต์นี้แล้ว`);
+        Swal.showValidationMessage(`Time Point ${val} hr already exists in this project`);
         return false;
       }
       return val;
@@ -741,14 +753,14 @@ window.openAddCustomTimepointModal = function() {
         window.FirebaseSync.syncProject(p);
       }
       window.labAudio.playSuccess();
-      logAction('ADD_TIMEPOINT', `เพิ่มจุดเวลาจัดเก็บตัวอย่าง ${newHour}h ในโปรเจกต์ ${p.experimentNo}`);
+      logAction('ADD_TIMEPOINT', `Add Sampling Timepoint ${newHour}h in project ${p.experimentNo}`);
       
       // Sync across all views
       renderTimepointOptions('input-timepoint', newHour);
       renderHeaderTimepointsBadges();
       loadSampleDataForCurrentTank();
       
-      showToast(`เพิ่มจุดเวลา ${newHour} hr เรียบร้อย`, 'success');
+      showToast(`Add Time Point ${newHour} hr successfully`, 'success');
     }
   });
 };
@@ -857,7 +869,7 @@ window.toggleEditHeaderForm = function(show = true) {
 
 window.saveHeaderEdits = function() {
   if (!canEditCurrentProject()) {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    Swal.fire({ icon: 'error', title: 'No edit permission', text: 'You are not the owner of this research project' });
     return;
   }
 
@@ -902,17 +914,17 @@ window.saveHeaderEdits = function() {
     window.FirebaseSync.syncProject(p);
   }
   window.labAudio.playSuccess();
-  logAction('UPDATE_PROJECT_HEADER', `แก้ไขข้อมูลตั้งต้น ${p.experimentNo} (${p.batchMediumNo}) [น้ำตาลขาเข้า: ${p.inletMolassesSugar} g/L, Brix: ${p.initialBrix}]`);
+  logAction('UPDATE_PROJECT_HEADER', `Edit Initial Data ${p.experimentNo} (${p.batchMediumNo}) [Inlet sugar: ${p.inletMolassesSugar} g/L, Brix: ${p.initialBrix}]`);
   toggleEditHeaderForm(false);
   updateProjectHeaderDisplay();
   renderProjectSelector();
   renderTimepointOptions('input-timepoint');
   renderGanttTimeline();
-  showToast('บันทึกการแก้ไขข้อมูลตั้งต้นเรียบร้อย', 'success');
+  showToast('Experiment header changes saved', 'success');
 };
 
 // ==========================================================================
-// Feed Log Records (Grounded in Attachment 1 "ตารางบันทึก Feed อาหาร")
+// Feed Log Records (Grounded in Attachment 1 "Feed Log Table")
 // ==========================================================================
 window.renderFeedLogsTable = function() {
   const tbody = document.getElementById('feed-log-tbody');
@@ -920,14 +932,14 @@ window.renderFeedLogsTable = function() {
 
   const p = state.projects.find(proj => proj.id === state.currentProjectId);
   if (!p) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 18px;">ไม่พบโปรเจกต์ที่เลือก</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 18px;">Selected Project not found</td></tr>';
     return;
   }
 
   if (!p.feedLogs) p.feedLogs = [];
 
   if (p.feedLogs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 18px;">ยังไม่มีบันทึก Feed อาหาร คลิก "+ เพิ่มบันทึก Feed อาหาร" เพื่อเริ่มต้น</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 18px;">No feeding log entries yet. Click "+ Add Feeding Log" to get started</td></tr>';
     return;
   }
 
@@ -944,10 +956,10 @@ window.renderFeedLogsTable = function() {
       <td style="color: #475569; font-size: 0.8rem;">${escapeHtml(log.remarks || '-')}</td>
       <td style="text-align: center;">
         <div style="display: flex; gap: 4px; justify-content: center;">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="openAddFeedLogModal('${escapeHtml(log.id)}')" style="padding: 3px 6px; font-size: 0.72rem;" ${!editable ? 'disabled title="ไม่มีสิทธิ์แก้ไข"' : ''}>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openAddFeedLogModal('${escapeHtml(log.id)}')" style="padding: 3px 6px; font-size: 0.72rem;" ${!editable ? 'disabled title="No edit permission"' : ''}>
             ✏️
           </button>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="deleteFeedLogEntry('${escapeHtml(log.id)}')" style="padding: 3px 6px; font-size: 0.72rem; color: #ef4444;" ${!editable ? 'disabled title="ไม่มีสิทธิ์ลบ"' : ''}>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="deleteFeedLogEntry('${escapeHtml(log.id)}')" style="padding: 3px 6px; font-size: 0.72rem; color: #ef4444;" ${!editable ? 'disabled title="No permission to delete"' : ''}>
             🗑️
           </button>
         </div>
@@ -958,7 +970,7 @@ window.renderFeedLogsTable = function() {
 
 window.openAddFeedLogModal = function(editId = null) {
   if (!canEditCurrentProject()) {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    Swal.fire({ icon: 'error', title: 'No edit permission', text: 'You are not the owner of this research project' });
     return;
   }
 
@@ -974,7 +986,7 @@ window.openAddFeedLogModal = function(editId = null) {
   if (editId && p.feedLogs) {
     const item = p.feedLogs.find(l => l.id === editId);
     if (item) {
-      if (titleEl) titleEl.textContent = '✏️ แก้ไขบันทึก Feed อาหาร';
+      if (titleEl) titleEl.textContent = '✏️ Edit Feeding Log Entry';
       document.getElementById('feed-log-datetime').value = item.dateTime || '';
       document.getElementById('feed-log-medium').value = item.medium || '';
       document.getElementById('feed-log-no').value = item.feedNo || '';
@@ -987,7 +999,7 @@ window.openAddFeedLogModal = function(editId = null) {
     }
   }
 
-  if (titleEl) titleEl.textContent = '📋 เพิ่มบันทึก Feed อาหาร (Feeding Log)';
+  if (titleEl) titleEl.textContent = '📋 Add Feeding Log Entry';
   const now = new Date();
   const dateStr = `${now.getDate()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getFullYear().toString().slice(2)} ${now.getHours().toString().padStart(2,'0')}:00`;
   document.getElementById('feed-log-datetime').value = dateStr;
@@ -1009,7 +1021,7 @@ window.closeAddFeedLogModal = function() {
 
 window.saveFeedLogEntry = function() {
   if (!canEditCurrentProject()) {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    Swal.fire({ icon: 'error', title: 'No edit permission', text: 'You are not the owner of this research project' });
     return;
   }
 
@@ -1062,13 +1074,13 @@ window.saveFeedLogEntry = function() {
   if (window.labAudio) window.labAudio.playSuccess();
   closeAddFeedLogModal();
   renderFeedLogsTable();
-  logAction('FEED_LOG_ENTRY', `บันทึกรายการ Feed อาหาร: ${med} (${fNo}) - Brix: ${bx}°Bx`);
-  showToast('บันทึกรายการ Feed อาหารเรียบร้อย', 'success');
+  logAction('FEED_LOG_ENTRY', `Logged feeding entry: ${med} (${fNo}) - Brix: ${bx}°Bx`);
+  showToast('Feeding log entry saved', 'success');
 };
 
 window.deleteFeedLogEntry = function(id) {
   if (!canEditCurrentProject()) {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    Swal.fire({ icon: 'error', title: 'No edit permission', text: 'You are not the owner of this research project' });
     return;
   }
 
@@ -1076,13 +1088,13 @@ window.deleteFeedLogEntry = function(id) {
   if (!p || !p.feedLogs) return;
 
   Swal.fire({
-    title: 'ยืนยันลบรายการ Feed?',
-    text: 'ท่านต้องการลบรายการบันทึก Feed อาหารนี้หรือไม่',
+    title: 'Confirm delete Feed entry?',
+    text: 'Delete this feeding log entry?',
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#ef4444',
-    confirmButtonText: 'ลบรายการ',
-    cancelButtonText: 'ยกเลิก'
+    confirmButtonText: 'Delete Item',
+    cancelButtonText: 'Cancel'
   }).then(res => {
     if (res.isConfirmed) {
       p.feedLogs = p.feedLogs.filter(l => l.id !== id);
@@ -1092,7 +1104,7 @@ window.deleteFeedLogEntry = function(id) {
       }
       renderFeedLogsTable();
       if (window.labAudio) window.labAudio.playWarning();
-      showToast('ลบรายการ Feed อาหารเรียบร้อย', 'info');
+      showToast('Feeding log entry deleted', 'info');
     }
   });
 };
@@ -1100,11 +1112,11 @@ window.deleteFeedLogEntry = function(id) {
 
 // Create New Project with Automatic Gantt Timeline Generation
 window.openNewProjectModal = function() {
-  const currentUserName = state.currentUser ? (state.currentUser.displayName || state.currentUser.username) : 'นักวิจัย';
+  const currentUserName = state.currentUser ? (state.currentUser.displayName || state.currentUser.username) : 'Researcher';
   const currentUserId = state.currentUser ? state.currentUser.uid : 'usr_user';
 
   Swal.fire({
-    title: '➕ สร้างโปรเจกต์งานวิจัยใหม่',
+    title: '➕ Create New Research Project',
     html: `
       <div style="text-align: left; font-size: 0.88rem; max-height: 70vh; overflow-y: auto;">
         <div class="form-grid-2">
@@ -1114,7 +1126,7 @@ window.openNewProjectModal = function() {
           </div>
           <div class="form-group">
             <label class="form-label">Experiment no.:*</label>
-            <input type="text" id="swal-new-exp" class="form-input" placeholder="เช่น Fermentation Trial D=0.020">
+            <input type="text" id="swal-new-exp" class="form-input" placeholder="e.g. Fermentation Trial D=0.020">
           </div>
         </div>
 
@@ -1124,48 +1136,48 @@ window.openNewProjectModal = function() {
             <input type="number" step="0.001" id="swal-new-drate" class="form-input" value="0.022">
           </div>
           <div class="form-group">
-            <label class="form-label">สัดส่วน B:C:*</label>
+            <label class="form-label">B:C:* Ratio</label>
             <input type="text" id="swal-new-ratio" class="form-input" value="80:20">
           </div>
         </div>
 
         <div class="form-grid-2">
           <div class="form-group">
-            <label class="form-label">อุณหภูมิ (°C):</label>
+            <label class="form-label">Temperature (°C):</label>
             <input type="number" id="swal-new-temp" class="form-input" value="30">
           </div>
           <div class="form-group">
-            <label class="form-label">วันที่เริ่มต้น:*</label>
+            <label class="form-label">Start Date:*</label>
             <input type="date" id="swal-new-date" class="form-input" value="${new Date().toISOString().slice(0,10)}">
           </div>
         </div>
 
         <div class="form-group">
           <label class="form-label">Feed culture:</label>
-          <input type="text" id="swal-new-culture" class="form-input" placeholder="เช่น PK B:C mol (80:20)">
+          <input type="text" id="swal-new-culture" class="form-input" placeholder="e.g. PK B:C mol (80:20)">
         </div>
 
         <div class="form-grid-2">
           <div class="form-group">
             <label class="form-label">Seed & Lot:</label>
-            <input type="text" id="swal-new-seed" class="form-input" placeholder="เช่น Angel Lot.260624">
+            <input type="text" id="swal-new-seed" class="form-input" placeholder="e.g. Angel Lot.260624">
           </div>
           <div class="form-group">
             <label class="form-label">Seed preparation:</label>
-            <input type="text" id="swal-new-prep" class="form-input" placeholder="เช่น 0.4 g yeast dissolve in water">
+            <input type="text" id="swal-new-prep" class="form-input" placeholder="e.g. 0.4 g yeast dissolved in water">
           </div>
         </div>
 
         <div class="form-group" style="margin-top: 8px;">
-          <label class="form-label">จุดเวลาจัดเก็บตัวอย่าง (Sampling Timepoints - ชม. คั่นด้วยจุลภาค):</label>
+          <label class="form-label">Sampling Timepoints (hours, comma-separated):</label>
           <input type="text" id="swal-new-timepoints" class="form-input" value="0, 12, 16, 18, 22, 34, 40, 46, 58, 64, 70, 82" placeholder="0, 12, 16, 18, 22, 34, 40, 46, 58, 64, 70, 82">
         </div>
       </div>
     `,
     width: '600px',
     showCancelButton: true,
-    confirmButtonText: '🚀 สร้างโปรเจกต์และสร้างไทม์ไลน์',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: '🚀 Create Project & Generate Timeline',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#0f3d7a',
     preConfirm: () => {
       const batch = document.getElementById('swal-new-batch').value.trim();
@@ -1187,7 +1199,7 @@ window.openNewProjectModal = function() {
         : [0, 12, 16, 18, 22, 34, 40, 46, 58, 64, 70, 82];
 
       if (!batch || !exp || !date) {
-        Swal.showValidationMessage('กรุณากรอกข้อมูลสำคัญให้ครบถ้วน');
+        Swal.showValidationMessage('Please fill in all required fields');
         return false;
       }
       return { batch, exp, dRate, ratio, temp, date, culture, seed, prep, timepoints };
@@ -1230,9 +1242,9 @@ window.openNewProjectModal = function() {
         window.FirebaseSync.syncProject(newProj);
       }
       window.labAudio.playSuccess();
-      logAction('CREATE_PROJECT', `สร้างโปรเจกต์ใหม่ ${newProj.experimentNo} (${newProj.batchMediumNo}) พร้อมสร้าง Gantt Chart อัตโนมัติ`);
+      logAction('CREATE_PROJECT', `Create New Project ${newProj.experimentNo} (${newProj.batchMediumNo}) with auto-generated Gantt Chart`);
       renderAllDataViews();
-      showToast(`สร้างโปรเจกต์ ${newProj.experimentNo} สำเร็จ`, 'success');
+      showToast(`Create Project ${newProj.experimentNo} Success`, 'success');
     }
   });
 };
@@ -1240,34 +1252,34 @@ window.openNewProjectModal = function() {
 // Delete Entire Project and all its rows (Requirement 2 & 3)
 window.deleteCurrentProject = function() {
   if (!canEditCurrentProject()) {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์ลบ', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    Swal.fire({ icon: 'error', title: 'No permission to delete', text: 'You are not the owner of this research project' });
     return;
   }
 
   const p = state.projects.find(proj => proj.id === state.currentProjectId);
   if (!p) {
-    showToast('ไม่พบโปรเจกต์ที่ต้องการลบ', 'error');
+    showToast('Project to delete not found', 'error');
     return;
   }
 
   const projectSamples = state.samples.filter(s => s.projectId === p.id);
 
   Swal.fire({
-    title: `ลบโปรเจกต์ ${escapeHtml(p.experimentNo)}?`,
+    title: `Delete Project ${escapeHtml(p.experimentNo)}?`,
     html: `
       <div style="text-align: left; font-size: 0.9rem; line-height: 1.6;">
         <p>• <strong>Batch Medium:</strong> ${escapeHtml(p.batchMediumNo)}</p>
-        <p>• <strong>ข้อมูลตัวอย่างทั้งหมด:</strong> ${projectSamples.length} แถว</p>
+        <p>• <strong>All sample data:</strong> ${projectSamples.length} rows</p>
         <p style="color: #b91c1c; margin-top: 8px;">
-          ⚠️ โปรเจกต์และข้อมูลดิบทุกแถวในโปรเจกต์นี้จะถูกลบออกจากฐานข้อมูล
-          <br><strong>(ท่านสามารถกู้คืนย้อนหลังได้ทุกเมื่อผ่านปุ่ม "กู้คืนข้อมูล" ใน Data Log)</strong>
+          ⚠️ This project and all its raw data records will be deleted from the database
+          <br><strong>(You can restore this anytime via the button "Restore Data" in Data Log)</strong>
         </p>
       </div>
     `,
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: 'ยืนยันลบทั้งโปรเจกต์',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: 'Confirm Delete Entire Project',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#991b1b'
   }).then((res) => {
     if (res.isConfirmed) {
@@ -1286,7 +1298,7 @@ window.deleteCurrentProject = function() {
         window.FirebaseSync.removeProject(p.id);
       }
 
-      logAction('DELETE_PROJECT', `ลบโปรเจกต์ ${p.experimentNo} (${p.batchMediumNo}) และข้อมูลทั้งหมด ${projectSamples.length} แถว`, snapshot);
+      logAction('DELETE_PROJECT', `Delete Project ${p.experimentNo} (${p.batchMediumNo}) and all data ${projectSamples.length} rows`, snapshot);
 
       // Select another project
       const isAdmin = state.currentUser && state.currentUser.role === 'admin';
@@ -1296,7 +1308,7 @@ window.deleteCurrentProject = function() {
       persistState();
       window.labAudio.playWarning();
       renderAllDataViews();
-      showToast(`ลบโปรเจกต์ ${p.experimentNo} เรียบร้อย (กู้คืนได้จาก Data Log)`, 'info');
+      showToast(`Delete Project ${p.experimentNo} completed (recoverable from Data Log)`, 'info');
     }
   });
 };
@@ -1397,8 +1409,8 @@ function tallyIncrement(delta) {
 function updateTallyDisplay() {
   const sum = state.tallyCounts[state.activeSeries].reduce((a, b) => a + b, 0);
   document.getElementById('tally-current-series-name').textContent = 
-    state.activeSeries === 'total' ? 'Total Cells (ทุกเซลล์)' :
-    state.activeSeries === 'budding' ? 'Cell Budding (แตกหน่อ)' : 'Cell Death (ติดสีน้ำเงิน)';
+    state.activeSeries === 'total' ? 'Total Cells' :
+    state.activeSeries === 'budding' ? 'Cell Budding' : 'Dead Cells (Blue-Stained)';
   document.getElementById('tally-big-number').textContent = sum;
 }
 
@@ -1482,11 +1494,11 @@ function calculateCellKinetics() {
   const alertBox = document.getElementById('cell-validation-alert');
   if (alertBox) {
     if (deadSum > totalSum) {
-      alertBox.textContent = '⚠️ คำเตือน: เซลล์ตาย (Dead) มีจำนวนมากกว่าเซลล์ทั้งหมด (Total) กรุณาตรวจสอบการนับ';
+      alertBox.textContent = '⚠️ Warning: Dead cells exceed Total cells. Please verify your cell count';
       alertBox.className = 'inline-alert inline-alert-danger visible';
       window.labAudio?.playWarning();
     } else if (buddingSum > totalSum) {
-      alertBox.textContent = '⚠️ คำเตือน: เซลล์แตกหน่อ (Budding) มีจำนวนมากกว่าเซลล์ทั้งหมด กรุณาตรวจสอบการนับ';
+      alertBox.textContent = '⚠️ Warning: Budding cells exceed Total cells. Please verify your cell count';
       alertBox.className = 'inline-alert inline-alert-warning visible';
       window.labAudio?.playWarning();
     } else {
@@ -1598,10 +1610,10 @@ window.calcCDWFromInputs = function() {
   const cdw = sampleVol > 0 ? (1000 * avgNet) / sampleVol : 0;
 
   const t1Badge = document.getElementById('cdw-tube1-net-badge');
-  if (t1Badge) t1Badge.textContent = `สุทธิ: ${net1.toFixed(4)} g`;
+  if (t1Badge) t1Badge.textContent = `Net: ${net1.toFixed(4)} g`;
 
   const t2Badge = document.getElementById('cdw-tube2-net-badge');
-  if (t2Badge) t2Badge.textContent = `สุทธิ: ${net2.toFixed(4)} g`;
+  if (t2Badge) t2Badge.textContent = `Net: ${net2.toFixed(4)} g`;
 
   const avgNetDisp = document.getElementById('cdw-avg-net-display');
   if (avgNetDisp) avgNetDisp.textContent = `${avgNet.toFixed(4)} g`;
@@ -1613,7 +1625,7 @@ window.calcCDWFromInputs = function() {
 };
 
 window.loadCDWExampleData = function() {
-  // Real laboratory test values directly from Attachment 4 ("แบบฟอร์มบันทึกน้ำหนักแห้ง") Row 1 & 2
+  // Real laboratory test values directly from Attachment 4 ("Cell Dry Weight Form") Row 1 & 2
   document.getElementById('cdw-tube1-before1').value = '1.1130';
   document.getElementById('cdw-tube1-before2').value = '1.1132';
   document.getElementById('cdw-tube1-after1').value = '1.1152';
@@ -1628,20 +1640,20 @@ window.loadCDWExampleData = function() {
 
   calcCDWFromInputs();
   if (window.labAudio) window.labAudio.playSuccess();
-  showToast('โหลดข้อมูลตัวอย่าง Cell Dry Weight เรียบร้อย', 'info');
+  showToast('Sample Cell Dry Weight data loaded', 'info');
 };
 
 window.saveCDWToCurrentSample = function() {
   if (!canEditCurrentProject()) {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    Swal.fire({ icon: 'error', title: 'No edit permission', text: 'You are not the owner of this research project' });
     return;
   }
   const res = calcCDWFromInputs();
   if (res.cdw <= 0) {
     Swal.fire({
       icon: 'warning',
-      title: 'ค่าน้ำหนักแห้งไม่ถูกต้อง',
-      text: 'กรุณากรอกน้ำหนักก่อนและหลังอบให้ครบถ้วนเพื่อคำนวณ CDW'
+      title: 'Invalid cell dry weight value',
+      text: 'Please enter all before- and after-drying weights to calculate CDW'
     });
     return;
   }
@@ -1690,8 +1702,8 @@ window.saveCDWToCurrentSample = function() {
   closeCDWModal();
   calculateCellKinetics();
   renderDataRecordTable();
-  logAction('CDW_ENTRY', `บันทึกค่าน้ำหนักแห้งยีสต์ CDW: ${cdwFixed} g/L (ถัง ${state.selectedTank} @ ${timeVal}h, เฉลี่ยแห้ง ${res.avgNet.toFixed(4)} g)`);
-  showToast(`บันทึก Cell Dry Weight: ${cdwFixed} g/L เรียบร้อย`, 'success');
+  logAction('CDW_ENTRY', `Saved Yeast Cell Dry Weight (CDW): ${cdwFixed} g/L (Tank ${state.selectedTank} @ ${timeVal}h, avg. dry ${res.avgNet.toFixed(4)} g)`);
+  showToast(`Saved Cell Dry Weight: ${cdwFixed} g/L successfully`, 'success');
 };
 
 
@@ -1721,7 +1733,7 @@ function setupHPLCInputs() {
   brixInput?.addEventListener('input', (e) => {
     const brix = parseFloat(e.target.value);
     if (brix < 0 || brix > 35) {
-      brixAlert.textContent = '⚠️ ค่า Brix อยู่นอกช่วงมาตรฐานห้องแล็บ (0 - 35 °Bx)';
+      brixAlert.textContent = '⚠️ Brix value is outside the standard lab range (0 - 35 °Bx)';
       brixAlert.className = 'inline-alert inline-alert-warning visible';
       window.labAudio.playWarning();
     } else {
@@ -1859,8 +1871,8 @@ window.saveCurrentSample = function() {
   if (!canEditCurrentProject()) {
     Swal.fire({
       icon: 'error',
-      title: 'ไม่มีสิทธิ์แก้ไข',
-      text: 'ท่านสามารถดูข้อมูลได้เท่านั้น เนื่องจากไม่ใช่ผู้สร้างโปรเจกต์นี้',
+      title: 'No edit permission',
+      text: 'Read-only access: you are not the creator of this project',
       confirmButtonColor: '#0f3d7a'
     });
     return;
@@ -1921,10 +1933,10 @@ window.saveCurrentSample = function() {
     window.FirebaseSync.syncSample(sample);
   }
   window.labAudio.playSuccess();
-  showToast(`บันทึกผลถัง ${state.selectedTank} @ ${time}h สำเร็จ`, 'success');
+  showToast(`Record Tank Results ${state.selectedTank} @ ${time}h successful`, 'success');
 
   logAction(isNew ? 'SAMPLE_ENTRY' : 'UPDATE_SAMPLE', 
-    `บันทึกข้อมูลถัง ${state.selectedTank} @ ${time}h (Brix: ${brixVal}, SugarConvert: ${sugarConvertVal}, Ethanol: ${ethanolVal}, Total: ${sample.cellCount ? formatCfuDisplay(sample.cellCount) + ' CFU/ml' : '-'}, CDW: ${sample.cellDryWeight ? sample.cellDryWeight + ' g/L' : '-'})`
+    `Save Tank Data ${state.selectedTank} @ ${time}h (Brix: ${brixVal}, SugarConvert: ${sugarConvertVal}, Ethanol: ${ethanolVal}, Total: ${sample.cellCount ? formatCfuDisplay(sample.cellCount) + ' CFU/ml' : '-'}, CDW: ${sample.cellDryWeight ? sample.cellDryWeight + ' g/L' : '-'})`
   );
 
   renderAllDataViews();
@@ -2082,7 +2094,7 @@ function renderHPLCChart() {
 window.downloadChartPNG = function(chartKey, filename) {
   const chartInstance = state.charts[chartKey];
   if (!chartInstance || !chartInstance.canvas) {
-    showToast('ไม่พบข้อมูลกราฟสำหรับดาวน์โหลด', 'warning');
+    showToast('No chart found to download', 'warning');
     return;
   }
 
@@ -2106,7 +2118,7 @@ window.downloadChartPNG = function(chartKey, filename) {
   a.click();
 
   window.labAudio.playSuccess();
-  showToast(`ดาวน์โหลดรูปกราฟพื้นหลังสีขาว (${filename}) เรียบร้อย`, 'success');
+  showToast(`Downloaded white-background chart image (${filename}) successfully`, 'success');
 };
 
 // ==========================================================================
@@ -2128,7 +2140,7 @@ window.addCustomSeries = function() {
 
   const id = `${tank}_${metric}_${axis}`;
   if (state.customSeries.some(s => s.id === id)) {
-    showToast('เส้นข้อมูลนี้มีอยู่ในกราฟแล้ว', 'info');
+    showToast('This data series is already plotted on the chart', 'info');
     return;
   }
 
@@ -2147,14 +2159,14 @@ window.addCustomSeries = function() {
     tank: tank,
     metric: metric,
     axis: axis,
-    label: `${tank} - ${metricLabels[metric]} [${axis === 'y' ? 'แกนซ้าย Y1' : 'แกนขวา Y2'}]`,
+    label: `${tank} - ${metricLabels[metric]} [${axis === 'y' ? 'Left Axis Y1' : 'Right Axis Y2'}]`,
     color: colorMap[metric] || tankDef.color
   });
 
   window.labAudio.playSuccess();
   renderCustomSeriesChips();
   renderCustomChart();
-  showToast(`เพิ่มเส้นข้อมูล ${tank} - ${metricLabels[metric]} สำเร็จ`, 'success');
+  showToast(`Add Data Series ${tank} - ${metricLabels[metric]} Success`, 'success');
 };
 
 window.removeCustomSeries = function(id) {
@@ -2168,7 +2180,7 @@ window.clearCustomChart = function() {
   state.customSeries = [];
   renderCustomSeriesChips();
   renderCustomChart();
-  showToast('ล้างเส้นกราฟทั้งหมดเรียบร้อย', 'info');
+  showToast('All chart series cleared', 'info');
 };
 
 function renderCustomSeriesChips() {
@@ -2196,7 +2208,7 @@ function renderCustomChart() {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          title: { display: true, text: 'กรุณาเลือกถังหมักและตัวแปรเพื่อเพิ่มเส้นข้อมูลลงในกราฟเปรียบเทียบ' }
+          title: { display: true, text: 'Please select a vessel and variable to add a series to the comparison chart' }
         }
       }
     });
@@ -2264,7 +2276,7 @@ function syncDataRecordProjectFilter() {
   const availableProjects = isAdmin ? state.projects : state.projects.filter(p => p.ownerId === state.currentUser?.uid);
 
   filterSelect.innerHTML = `
-    <option value="ALL">📂 ทุกโปรเจกต์ (All Projects)</option>
+    <option value="ALL">📂 All Projects</option>
     ${availableProjects.map(p => `
       <option value="${escapeHtml(p.id)}" ${p.id === currentVal ? 'selected' : ''}>
         ${escapeHtml(p.experimentNo)} (${escapeHtml(p.batchMediumNo)}) - D=${escapeHtml(p.conditionParams?.dilutionRateD)}${isAdmin ? ` [${escapeHtml(p.ownerName)}]` : ''}
@@ -2330,7 +2342,7 @@ window.resetDataRecordFilters = function() {
   state.dataRecordSort = { field: 'tank', dir: 'asc' };
   updateDataRecordSortIcons();
   renderDataRecordTable();
-  showToast('รีเซ็ตตัวกรองและการจัดเรียงแล้ว', 'info');
+  showToast('Filters and sorting reset', 'info');
 };
 
 function renderDataRecordTable() {
@@ -2416,12 +2428,12 @@ function renderDataRecordTable() {
 
   // Update badge counter
   const badge = document.getElementById('data-record-count-badge');
-  if (badge) badge.textContent = `${filteredSamples.length} รายการ`;
+  if (badge) badge.textContent = `${filteredSamples.length} items`;
 
   const editable = canEditCurrentProject();
 
   if (filteredSamples.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="14" style="text-align: center; color: #94a3b8; padding: 24px;">ไม่พบข้อมูลตัวอย่างที่ตรงกับเงื่อนไขการกรอง</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" style="text-align: center; color: #94a3b8; padding: 24px;">No sample records match the filter criteria</td></tr>';
     return;
   }
 
@@ -2449,10 +2461,10 @@ function renderDataRecordTable() {
         <td style="color: #92400e; font-weight: 700;">${s.cellDryWeight !== undefined && s.cellDryWeight !== null ? escapeHtml(s.cellDryWeight) + ' g/L' : '-'}</td>
         <td>
           <div style="display: flex; gap: 6px;">
-            <button class="btn btn-sm btn-secondary" onclick="editDataRecordRow('${safeTank}', ${timeNum}, '${safePid}')" ${!rowEditable ? 'disabled title="ไม่มีสิทธิ์แก้ไข"' : ''}>
+            <button class="btn btn-sm btn-secondary" onclick="editDataRecordRow('${safeTank}', ${timeNum}, '${safePid}')" ${!rowEditable ? 'disabled title="No edit permission"' : ''}>
               ✏️
             </button>
-            <button class="btn btn-sm btn-secondary" onclick="deleteDataRecordRow('${safeTank}', ${timeNum}, '${safePid}')" style="color: #ef4444;" ${!rowEditable ? 'disabled title="ไม่มีสิทธิ์ลบ"' : ''}>
+            <button class="btn btn-sm btn-secondary" onclick="deleteDataRecordRow('${safeTank}', ${timeNum}, '${safePid}')" style="color: #ef4444;" ${!rowEditable ? 'disabled title="No permission to delete"' : ''}>
               🗑️
             </button>
           </div>
@@ -2465,7 +2477,7 @@ function renderDataRecordTable() {
 window.editDataRecordRow = function(tank, time, projectId) {
   const targetProjectId = projectId || state.currentProjectId;
   if (!canEditProject(targetProjectId)) {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    Swal.fire({ icon: 'error', title: 'No edit permission', text: 'You are not the owner of this research project' });
     return;
   }
 
@@ -2473,7 +2485,7 @@ window.editDataRecordRow = function(tank, time, projectId) {
   if (!s) return;
 
   Swal.fire({
-    title: `แก้ไขข้อมูล ${tank} @ ${time}h`,
+    title: `Edit Data ${tank} @ ${time}h`,
     html: `
       <div style="text-align: left; font-size: 0.88rem;">
         <div class="form-grid-2">
@@ -2513,8 +2525,8 @@ window.editDataRecordRow = function(tank, time, projectId) {
       </div>
     `,
     showCancelButton: true,
-    confirmButtonText: 'บันทึกการแก้ไข',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: 'Save Changes',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#0f3d7a',
     preConfirm: () => {
       const brix = parseFloat(document.getElementById('swal-brix').value);
@@ -2544,7 +2556,7 @@ window.editDataRecordRow = function(tank, time, projectId) {
         window.FirebaseSync.syncSample(s);
       }
       window.labAudio.playSuccess();
-      logAction('UPDATE_DATA_RECORD', `แก้ไขข้อมูลดิบ ${tank} @ ${time}h (Brix: ${val.brix}, Sugar: ${s.sugarConvert}, Eth: ${val.eth}, CDW: ${s.cellDryWeight})`);
+      logAction('UPDATE_DATA_RECORD', `Edit Raw Data ${tank} @ ${time}h (Brix: ${val.brix}, Sugar: ${s.sugarConvert}, Eth: ${val.eth}, CDW: ${s.cellDryWeight})`);
       
       // Instant Two-Way Sync to Lab Entry:
       loadSampleDataForCurrentTank();
@@ -2552,7 +2564,7 @@ window.editDataRecordRow = function(tank, time, projectId) {
       renderAllDataViews();
       renderAnalyticsCharts();
       renderCustomChart();
-      showToast(`อัปเดตข้อมูล ${tank} @ ${time}h เรียบร้อย ค่าในแทปบันทึกแล็ปเปลี่ยนตามทันที`, 'success');
+      showToast(`Update Data ${tank} @ ${time}h updated; Lab Entry tab synchronized immediately`, 'success');
     }
   });
 };
@@ -2560,7 +2572,7 @@ window.editDataRecordRow = function(tank, time, projectId) {
 window.deleteDataRecordRow = function(tank, time, projectId) {
   const targetProjectId = projectId || state.currentProjectId;
   if (!canEditProject(targetProjectId)) {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์ลบ', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    Swal.fire({ icon: 'error', title: 'No permission to delete', text: 'You are not the owner of this research project' });
     return;
   }
 
@@ -2568,21 +2580,21 @@ window.deleteDataRecordRow = function(tank, time, projectId) {
   if (!sampleToDelete) return;
 
   Swal.fire({
-    title: `ลบตัวอย่าง ${escapeHtml(tank)} @ ${escapeHtml(time)}h?`,
+    title: `Delete Sample ${escapeHtml(tank)} @ ${escapeHtml(time)}h?`,
     html: `
       <div style="text-align: left; font-size: 0.9rem; line-height: 1.6;">
-        <p>• ถังหมัก: <strong>${escapeHtml(tank)}</strong> | เวลา: <strong>${escapeHtml(time)} h</strong></p>
-        <p>• โปรเจกต์: <strong>${escapeHtml(targetProjectId)}</strong></p>
+        <p>• Fermenter: <strong>${escapeHtml(tank)}</strong> | Time: <strong>${escapeHtml(time)} h</strong></p>
+        <p>• Project: <strong>${escapeHtml(targetProjectId)}</strong></p>
         <p style="color: #b91c1c; margin-top: 8px;">
-          ⚠️ ข้อมูลแถวนี้จะถูกลบออกจากฐานข้อมูล
-          <br><strong>(ท่านสามารถกู้คืนย้อนหลังได้ทุกเมื่อผ่านปุ่ม "กู้คืนข้อมูล" ใน Data Log)</strong>
+          ⚠️ This record will be removed from the database
+          <br><strong>(You can restore this anytime via the button "Restore Data" in Data Log)</strong>
         </p>
       </div>
     `,
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: 'ยืนยันการลบ',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: 'Confirm Delete',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#991b1b'
   }).then((res) => {
     if (res.isConfirmed) {
@@ -2596,13 +2608,13 @@ window.deleteDataRecordRow = function(tank, time, projectId) {
         window.FirebaseSync.removeSample(targetProjectId, tank, time);
       }
       window.labAudio.playWarning();
-      logAction('DELETE_DATA_RECORD', `ลบข้อมูล ${tank} @ ${time}h (โปรเจกต์: ${targetProjectId})`, snapshot);
+      logAction('DELETE_DATA_RECORD', `Delete Data ${tank} @ ${time}h (Project: ${targetProjectId})`, snapshot);
       loadSampleDataForCurrentTank();
       renderDataRecordTable();
       renderAllDataViews();
       renderAnalyticsCharts();
       renderCustomChart();
-      showToast(`ลบข้อมูล ${tank} @ ${time}h สำเร็จ (กู้คืนได้จาก Data Log)`, 'info');
+      showToast(`Delete Data ${tank} @ ${time}h completed (recoverable from Data Log)`, 'info');
     }
   });
 };
@@ -2657,7 +2669,7 @@ window.exportDataRecordCSV = function() {
   URL.revokeObjectURL(url);
 
   window.labAudio.playSuccess();
-  showToast(`ส่งออกข้อมูล CSV (${exportList.length} แถว) เรียบร้อย`, 'success');
+  showToast(`Export CSV (${exportList.length} rows) successfully`, 'success');
 };
 
 // ==========================================================================
@@ -2679,9 +2691,9 @@ function renderUserManagementTable() {
       <td><code>••••••••</code></td>
       <td>
         <div style="display: flex; gap: 6px;">
-          <button class="btn btn-sm btn-secondary" onclick="editUserModal('${uidSafe}')">แก้ไข</button>
-          <button class="btn btn-sm btn-secondary" onclick="deleteUser('${uidSafe}')" style="color: #ef4444;" ${u.uid === state.currentUser?.uid || u.username === 'admin' ? 'disabled title="ไม่สามารถลบบัญชีของตนเองหรือ Admin หลักได้"' : ''}>
-            ลบ
+          <button class="btn btn-sm btn-secondary" onclick="editUserModal('${uidSafe}')">Edit</button>
+          <button class="btn btn-sm btn-secondary" onclick="deleteUser('${uidSafe}')" style="color: #ef4444;" ${u.uid === state.currentUser?.uid || u.username === 'admin' ? 'disabled title="Cannot delete your own account or the primary Admin account"' : ''}>
+            Delete
           </button>
         </div>
       </td>
@@ -2693,42 +2705,42 @@ function renderUserManagementTable() {
 window.openAddUserModal = function() {
   const isAdmin = state.currentUser && state.currentUser.role === 'admin';
   if (!isAdmin) {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์', text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถเพิ่มผู้ใช้ได้' });
+    Swal.fire({ icon: 'error', title: 'No Permission', text: 'Only administrators (Admin) can add users' });
     return;
   }
 
   Swal.fire({
-    title: '➕ เพิ่มผู้ใช้งานใหม่ (Add User)',
+    title: '➕ Add New User',
     html: `
       <div style="text-align: left; font-size: 0.88rem;">
         <div class="form-group">
-          <label class="form-label">ชื่อผู้ใช้สำหรับล็อกอิน (Username / ID):*</label>
-          <input type="text" id="swal-user-username" class="form-input" placeholder="เช่น researcher1">
+          <label class="form-label">Login Username / ID:*</label>
+          <input type="text" id="swal-user-username" class="form-input" placeholder="e.g. researcher1">
         </div>
         <div class="form-group">
-          <label class="form-label">ชื่อ-นามสกุล:*</label>
-          <input type="text" id="swal-user-name" class="form-input" placeholder="เช่น ดร.วิจัย เก่งกล้า">
+          <label class="form-label">Full Name:*</label>
+          <input type="text" id="swal-user-name" class="form-input" placeholder="e.g. Dr. John Smith">
         </div>
         <div class="form-group">
-          <label class="form-label">อีเมล (Email):*</label>
-          <input type="email" id="swal-user-email" class="form-input" placeholder="เช่น researcher1@mitrphol.com">
+          <label class="form-label">Email:*</label>
+          <input type="email" id="swal-user-email" class="form-input" placeholder="e.g. researcher1@mitrphol.com">
         </div>
         <div class="form-group">
-          <label class="form-label">รหัสผ่าน (Password):*</label>
-          <input type="password" id="swal-user-password" class="form-input" placeholder="กำหนดรหัสผ่าน">
+          <label class="form-label">Password:*</label>
+          <input type="password" id="swal-user-password" class="form-input" placeholder="Set Password">
         </div>
         <div class="form-group">
-          <label class="form-label">สิทธิ์การใช้งาน (Role):*</label>
+          <label class="form-label">Access Role:*</label>
           <select id="swal-user-role" class="form-select">
-            <option value="user">User (นักวิจัยทั่วไป - เห็นเฉพาะงานตนเอง)</option>
-            <option value="admin">Admin (ผู้ดูแลระบบ - จัดการได้ทุกข้อมูล)</option>
+            <option value="user">User (Researcher - Own Projects Only)</option>
+            <option value="admin">Admin (Administrator - Full Data Access)</option>
           </select>
         </div>
       </div>
     `,
     showCancelButton: true,
-    confirmButtonText: 'บันทึกและสร้างบัญชี',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: 'Save and Create Account',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#0f3d7a',
     preConfirm: () => {
       const username = (document.getElementById('swal-user-username').value || '').trim().toLowerCase();
@@ -2738,15 +2750,15 @@ window.openAddUserModal = function() {
       const role = document.getElementById('swal-user-role').value;
 
       if (!username || !name || !email || !password) {
-        Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+        Swal.showValidationMessage('Please complete all fields');
         return false;
       }
       if (state.users.some(x => (x.username && x.username.toLowerCase() === username) || x.uid === username)) {
-        Swal.showValidationMessage(`Username "${escapeHtml(username)}" มีผู้ใช้งานแล้วในระบบ`);
+        Swal.showValidationMessage(`Username "${escapeHtml(username)}" already exists in the system`);
         return false;
       }
       if (state.users.some(x => x.email && x.email.toLowerCase() === email)) {
-        Swal.showValidationMessage(`Email "${escapeHtml(email)}" มีผู้ใช้งานแล้วในระบบ`);
+        Swal.showValidationMessage(`Email "${escapeHtml(email)}" already exists in the system`);
         return false;
       }
       return { username, name, email, password, role };
@@ -2770,54 +2782,54 @@ window.openAddUserModal = function() {
         window.FirebaseSync.syncUser(newUser);
       }
       if (window.labAudio) window.labAudio.playSuccess();
-      logAction('ADD_USER', `Admin เพิ่มผู้ใช้งานใหม่: ${newUser.displayName} (ID: ${newUser.username}, Role: ${newUser.role})`);
+      logAction('ADD_USER', `Admin added new user: ${newUser.displayName} (ID: ${newUser.username}, Role: ${newUser.role})`);
       renderUserManagementTable();
       syncAuditLogUserFilter();
-      showToast(`สร้างผู้ใช้ ${newUser.displayName} เรียบร้อย`, 'success');
+      showToast(`Create User ${newUser.displayName} successfully`, 'success');
     }
   });
 };
 
 window.editUserModal = function(uid) {
   if (!state.currentUser || state.currentUser.role !== 'admin') {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์', text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถแก้ไขบัญชีผู้ใช้ได้' });
+    Swal.fire({ icon: 'error', title: 'No Permission', text: 'Only administrators (Admin) can edit user accounts' });
     return;
   }
   const u = state.users.find(x => x.uid === uid);
   if (!u) return;
 
   Swal.fire({
-    title: `แก้ไขผู้ใช้งาน: ${escapeHtml(u.displayName)}`,
+    title: `Edit User: ${escapeHtml(u.displayName)}`,
     html: `
       <div style="text-align: left; font-size: 0.88rem;">
         <div class="form-group">
-          <label class="form-label">ชื่อผู้ใช้ (Username / ID):</label>
+          <label class="form-label">Username / ID:</label>
           <input type="text" id="swal-edit-username" class="form-input" value="${escapeHtml(u.username || '')}" ${u.username === 'admin' ? 'readonly' : ''}>
         </div>
         <div class="form-group">
-          <label class="form-label">ชื่อ-นามสกุล:</label>
+          <label class="form-label">Full Name:</label>
           <input type="text" id="swal-edit-name" class="form-input" value="${escapeHtml(u.displayName)}">
         </div>
         <div class="form-group">
-          <label class="form-label">อีเมล (Email):</label>
+          <label class="form-label">Email:</label>
           <input type="email" id="swal-edit-email" class="form-input" value="${escapeHtml(u.email)}">
         </div>
         <div class="form-group">
-          <label class="form-label">รหัสผ่านใหม่ (ว่างไว้หากไม่เปลี่ยน):</label>
+          <label class="form-label">New Password (leave blank to keep current):</label>
           <input type="password" id="swal-edit-password" class="form-input" placeholder="••••••••">
         </div>
         <div class="form-group">
-          <label class="form-label">บทบาท (Role):</label>
+          <label class="form-label">Role:</label>
           <select id="swal-edit-role" class="form-select" ${u.username === 'admin' ? 'disabled' : ''}>
-            <option value="user" ${u.role === 'user' ? 'selected' : ''}>User (นักวิจัยทั่วไป)</option>
-            <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin (ผู้ดูแลระบบ)</option>
+            <option value="user" ${u.role === 'user' ? 'selected' : ''}>User (General Researcher)</option>
+            <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin (Administrator)</option>
           </select>
         </div>
       </div>
     `,
     showCancelButton: true,
-    confirmButtonText: 'บันทึกการแก้ไข',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: 'Save Changes',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#0f3d7a',
     preConfirm: () => {
       const username = (document.getElementById('swal-edit-username')?.value || '').trim().toLowerCase();
@@ -2826,7 +2838,7 @@ window.editUserModal = function(uid) {
       const newPwd = document.getElementById('swal-edit-password').value;
       const role = document.getElementById('swal-edit-role').value || u.role;
       if (!name || !email) {
-        Swal.showValidationMessage('กรุณากรอกชื่อและอีเมล');
+        Swal.showValidationMessage('Please enter name and email');
         return false;
       }
       return { username, name, email, newPwd, role };
@@ -2847,34 +2859,34 @@ window.editUserModal = function(uid) {
         window.FirebaseSync.syncUser(u);
       }
       if (window.labAudio) window.labAudio.playSuccess();
-      logAction('UPDATE_USER', `Admin อัปเดตข้อมูลผู้ใช้ ${u.displayName} (${u.username})`);
+      logAction('UPDATE_USER', `Admin updated user account ${u.displayName} (${u.username})`);
       renderUserManagementTable();
       syncAuditLogUserFilter();
-      showToast(`อัปเดตข้อมูล ${u.displayName} เรียบร้อย`, 'success');
+      showToast(`Update Data ${u.displayName} successfully`, 'success');
     }
   });
 };
 
 window.deleteUser = function(uid) {
   if (!state.currentUser || state.currentUser.role !== 'admin') {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์', text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถลบบัญชีผู้ใช้ได้' });
+    Swal.fire({ icon: 'error', title: 'No Permission', text: 'Only administrators (Admin) can delete user accounts' });
     return;
   }
   const u = state.users.find(x => x.uid === uid);
   if (!u) return;
 
   if (u.uid === state.currentUser?.uid || u.username === 'admin') {
-    Swal.fire({ icon: 'error', title: 'ไม่สามารถลบได้', text: 'ไม่สามารถลบบัญชีที่กำลังล็อกอินอยู่หรือบัญชี Admin หลักได้' });
+    Swal.fire({ icon: 'error', title: 'Cannot delete', text: 'Cannot delete the currently logged-in account or the primary Admin account' });
     return;
   }
 
   Swal.fire({
-    title: `ลบผู้ใช้งาน ${escapeHtml(u.displayName)}?`,
-    text: 'ผู้ใช้นี้จะไม่สามารถเข้าสู่ระบบได้อีกต่อไป',
+    title: `Delete User ${escapeHtml(u.displayName)}?`,
+    text: 'This user will no longer be able to sign in',
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: 'ยืนยันการลบ',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: 'Confirm Delete',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#991b1b'
   }).then((res) => {
     if (res.isConfirmed) {
@@ -2884,9 +2896,9 @@ window.deleteUser = function(uid) {
         window.FirebaseSync.removeUser(uid);
       }
       window.labAudio.playWarning();
-      logAction('DELETE_USER', `ลบผู้ใช้งาน ${u.displayName}`);
+      logAction('DELETE_USER', `Delete User ${u.displayName}`);
       renderUserManagementTable();
-      showToast(`ลบผู้ใช้ ${u.displayName} เรียบร้อย`, 'info');
+      showToast(`Delete User ${u.displayName} successfully`, 'info');
     }
   });
 };
@@ -2928,7 +2940,7 @@ function getDynamicProjectConditions() {
       conditionKey: `${p.experimentNo} (D=${dRate})`,
       projectId: p.id,
       ownerId: p.ownerId,
-      researcher: p.ownerName || 'นักวิจัย',
+      researcher: p.ownerName || 'Researcher',
       dilutionRateD: dRate,
       temp: p.conditionParams?.temperature || 30,
       ratioBC: p.conditionParams?.ratioBC || '80:20',
@@ -2984,7 +2996,7 @@ function renderOptimizerView() {
     });
 
     adminFilterSelect.innerHTML = `
-      <option value="ALL">🌐 ทุกคน (เปรียบเทียบและเชื่อมโยงข้อมูลระหว่างบุคคล)</option>
+      <option value="ALL">🌐 All Researchers (Cross-Researcher Comparison)</option>
       ${optResearchers.map(r => `<option value="${escapeHtml(r.uid)}" ${r.uid === currentOptVal ? 'selected' : ''}>👤 ${escapeHtml(r.name)}</option>`).join('')}
     `;
     adminFilterSelect.value = currentOptVal;
@@ -3007,19 +3019,19 @@ function renderOptimizerView() {
   if (scopeBadge) {
     if (isAdmin && isComparingAll) {
       scopeBadge.className = 'badge badge-gold';
-      scopeBadge.innerHTML = '🌐 เปรียบเทียบและเชื่อมโยงข้อมูลทุกไอดี (Admin Cross-Link Mode)';
+      scopeBadge.innerHTML = '🌐 Compare & Cross-Link All Researchers (Admin Cross-Link Mode)';
     } else if (isAdmin) {
       scopeBadge.className = 'badge badge-navy';
-      const activeName = (state.users.find(u => u.uid === (adminFilterSelect?.value || currentUserId))?.displayName) || 'นักวิจัย';
-      scopeBadge.innerHTML = `👤 เฉพาะงานวิจัยของ: ${escapeHtml(activeName)}`;
+      const activeName = (state.users.find(u => u.uid === (adminFilterSelect?.value || currentUserId))?.displayName) || 'Researcher';
+      scopeBadge.innerHTML = `👤 Research by: ${escapeHtml(activeName)}`;
     } else {
       scopeBadge.className = 'badge badge-navy';
-      scopeBadge.innerHTML = '👤 เฉพาะงานวิจัยของตนเอง';
+      scopeBadge.innerHTML = '👤 My Projects Only';
     }
   }
 
   if (displayedConditions.length === 0) {
-    container.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">ยังไม่มีข้อมูลสภาวะการทดลองของนักวิจัยท่านนี้ (กรุณาสร้างโปรเจกต์และบันทึกผลแล็บ)</td></tr>';
+    container.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">No experimental condition data for this researcher yet (please create a project and log lab data)</td></tr>';
     const winnerBanner = document.getElementById('optimizer-winner-banner');
     if (winnerBanner) winnerBanner.style.display = 'none';
     if (state.charts.radar) state.charts.radar.destroy();
@@ -3041,15 +3053,15 @@ function renderOptimizerView() {
   const winnerBtn = document.getElementById('btn-optimizer-winner-details');
 
   if (winnerTitle && bestCond) {
-    const ownerTag = isComparingAll ? ` [โดย ${bestCond.researcher}]` : '';
+    const ownerTag = isComparingAll ? ` [by ${bestCond.researcher}]` : '';
     winnerTitle.textContent = `${bestCond.conditionKey}${ownerTag} (D = ${bestCond.dilutionRateD} h⁻¹, ${bestCond.ratioBC || '80:20'}, ${bestCond.temp || 30} °C)`;
   }
   if (winnerDesc && bestCond) {
     winnerDesc.innerHTML = `
-      ให้ผลได้เอทานอลสูงสุด <strong>${escapeHtml(bestCond.maxEthanolGPerL)} g/L</strong>, 
-      ผลได้ต่อน้ำตาล <strong>Yield (Yp/s) = ${escapeHtml(bestCond.yieldYps)} g/g</strong> 
-      และอัตราผลิต <strong>Productivity = ${escapeHtml(bestCond.productivityQp)} g/L·h</strong>
-      ${isComparingAll ? `<br><span style="color: #059669; font-weight: 700;">🔗 เชื่อมโยงข้อมูลผู้สร้าง: ${escapeHtml(bestCond.researcher)} (${escapeHtml(bestCond.ownerId)})</span>` : ''}
+      gives the highest ethanol yield <strong>${escapeHtml(bestCond.maxEthanolGPerL)} g/L</strong>, 
+      Yield on Sugar <strong>Yield (Yp/s) = ${escapeHtml(bestCond.yieldYps)} g/g</strong> 
+      and production rate <strong>Productivity = ${escapeHtml(bestCond.productivityQp)} g/L·h</strong>
+      ${isComparingAll ? `<br><span style="color: #059669; font-weight: 700;">🔗 Filter by Creator: ${escapeHtml(bestCond.researcher)} (${escapeHtml(bestCond.ownerId)})</span>` : ''}
     `;
   }
   if (winnerBtn && bestCond) {
@@ -3080,7 +3092,7 @@ function renderOptimizerView() {
         <td>${escapeHtml(cond.cellViabilityPct)} %</td>
         <td>
           <button class="btn btn-sm btn-secondary" onclick="viewConditionDetails('${safeKey}')">
-            ดูรายละเอียด
+            View Details
           </button>
         </td>
       </tr>
@@ -3147,19 +3159,19 @@ window.viewConditionDetails = function(condKey) {
   if (!item) return;
 
   Swal.fire({
-    title: `วิเคราะห์สภาวะ ${escapeHtml(item.conditionKey)}`,
+    title: `Condition Analysis ${escapeHtml(item.conditionKey)}`,
     html: `
       <div style="text-align: left; font-size: 0.9rem; line-height: 1.8;">
         <p>• <strong>Dilution Rate (D):</strong> ${escapeHtml(item.dilutionRateD)} h⁻¹</p>
         <p>• <strong>Max Ethanol Produced:</strong> ${escapeHtml(item.maxEthanolGPerL)} g/L</p>
-        <p>• <strong>Ethanol Yield (Yp/s):</strong> ${escapeHtml(item.yieldYps)} g/g (ทฤษฎี Gay-Lussac สูงสุด 0.511)</p>
+        <p>• <strong>Ethanol Yield (Yp/s):</strong> ${escapeHtml(item.yieldYps)} g/g (Gay-Lussac theoretical max 0.511)</p>
         <p>• <strong>Productivity (Qp):</strong> ${escapeHtml(item.productivityQp)} g/L·h</p>
         <p>• <strong>Sugar Conversion:</strong> ${escapeHtml(item.sugarConversionPct)}%</p>
-        <p>• <strong>สรุปผล:</strong> ${item.isBest ? '<strong>สภาวะที่ดีที่สุดสำหรับกระบวนการหมักต่อเนื่องของมิตรผล</strong> เนื่องจากให้อัตราผลได้เอทานอลสูงสุด และความอยู่รอดของเซลล์ยีสต์สม่ำเสมอ' : 'มีประสิทธิภาพตามพารามิเตอร์ที่ทดสอบ'}</p>
+        <p>• <strong>Summary:</strong> ${item.isBest ? '<strong>Optimal condition for Mitr Phol continuous fermentation process</strong> delivering maximum ethanol yield and consistent yeast cell viability' : 'performed effectively under tested parameters'}</p>
       </div>
     `,
     confirmButtonColor: '#0f3d7a',
-    confirmButtonText: 'ปิด'
+    confirmButtonText: 'Close'
   });
 };
 
@@ -3220,20 +3232,20 @@ function updateSlideContent() {
         <span class="badge badge-gold" style="font-size: 0.9rem; padding: 6px 16px; margin-bottom: 16px;">
           Mitr Phol Biotech Research & Development
         </span>
-        <h1 style="font-size: 2rem; color: #0a2540; margin: 16px 0;">รายงานสรุปผลการทดลองการหมักชีวภาพต่อเนื่อง</h1>
+        <h1 style="font-size: 2rem; color: #0a2540; margin: 16px 0;">Continuous Bio-Fermentation Experiment Summary Report</h1>
         <h3 style="color: #475569; font-weight: 500;">Batch: ${escapeHtml(project.batchMediumNo || '-')} | Experiment: ${escapeHtml(project.experimentNo || '-')}</h3>
         
         <div style="max-width: 650px; margin: 30px auto; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; text-align: left;">
-          <p><strong>• สภาวะการทดลอง (Condition):</strong> ${escapeHtml(project.conditionText || '-')}</p>
-          <p>• <strong>สัดส่วน Feed Culture:</strong> ${escapeHtml(project.conditionParams?.feedCulture || '-')}</p>
-          <p>• <strong>สายพันธุ์ยีสต์ (Seed):</strong> ${escapeHtml(project.seed || '-')}</p>
-          <p>• <strong>นักวิจัยผู้รับผิดชอบ:</strong> ${escapeHtml(project.ownerName || '-')}</p>
-          <p>• <strong>วันที่เริ่มการทดลอง:</strong> ${escapeHtml(project.date || '-')}</p>
+          <p><strong>• Experimental Condition:</strong> ${escapeHtml(project.conditionText || '-')}</p>
+          <p>• <strong>Feed Culture Ratio:</strong> ${escapeHtml(project.conditionParams?.feedCulture || '-')}</p>
+          <p>• <strong>Yeast Strain (Seed):</strong> ${escapeHtml(project.seed || '-')}</p>
+          <p>• <strong>Responsible Researcher:</strong> ${escapeHtml(project.ownerName || '-')}</p>
+          <p>• <strong>Experiment Start Date:</strong> ${escapeHtml(project.date || '-')}</p>
         </div>
       </div>
     `;
   } else if (state.slideIndex === 2) {
-    // กรองเฉพาะถัง/กระบวนการที่มีข้อมูลบันทึกอยู่จริงในระบบสำหรับโครงการนี้เท่านั้น (ซ่อนถังว่าง)
+    // Filter only vessels/stages with actual recorded data in this project (hide empty vessels)
     const recordedTanks = window.LAB_TANKS.map(t => {
       const s = state.samples
         .filter(x => x.tank === t.id && (x.projectId === state.currentProjectId || !x.projectId))
@@ -3256,12 +3268,12 @@ function updateSlideContent() {
       <div>
         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
           <div>
-            <h2 style="color: #0a2540; margin-bottom: 4px; font-size: 1.4rem;">ตารางสรุปผลจลนพลศาสตร์รายกระบวนการ (Process Kinetic Summary)</h2>
-            <p style="color: #64748b; font-size: 0.88rem; margin: 0;">สรุปผลการวิเคราะห์ล่าสุดเฉพาะกระบวนการที่มีการบันทึกข้อมูลผลแล็บจริง (${recordedTanks.length} กระบวนการ)</p>
+            <h2 style="color: #0a2540; margin-bottom: 4px; font-size: 1.4rem;">Process Kinetic Summary Table</h2>
+            <p style="color: #64748b; font-size: 0.88rem; margin: 0;">Summary of latest analytical results for stages with recorded lab data (${recordedTanks.length} process)</p>
           </div>
           <div style="display: flex; gap: 6px; align-items: center;">
             <span class="badge badge-navy" style="font-size: 0.8rem;">
-              บันทึกแล้ว ${recordedTanks.length} / ${window.LAB_TANKS.length} กระบวนการ
+              Saved ${recordedTanks.length} / ${window.LAB_TANKS.length} Process
             </span>
           </div>
         </div>
@@ -3270,9 +3282,9 @@ function updateSlideContent() {
           <table class="lab-table" style="min-width: 820px;">
             <thead>
               <tr>
-                <th style="width: 110px;">กระบวนการ / ถัง</th>
-                <th>บทบาทในระบบ</th>
-                <th style="width: 90px;">เวลาล่าสุด</th>
+                <th style="width: 110px;">Process / Tank</th>
+                <th>System Role</th>
+                <th style="width: 90px;">Latest Time</th>
                 <th>Brix (°Bx)</th>
                 <th>Sugar Convert (g/L)</th>
                 <th>Ethanol (g/L)</th>
@@ -3302,7 +3314,7 @@ function updateSlideContent() {
               }).join('') : `
                 <tr>
                   <td colspan="9" style="text-align: center; color: #94a3b8; padding: 32px;">
-                    ⚠️ ยังไม่มีข้อมูลบันทึกผลการทดลองสำหรับกระบวนการใดๆ ในโครงการนี้
+                    ⚠️ No experimental results recorded for any stage in this project yet
                   </td>
                 </tr>
               `}
@@ -3312,8 +3324,8 @@ function updateSlideContent() {
 
         ${hasData ? `
           <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 16px; font-size: 0.82rem; color: #475569; flex-wrap: wrap; gap: 8px;">
-            <span>ℹ️ แสดงเฉพาะถังหมักที่มีข้อมูลตรวจวัดจริงในห้องปฏิบัติการเพื่อความกระชับในการนำเสนอ</span>
-            <span style="color: #1e3a8a; font-weight: 600;">Sugar Convert แสดงผลมาตรฐานทศนิยม 3 ตำแหน่ง</span>
+            <span>ℹ️ Displays only vessels with recorded laboratory measurements for concise presentation</span>
+            <span style="color: #1e3a8a; font-weight: 600;">Sugar Convert standardized to 3 decimal places</span>
           </div>
         ` : ''}
       </div>
@@ -3323,8 +3335,8 @@ function updateSlideContent() {
       <div>
         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
           <div>
-            <h2 style="color: #0a2540; margin-bottom: 4px; font-size: 1.4rem;">Kinetics Profile: การใช้น้ำตาล vs การผลิตเอทานอล</h2>
-            <p style="color: #64748b; font-size: 0.9rem;">เปรียบเทียบการลดลงของน้ำตาลรวม (Sugar Consumption) คู่ขนานกับการเพิ่มขึ้นของเอทานอล (Ethanol Production) แบบ 2 แกน Y</p>
+            <h2 style="color: #0a2540; margin-bottom: 4px; font-size: 1.4rem;">Kinetics Profile: Sugar Consumption vs. Ethanol Production</h2>
+            <p style="color: #64748b; font-size: 0.9rem;">Dual Y-axis comparison of total Sugar Consumption alongside Ethanol Production</p>
           </div>
           <!-- View Switcher Tabs -->
           <div style="display: inline-flex; background: #f1f5f9; padding: 4px; border-radius: 8px; gap: 4px;">
@@ -3343,24 +3355,24 @@ function updateSlideContent() {
         <!-- 4 KPI Summary Cards -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px;">
           <div class="kpi-stat-card" style="padding: 12px 14px;">
-            <span class="kpi-label">น้ำตาลตั้งต้น (Initial Sugar)</span>
+            <span class="kpi-label">Initial Sugar</span>
             <div class="kpi-value" style="color: #0f3d7a; font-size: 1.3rem;">125.2 g/L</div>
-            <span class="kpi-desc">ถังเตรียมเชื้อ PF @ 0h (Brix 18.0)</span>
+            <span class="kpi-desc">Pre-fermenter Tank PF @ 0h (Brix 18.0)</span>
           </div>
           <div class="kpi-stat-card" style="padding: 12px 14px;">
-            <span class="kpi-label">ประสิทธิภาพใช้น้ำตาล (% Consumed)</span>
+            <span class="kpi-label">Sugar Utilization Efficiency (% Consumed)</span>
             <div class="kpi-value" style="color: #059669; font-size: 1.3rem;">99.9 %</div>
-            <span class="kpi-desc">น้ำตาลเหลือใน D3 เพียง 0.096 g/L</span>
+            <span class="kpi-desc">Residual sugar in D3 is only 0.096 g/L</span>
           </div>
           <div class="kpi-stat-card" style="padding: 12px 14px;">
-            <span class="kpi-label">ผลผลิตเอทานอลสูงสุด (Peak Ethanol)</span>
+            <span class="kpi-label">Peak Ethanol Output</span>
             <div class="kpi-value" style="color: #ea580c; font-size: 1.3rem;">99.53 g/L</div>
-            <span class="kpi-desc">ถังเก็บเกี่ยวสุดท้าย D3 @ 82h (12.6% v/v)</span>
+            <span class="kpi-desc">Final Harvest Tank D3 @ 82h (12.6% v/v)</span>
           </div>
           <div class="kpi-stat-card" style="padding: 12px 14px;">
             <span class="kpi-label">Ethanol Yield (Yp/s)</span>
             <div class="kpi-value" style="color: #b45309; font-size: 1.3rem;">0.491 g/g</div>
-            <span class="kpi-desc">96.3% ของขีดจำกัดทางทฤษฎี (0.51 g/g)</span>
+            <span class="kpi-desc">96.3% of theoretical limit (0.51 g/g)</span>
           </div>
         </div>
 
@@ -3371,10 +3383,10 @@ function updateSlideContent() {
 
         <!-- Biochemical Kinetics Callout -->
         <div style="margin-top: 12px; padding: 12px 16px; background: #f8fafc; border-left: 4px solid #ea580c; border-radius: 8px; font-size: 0.85rem; color: #334155;">
-          <strong>💡 ข้อสังเกตจลนพลศาสตร์ชีวเคมี (Biochemical Kinetic Insights):</strong>
+          <strong>💡 Biochemical Kinetic Insights:</strong>
           <div id="slide3-kinetic-insight-text" style="margin-top: 4px; line-height: 1.5;">
-            • <strong>จุดตัดทางชีวเคมี (Cross-Over Phase @ F2 → F3):</strong> น้ำตาลลดลงฮวบจาก 100.3 g/L เหลือ 19.6 g/L พร้อมการพุ่งขึ้นของเอทานอลจาก 49.9 g/L สู่ 78.4 g/L<br>
-            • <strong>สภาวะการหมักสมบูรณ์ (Finishing Phase @ F4 → D3):</strong> น้ำตาลถูกใช้เกือบหมด (&lt; 2 g/L ใน F4 และ &lt; 0.1 g/L ใน F5–D3) เอทานอลแตะจุดสูงสุด 99.53 g/L ปราศจากปัญหา Stuck Fermentation
+            • <strong>Biochemical Cross-Over Phase (@ F2 → F3):</strong> Sugar drops sharply from 100.3 g/L to 19.6 g/L alongside an ethanol surge from 49.9 g/L to 78.4 g/L<br>
+            • <strong>Complete Fermentation (Finishing Phase @ F4 → D3):</strong> Sugar nearly depleted (&lt; 2 g/L in F4 and &lt; 0.1 g/L in F5–D3), Ethanol peaks at 99.53 g/L with zero Stuck Fermentation
           </div>
         </div>
       </div>
@@ -3386,23 +3398,23 @@ function updateSlideContent() {
   } else if (state.slideIndex === 4) {
     container.innerHTML = `
       <div>
-        <h2 style="color: #0a2540; margin-bottom: 8px;">พฤติกรรมและการเจริญเติบโตของเซลล์ยีสต์</h2>
-        <p style="color: #64748b; margin-bottom: 16px;">สัดส่วนเซลล์มีชีวิต (% Viability) และการแตกหน่อ (Budding Index) ส่องด้วยกล้องจุลทรรศน์</p>
+        <h2 style="color: #0a2540; margin-bottom: 8px;">Yeast Cell Growth & Physiological Behavior</h2>
+        <p style="color: #64748b; margin-bottom: 16px;">Cell Viability (%) and Budding Index (%) measured via microscopy</p>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
           <div class="kpi-stat-card">
             <span class="kpi-label">Average Viability</span>
             <div class="kpi-value" style="color: #059669;">97.4 %</div>
-            <span class="kpi-desc">ความสมบูรณ์สูง สีย้อม Methylene Blue ไม่ติดสี</span>
+            <span class="kpi-desc">High cell vitality; unstained by Methylene Blue</span>
           </div>
           <div class="kpi-stat-card">
             <span class="kpi-label">Average Budding Index</span>
             <div class="kpi-value" style="color: #d97706;">11.1 %</div>
-            <span class="kpi-desc">อัตราการแตกหน่อคงที่ตลอด Cascade</span>
+            <span class="kpi-desc">Consistent budding rate across the Cascade</span>
           </div>
           <div class="kpi-stat-card">
             <span class="kpi-label">Peak Cell Density</span>
             <div class="kpi-value" style="color: #1e3a8a;">9.15 × 10⁸</div>
-            <span class="kpi-desc">cells/mL ณ ถัง PF @ 46h</span>
+            <span class="kpi-desc">cells/mL in Tank PF @ 46h</span>
           </div>
         </div>
       </div>
@@ -3420,35 +3432,35 @@ function updateSlideContent() {
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
           <div>
             <span class="badge badge-navy" style="font-size: 0.78rem; margin-bottom: 4px;">Continuous Feeding Substrate Log</span>
-            <h2 style="color: #0a2540; margin: 0; font-size: 1.4rem;">รายละเอียดข้อมูลบันทึกการป้อนอาหาร (Continuous Feeding Log Details)</h2>
+            <h2 style="color: #0a2540; margin: 0; font-size: 1.4rem;">Continuous Feeding Log Details</h2>
           </div>
-          <span class="badge badge-gold" style="font-size: 0.82rem;">ประวัติบันทึกการเติมอาหาร ${totalCycles} รอบ</span>
+          <span class="badge badge-gold" style="font-size: 0.82rem;">Feeding Log History ${totalCycles} rounds</span>
         </div>
         <p style="color: #64748b; font-size: 0.88rem; margin-bottom: 14px;">
-          บันทึกประวัติการป้อนสารตั้งต้นและอาหารเลี้ยงเชื้อแบบต่อเนื่อง (Continuous Feeding) ตลอดกระบวนการหมักชีวภาพ
+          Records the history of continuous substrate and nutrient feeding throughout the bio-fermentation process
         </p>
 
         <!-- Feed KPI Summary Cards -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px;">
           <div class="kpi-stat-card" style="padding: 12px 14px;">
-            <span class="kpi-label">น้ำตาลกากน้ำตาลขาเข้า (Inlet Sugar)</span>
+            <span class="kpi-label">Inlet Molasses Sugar (Inlet Sugar)</span>
             <div class="kpi-value" style="color: #0f3d7a; font-size: 1.3rem;">${project.inletMolassesSugar !== undefined ? escapeHtml(project.inletMolassesSugar) + ' g/L' : '-'}</div>
             <span class="kpi-desc">Initial Brix: ${project.initialBrix !== undefined ? escapeHtml(project.initialBrix) + '°' : '-'}</span>
           </div>
           <div class="kpi-stat-card" style="padding: 12px 14px;">
-            <span class="kpi-label">ปริมาตรอาหารเตรียม / คงเหลือ</span>
+            <span class="kpi-label">Prepared / Remaining Feed Volume</span>
             <div class="kpi-value" style="color: #059669; font-size: 1.3rem;">${escapeHtml(project.preparedVolume || '-')} / ${escapeHtml(project.remainingVolume || '-')} L</div>
-            <span class="kpi-desc">ปริมาตรในถังเตรียมสารละลายอาหาร</span>
+            <span class="kpi-desc">Prepared volume in feed reservoir</span>
           </div>
           <div class="kpi-stat-card" style="padding: 12px 14px;">
-            <span class="kpi-label">รอบการป้อนอาหาร (Feed Cycles)</span>
-            <div class="kpi-value" style="color: #d97706; font-size: 1.3rem;">${totalCycles} รอบ</div>
-            <span class="kpi-desc">สูตรอาหาร: ${mediaSet.length > 0 ? escapeHtml(mediaSet.join(', ')) : 'BF.1, BF.2'} (เฉลี่ย ${avgBrix}°Bx)</span>
+            <span class="kpi-label">Feed Cycles</span>
+            <div class="kpi-value" style="color: #d97706; font-size: 1.3rem;">${totalCycles} rounds</div>
+            <span class="kpi-desc">Medium Recipe: ${mediaSet.length > 0 ? escapeHtml(mediaSet.join(', ')) : 'BF.1, BF.2'} (avg. ${avgBrix}°Bx)</span>
           </div>
           <div class="kpi-stat-card" style="padding: 12px 14px;">
-            <span class="kpi-label">อัตราป้อนอาหารเฉลี่ย (Feed Rate)</span>
+            <span class="kpi-label">Mean Feed Rate</span>
             <div class="kpi-value" style="color: #7c3aed; font-size: 1.3rem;">150–200 mL/h</div>
-            <span class="kpi-desc">สอดคล้องกับ Dilution Rate D = ${escapeHtml(project.conditionParams?.dilutionRateD || '0.022')} h⁻¹</span>
+            <span class="kpi-desc">Consistent with Dilution Rate D = ${escapeHtml(project.conditionParams?.dilutionRateD || '0.022')} h⁻¹</span>
           </div>
         </div>
 
@@ -3457,14 +3469,14 @@ function updateSlideContent() {
           <table class="lab-table" style="min-width: 720px;">
             <thead>
               <tr>
-                <th style="width: 110px;">วันที่</th>
-                <th style="width: 80px;">เวลา</th>
-                <th>ชนิดอาหาร</th>
-                <th>รอบที่</th>
+                <th style="width: 110px;">Date</th>
+                <th style="width: 80px;">Time</th>
+                <th>Medium Type</th>
+                <th>Round</th>
                 <th>Brix (°Bx)</th>
-                <th>ปริมาตรเริ่มต้น</th>
-                <th>ปริมาตรคงเหลือ</th>
-                <th>หมายเหตุ / อัตรา Feed</th>
+                <th>Initial Volume</th>
+                <th>Remaining Volume</th>
+                <th>Notes / Feed Rate</th>
               </tr>
             </thead>
             <tbody>
@@ -3481,7 +3493,7 @@ function updateSlideContent() {
                 </tr>
               `).join('') : `
                 <tr>
-                  <td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">ไม่มีรายการบันทึกการ Feed อาหารในโปรเจกต์นี้</td>
+                  <td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">No feeding log entries in this project</td>
                 </tr>
               `}
             </tbody>
@@ -3490,7 +3502,7 @@ function updateSlideContent() {
 
         <!-- Strategy Note -->
         <div style="margin-top: 14px; padding: 12px 16px; background: #f8fafc; border-left: 4px solid #059669; border-radius: 8px; font-size: 0.83rem; color: #334155;">
-          <strong>💡 ยุทธศาสตร์การควบคุมการป้อนอาหาร (Feeding Control Strategy):</strong> การจัดสรรอาหารสูตร BF.1 และ BF.2 อย่างต่อเนื่องช่วยควบคุมสภาวะ Steady-State ไม่ให้น้ำตาลสะสมเกินจนเกิดภาวะยับยั้งแบบ Catabolite Repression ในขณะเดียวกันยังหล่อเลี้ยงความหนาแน่นและอัตราการสังเคราะห์เอทานอลของยีสต์ให้คงที่ตลอด 82 ชั่วโมง
+          <strong>💡 Feeding Control Strategy:</strong> Continuous feeding of BF.1 and BF.2 media maintains Steady-State conditions, preventing excess sugar accumulation and Catabolite Repression while sustaining yeast cell density and ethanol synthesis rate throughout 82 hours
         </div>
       </div>
     `;
@@ -3500,12 +3512,12 @@ function updateSlideContent() {
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
           <div>
             <span class="badge badge-gold" style="font-size: 0.78rem; margin-bottom: 4px;">Executive Research Synthesis</span>
-            <h2 style="color: #0a2540; margin: 0; font-size: 1.4rem;">บทสรุปภาพรวมงานวิจัย: วิวัฒนาการตั้งแต่กระบวนการแรกจนถึงผลสัมฤทธิ์สุดท้าย</h2>
+            <h2 style="color: #0a2540; margin: 0; font-size: 1.4rem;">Executive Research Summary: Evolution from Initial Seed to Final Harvest</h2>
           </div>
           <span class="badge badge-navy" style="font-size: 0.82rem;">End-to-End Cascade Milestones (0–82h)</span>
         </div>
         <p style="color: #64748b; font-size: 0.88rem; margin-bottom: 14px;">
-          สังเคราะห์ผลสัมฤทธิ์การทดลองการหมักชีวภาพต่อเนื่องแบบ 8 ถังคาสเคด ตั้งแต่ขั้นตอนเพาะเลี้ยงกล้าเชื้อจนถึงการเก็บเกี่ยวผลผลิตสุดท้าย
+          Synthesizes results of the 8-vessel continuous cascade bio-fermentation from seed propagation through final product harvest
         </p>
 
         <!-- 4 Chronological Stage Milestone Cards -->
@@ -3513,52 +3525,52 @@ function updateSlideContent() {
           <!-- Stage 1 -->
           <div style="background: #ffffff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 14px; border-left: 4px solid #1e3a8a; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-              <span style="font-weight: 700; color: #1e3a8a; font-size: 0.88rem;">1. เตรียมหัวเชื้อ & สารตั้งต้น (0–12h)</span>
-              <span class="badge badge-navy" style="font-size: 0.7rem;">ถัง PF</span>
+              <span style="font-weight: 700; color: #1e3a8a; font-size: 0.88rem;">1. Seed & Substrate Preparation (0–12h)</span>
+              <span class="badge badge-navy" style="font-size: 0.7rem;">Tank PF</span>
             </div>
             <ul style="margin: 0; padding-left: 16px; font-size: 0.8rem; color: #475569; line-height: 1.55;">
-              <li><strong>น้ำตาลเริ่มต้น:</strong> 125.2 g/L (Brix 18.0°) ในกากน้ำตาลตั้งต้น</li>
-              <li><strong>การปลุกเซลล์:</strong> Angel Yeast ละลายน้ำ 0.4 g เซลล์เริ่ม 1.5×10⁸ cfu/mL</li>
-              <li><strong>ความสมบูรณ์เซลล์:</strong> Viability 98.2%, Budding Index 12.5% เซลล์ปรับสภาพสมบูรณ์</li>
+              <li><strong>Initial Sugar:</strong> 125.2 g/L (Brix 18.0°) in initial molasses feed</li>
+              <li><strong>Cell Revival:</strong> Angel Yeast 0.4 g dissolved in water, initial cells 1.5×10⁸ cfu/mL</li>
+              <li><strong>Cell Viability:</strong> Viability 98.2%, Budding Index 12.5%, cells fully adapted</li>
             </ul>
           </div>
 
           <!-- Stage 2 -->
           <div style="background: #ffffff; border: 1px solid #fed7aa; border-radius: 12px; padding: 14px; border-left: 4px solid #ea580c; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-              <span style="font-weight: 700; color: #9a3412; font-size: 0.88rem;">2. ป้อนอาหาร & เชื่อม Cascade (12–46h)</span>
-              <span class="badge badge-gold" style="font-size: 0.7rem;">ถัง F1 → F3</span>
+              <span style="font-weight: 700; color: #9a3412; font-size: 0.88rem;">2. Nutrient Feeding & Cascade Coupling (12–46h)</span>
+              <span class="badge badge-gold" style="font-size: 0.7rem;">Tank F1 → F3</span>
             </div>
             <ul style="margin: 0; padding-left: 16px; font-size: 0.8rem; color: #475569; line-height: 1.55;">
-              <li><strong>การป้อนอาหาร:</strong> Feed อาหารสูตร BF.1/BF.2 อัตรา D = 0.022 h⁻¹</li>
-              <li><strong>จุดตัดชีวเคมี (Cross-Over):</strong> @ F2→F3 น้ำตาลลดฮวบ 100.3 → 19.6 g/L เอทานอลพุ่งแตะ 78.4 g/L</li>
-              <li><strong>พีคชีวมวล:</strong> เซลล์หนาแน่นสูงสุด 9.15×10⁸ cells/mL, CDW สูงสุด 4.35 g/L</li>
+              <li><strong>Feeding:</strong> Feed BF.1/BF.2 media at dilution rate D = 0.022 h⁻¹</li>
+              <li><strong>Biochemical Cross-Over:</strong> @ F2→F3 Sugar drops sharply 100.3 → 19.6 g/L while Ethanol surges to 78.4 g/L</li>
+              <li><strong>Peak Biomass:</strong> Peak cell density 9.15×10⁸ cells/mL, Peak CDW 4.35 g/L</li>
             </ul>
           </div>
 
           <!-- Stage 3 -->
           <div style="background: #ffffff; border: 1px solid #bbf7d0; border-radius: 12px; padding: 14px; border-left: 4px solid #059669; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-              <span style="font-weight: 700; color: #065f46; font-size: 0.88rem;">3. สมดุลคงที่ & ใช้น้ำตาลหมด (46–82h)</span>
-              <span class="badge" style="background: #dcfce7; color: #166534; font-size: 0.7rem;">ถัง F4 → F7</span>
+              <span style="font-weight: 700; color: #065f46; font-size: 0.88rem;">3. Steady-State Equilibrium & Sugar Depletion (46–82h)</span>
+              <span class="badge" style="background: #dcfce7; color: #166534; font-size: 0.7rem;">Tank F4 → F7</span>
             </div>
             <ul style="margin: 0; padding-left: 16px; font-size: 0.8rem; color: #475569; line-height: 1.55;">
-              <li><strong>Steady-State:</strong> เข้าสู่สภาวะสมดุลคงที่ อัตราไหลคงที่สม่ำเสมอ</li>
-              <li><strong>การใช้น้ำตาลสมบูรณ์:</strong> น้ำตาลตกค้างในระบบ &lt; 0.1 g/L ใน D3 (ใช้น้ำตาลหมด 99.9%)</li>
-              <li><strong>เสถียรภาพชีวภาพ:</strong> ไร้ปัญหา Stuck Fermentation, ความมีชีวิตคงที่ 97.4%</li>
+              <li><strong>Steady-State:</strong> Entered steady-state equilibrium with uniform flow rate</li>
+              <li><strong>Complete sugar utilization:</strong> Residual sugar in system &lt; 0.1 g/L in D3 (99.9% sugar consumed)</li>
+              <li><strong>Biological stability:</strong> No Stuck Fermentation, steady 97.4% cell viability</li>
             </ul>
           </div>
 
           <!-- Stage 4 -->
           <div style="background: #ffffff; border: 1px solid #ddd6fe; border-radius: 12px; padding: 14px; border-left: 4px solid #7c3aed; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-              <span style="font-weight: 700; color: #5b21b6; font-size: 0.88rem;">4. เก็บเกี่ยว & ตัวชี้วัดสุดท้าย (@ 82h)</span>
-              <span class="badge" style="background: #ede9fe; color: #6d28d9; font-size: 0.7rem;">ถัง D3 Final</span>
+              <span style="font-weight: 700; color: #5b21b6; font-size: 0.88rem;">4. Final Harvest & Performance Metrics (@ 82h)</span>
+              <span class="badge" style="background: #ede9fe; color: #6d28d9; font-size: 0.7rem;">Tank D3 Final</span>
             </div>
             <ul style="margin: 0; padding-left: 16px; font-size: 0.8rem; color: #475569; line-height: 1.55;">
-              <li><strong>ความเข้มข้นเอทานอลสูงสุด:</strong> <strong style="color: #ea580c;">99.53 g/L</strong> (12.6% v/v)</li>
-              <li><strong>Ethanol Yield (Yp/s):</strong> <strong style="color: #059669;">0.491 g/g</strong> (96.3% ของทฤษฎี Gay-Lussac)</li>
-              <li><strong>Volumetric Productivity:</strong> Qp = 2.18 g/L·h ต่อเนื่อง</li>
+              <li><strong>Peak Ethanol Concentration:</strong> <strong style="color: #ea580c;">99.53 g/L</strong> (12.6% v/v)</li>
+              <li><strong>Ethanol Yield (Yp/s):</strong> <strong style="color: #059669;">0.491 g/g</strong> (96.3% of Gay-Lussac theoretical limit)</li>
+              <li><strong>Volumetric Productivity:</strong> Qp = 2.18 g/L·h continuous</li>
             </ul>
           </div>
         </div>
@@ -3567,10 +3579,10 @@ function updateSlideContent() {
         <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 16px 20px; box-shadow: 0 2px 8px rgba(16,185,129,0.08);">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
             <span style="font-size: 1.25rem;">🏆</span>
-            <strong style="color: #166534; font-size: 1rem;">ข้อสรุปงานวิจัยและข้อเสนอแนะเชิงกลยุทธ์สำหรับการขยายขนาด (Scale-up Strategy):</strong>
+            <strong style="color: #166534; font-size: 1rem;">Research Conclusions & Strategic Recommendations for Scale-up:</strong>
           </div>
           <p style="color: #15803d; font-size: 0.88rem; margin: 0; line-height: 1.6;">
-            ผลการวิจัยสรุปได้ว่า สภาวะการหมักแบบคาสเคด 8 ถังต่อเนื่องที่อัตราเจือจาง <strong>Dilution Rate D = 0.022 h⁻¹</strong> (สัดส่วน Feed Culture 80:20, อุณหภูมิ 30°C) เป็นสภาวะที่เหมาะสมที่สุด (Optimal Operating Window) โดยให้อัตราการเปลี่ยนน้ำตาลเป็นเอทานอลสูงถึง 99.9% และ Yield ทางชีวเคมีถึง 96.3% ของขีดจำกัดทฤษฎี โดยไม่พบการสะสมของน้ำตาลหรือการตายของเซลล์ยีสต์ จึงเสนอให้ใช้เป็น <strong>แบบพิมพ์เขียวมาตรฐาน (Standard Benchmark Recipe)</strong> สำหรับการขยายขนาดสู่กระบวนการผลิตระดับโรงงานอุตสาหกรรม
+            Research concludes that 8-vessel continuous cascade fermentation at dilution rate <strong>Dilution Rate D = 0.022 h⁻¹</strong> (Feed Culture ratio 80:20, temperature 30°C) is the Optimal Operating Window, achieving 99.9% sugar-to-ethanol conversion and a biochemical yield of 96.3% of the theoretical limit without sugar accumulation or yeast cell death; therefore recommended as the <strong>Standard Benchmark Recipe</strong> for scale-up to industrial-scale production
           </p>
         </div>
       </div>
@@ -3620,8 +3632,8 @@ window.renderSlide3KineticsChart = function(mode = 'cascade') {
       ethanolData.push(match.ethanol !== undefined ? match.ethanol : 0);
     });
 
-    insightText = `• <strong>จุดตัดทางชีวเคมี (Cross-Over Phase @ F2 → F3):</strong> น้ำตาลลดลงฮวบจาก 100.3 g/L เหลือ 19.6 g/L พร้อมการพุ่งขึ้นของเอทานอลจาก 49.9 g/L สู่ 78.4 g/L<br>
-• <strong>สภาวะการหมักสมบูรณ์ (Finishing Phase @ F4 → D3):</strong> น้ำตาลถูกใช้เกือบหมด (&lt; 2 g/L ใน F4 และ &lt; 0.1 g/L ใน F5–D3) เอทานอลแตะจุดสูงสุด 99.53 g/L ปราศจากปัญหา Stuck Fermentation`;
+    insightText = `• <strong>Biochemical Cross-Over Phase (@ F2 → F3):</strong> Sugar drops sharply from 100.3 g/L to 19.6 g/L alongside an ethanol surge from 49.9 g/L to 78.4 g/L<br>
+• <strong>Complete Fermentation (Finishing Phase @ F4 → D3):</strong> Sugar nearly depleted (&lt; 2 g/L in F4 and &lt; 0.1 g/L in F5–D3), Ethanol peaks at 99.53 g/L with zero Stuck Fermentation`;
   } else if (mode === 'steady') {
     const tanks = ['PF', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'D3'];
     labels = tanks.map(t => `${t} (82h)`);
@@ -3632,16 +3644,16 @@ window.renderSlide3KineticsChart = function(mode = 'cascade') {
       ethanolData.push(match.ethanol !== undefined ? match.ethanol : 0);
     });
 
-    insightText = `• <strong>สภาวะคงที่ตลอด Cascade (Steady-State @ 82h):</strong> ในถัง F2 มีน้ำตาลคงค้าง 69.2 g/L จากการป้อนน้ำตาลต่อเนื่อง และถูกย่อยสลายอย่างรวดเร็วต่อเนื่องผ่านถัง F3 (19.6 g/L) และ F4 (1.18 g/L)<br>
-• <strong>ถังขัดเกลาและเก็บเกี่ยว (F5–D3):</strong> รักษาระดับเอทานอลสม่ำเสมอ 94.9–99.5 g/L ควบคู่กับการควบคุมสาร Byproduct (Glycerol &lt; 10.8 g/L)`;
+    insightText = `• <strong>Cascade Steady-State (@ 82h):</strong> Tank F2 holds 69.2 g/L residual sugar from continuous feeding, which is rapidly consumed across Tank F3 (19.6 g/L) and Tank F4 (1.18 g/L)<br>
+• <strong>Polishing & Harvest Vessels (F5–D3):</strong> Maintains steady ethanol at 94.9–99.5 g/L while controlling byproducts (Glycerol &lt; 10.8 g/L)`;
   } else if (mode === 'pf') {
     const pfSamples = projSamples.filter(s => s.tank === 'PF').sort((a,b) => a.time - b.time);
     labels = pfSamples.map(s => `${s.time}h`);
     sugarData = pfSamples.map(s => s.sugarConvert ?? 0);
     ethanolData = pfSamples.map(s => s.ethanol ?? 0);
 
-    insightText = `• <strong>พลวัตในถังเตรียมเชื้อ (Pre-fermenter PF):</strong> น้ำตาลเริ่มต้น 125.2 g/L ถูกใช้อย่างรวดเร็วจนเหลือเพียง 4.04 g/L ภายใน 12 ชม.แรก (Exponential Growth Phase)<br>
-• <strong>การสะสมเอทานอลใน PF:</strong> เอทานอลคงที่ที่ระดับ ~45–50 g/L ในช่วง 22–82 ชม. พร้อมความหนาแน่นเซลล์สูงสุด 9.15 × 10⁸ cells/mL แสดงถึงสุขภาพเซลล์ที่พร้อมส่งต่อเข้าสู่ Cascade F2`;
+    insightText = `• <strong>Pre-fermenter (PF) Dynamics:</strong> Initial sugar of 125.2 g/L is rapidly consumed down to 4.04 g/L within the first 12 h (Exponential Growth Phase)<br>
+• <strong>Ethanol accumulation in PF:</strong> Ethanol remains stable at ~45–50 g/L during 22–82 h with peak cell density of 9.15 × 10⁸ cells/mL, indicating healthy cells ready for transfer into Cascade F2`;
   }
 
   const insightEl = document.getElementById('slide3-kinetic-insight-text');
@@ -3653,7 +3665,7 @@ window.renderSlide3KineticsChart = function(mode = 'cascade') {
       labels: labels,
       datasets: [
         {
-          label: 'น้ำตาลรวมคงเหลือ Total Sugar (g/L)',
+          label: 'Residual Total Sugar (g/L)',
           data: sugarData,
           borderColor: '#0f3d7a',
           backgroundColor: 'rgba(15, 61, 122, 0.12)',
@@ -3668,7 +3680,7 @@ window.renderSlide3KineticsChart = function(mode = 'cascade') {
           yAxisID: 'y'
         },
         {
-          label: 'เอทานอลที่ผลิตได้ Ethanol Produced (g/L)',
+          label: 'Ethanol Produced (g/L)',
           data: ethanolData,
           borderColor: '#ea580c',
           backgroundColor: 'rgba(234, 88, 12, 0.08)',
@@ -3725,7 +3737,7 @@ window.renderSlide3KineticsChart = function(mode = 'cascade') {
           position: 'left',
           title: {
             display: true,
-            text: 'น้ำตาลรวม Total Sugar (g/L)',
+            text: 'Total Sugar (g/L)',
             color: '#0f3d7a',
             font: { weight: 'bold', size: 12 }
           },
@@ -3739,7 +3751,7 @@ window.renderSlide3KineticsChart = function(mode = 'cascade') {
           position: 'right',
           title: {
             display: true,
-            text: 'เอทานอล Ethanol Produced (g/L)',
+            text: 'Ethanol Produced (g/L)',
             color: '#ea580c',
             font: { weight: 'bold', size: 12 }
           },
@@ -3765,7 +3777,7 @@ function syncAuditLogUserFilter() {
   state.auditLogs.forEach(l => { if (l.userName) userSet.add(l.userName); });
 
   userSelect.innerHTML = `
-    <option value="ALL">ทุกคน (All Researchers)</option>
+    <option value="ALL">All Researchers</option>
     ${Array.from(userSet).map(name => `
       <option value="${escapeHtml(name)}" ${name === currentVal ? 'selected' : ''}>${escapeHtml(name)}</option>
     `).join('')}
@@ -3790,7 +3802,7 @@ window.resetAuditLogFilters = function() {
   if (s) s.value = '';
 
   renderAuditLogs();
-  showToast('รีเซ็ตตัวกรองประวัติการทำงานแล้ว', 'info');
+  showToast('Audit log filters reset', 'info');
 };
 
 window.openClearLogsModal = function() {
@@ -3798,8 +3810,8 @@ window.openClearLogsModal = function() {
   if (!isAdmin) {
     Swal.fire({
       icon: 'error',
-      title: 'ไม่มีสิทธิ์เข้าถึง',
-      text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถล้างข้อมูล Log ได้'
+      title: 'Access denied',
+      text: 'Only administrators (Admin) can clear Log entries'
     });
     return;
   }
@@ -3808,24 +3820,24 @@ window.openClearLogsModal = function() {
   const currentMonth = new Date().getMonth() + 1;
 
   Swal.fire({
-    title: '🗑️ ล้างข้อมูลบันทึกประวัติ (Clear Logs)',
+    title: '🗑️ Clear Audit Logs',
     html: `
       <div style="text-align: left; font-size: 0.88rem; line-height: 1.6;">
         <p style="color: #64748b; margin-bottom: 14px;">
-          เลือกระยะเวลาของข้อมูล Log ที่ต้องการลบออกจากระบบและ Firebase Cloud:
+          Select the time range of Log entries to delete from the system and Firebase Cloud:
         </p>
         <div class="form-group">
-          <label class="form-label" style="font-weight: 600;">เลือกลักษณะระยะเวลา:</label>
+          <label class="form-label" style="font-weight: 600;">Select Period Type:</label>
           <select id="swal-clear-mode" class="form-select" onchange="window.handleClearLogModeChange()">
-            <option value="month">รายเดือน (Specific Month)</option>
-            <option value="quarter">ไตรมาส (Quarter)</option>
-            <option value="year">รายปี (Specific Year)</option>
-            <option value="all">ทั้งหมด (All Logs)</option>
+            <option value="month">Specific Month</option>
+            <option value="quarter">Quarter</option>
+            <option value="year">Specific Year</option>
+            <option value="all">All Logs</option>
           </select>
         </div>
 
         <div class="form-group" id="swal-clear-year-group">
-          <label class="form-label" style="font-weight: 600;">เลือกปี (Year):</label>
+          <label class="form-label" style="font-weight: 600;">Select Year:</label>
           <select id="swal-clear-year" class="form-select">
             ${[2022, 2023, 2024, 2025, 2026, 2027].map(y => `
               <option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>
@@ -3834,35 +3846,35 @@ window.openClearLogsModal = function() {
         </div>
 
         <div class="form-group" id="swal-clear-month-group">
-          <label class="form-label" style="font-weight: 600;">เลือกเดือน (Month):</label>
+          <label class="form-label" style="font-weight: 600;">Select Month:</label>
           <select id="swal-clear-month" class="form-select">
-            <option value="1" ${currentMonth === 1 ? 'selected' : ''}>01 - มกราคม (Jan)</option>
-            <option value="2" ${currentMonth === 2 ? 'selected' : ''}>02 - กุมภาพันธ์ (Feb)</option>
-            <option value="3" ${currentMonth === 3 ? 'selected' : ''}>03 - มีนาคม (Mar)</option>
-            <option value="4" ${currentMonth === 4 ? 'selected' : ''}>04 - เมษายน (Apr)</option>
-            <option value="5" ${currentMonth === 5 ? 'selected' : ''}>05 - พฤษภาคม (May)</option>
-            <option value="6" ${currentMonth === 6 ? 'selected' : ''}>06 - มิถุนายน (Jun)</option>
-            <option value="7" ${currentMonth === 7 ? 'selected' : ''}>07 - กรกฎาคม (Jul)</option>
-            <option value="8" ${currentMonth === 8 ? 'selected' : ''}>08 - สิงหาคม (Aug)</option>
-            <option value="9" ${currentMonth === 9 ? 'selected' : ''}>09 - กันยายน (Sep)</option>
-            <option value="10" ${currentMonth === 10 ? 'selected' : ''}>10 - ตุลาคม (Oct)</option>
-            <option value="11" ${currentMonth === 11 ? 'selected' : ''}>11 - พฤศจิกายน (Nov)</option>
-            <option value="12" ${currentMonth === 12 ? 'selected' : ''}>12 - ธันวาคม (Dec)</option>
+            <option value="1" ${currentMonth === 1 ? 'selected' : ''}>01 - January (Jan)</option>
+            <option value="2" ${currentMonth === 2 ? 'selected' : ''}>02 - February (Feb)</option>
+            <option value="3" ${currentMonth === 3 ? 'selected' : ''}>03 - March (Mar)</option>
+            <option value="4" ${currentMonth === 4 ? 'selected' : ''}>04 - April (Apr)</option>
+            <option value="5" ${currentMonth === 5 ? 'selected' : ''}>05 - May (May)</option>
+            <option value="6" ${currentMonth === 6 ? 'selected' : ''}>06 - June (Jun)</option>
+            <option value="7" ${currentMonth === 7 ? 'selected' : ''}>07 - July (Jul)</option>
+            <option value="8" ${currentMonth === 8 ? 'selected' : ''}>08 - August (Aug)</option>
+            <option value="9" ${currentMonth === 9 ? 'selected' : ''}>09 - September (Sep)</option>
+            <option value="10" ${currentMonth === 10 ? 'selected' : ''}>10 - October (Oct)</option>
+            <option value="11" ${currentMonth === 11 ? 'selected' : ''}>11 - November (Nov)</option>
+            <option value="12" ${currentMonth === 12 ? 'selected' : ''}>12 - December (Dec)</option>
           </select>
         </div>
 
         <div class="form-group" id="swal-clear-quarter-group" style="display: none;">
-          <label class="form-label" style="font-weight: 600;">เลือกไตรมาส (Quarter):</label>
+          <label class="form-label" style="font-weight: 600;">Select Quarter:</label>
           <select id="swal-clear-quarter" class="form-select">
-            <option value="Q1">Q1 (มกราคม - มีนาคม)</option>
-            <option value="Q2">Q2 (เมษายน - มิถุนายน)</option>
-            <option value="Q3">Q3 (กรกฎาคม - กันยายน)</option>
-            <option value="Q4">Q4 (ตุลาคม - ธันวาคม)</option>
+            <option value="Q1">Q1 (January - March)</option>
+            <option value="Q2">Q2 (April - June)</option>
+            <option value="Q3">Q3 (July - September)</option>
+            <option value="Q4">Q4 (October - December)</option>
           </select>
         </div>
 
         <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: 10px; margin-top: 12px; color: #991b1b; font-size: 0.82rem;">
-          <i class="fa-solid fa-triangle-exclamation"></i> <strong>คำเตือน:</strong> ข้อมูล Log ที่ถูกลบจะไม่สามารถกู้คืนได้ และจะถูกลบออกจากทั้ง Local Storage และ Cloud Firestore
+          <i class="fa-solid fa-triangle-exclamation"></i> <strong>Warning:</strong> Deleted Log entries cannot be recovered and will be removed from both Local Storage and Cloud Firestore
         </div>
       </div>
     `,
@@ -3893,8 +3905,8 @@ window.openClearLogsModal = function() {
       };
     },
     showCancelButton: true,
-    confirmButtonText: 'ถัดไป: ตรวจสอบและยืนยัน',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: 'Next: Review & Confirm',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#ef4444',
     preConfirm: () => {
       const mode = document.getElementById('swal-clear-mode').value;
@@ -3908,10 +3920,10 @@ window.openClearLogsModal = function() {
     const { mode, year, month, quarter } = res.value;
 
     let periodDesc = '';
-    if (mode === 'all') periodDesc = 'ทั้งหมด (All Logs)';
-    else if (mode === 'year') periodDesc = `ประจำปี ${year}`;
-    else if (mode === 'month') periodDesc = `ประจำเดือน ${month}/${year}`;
-    else if (mode === 'quarter') periodDesc = `ประจำไตรมาส ${quarter}/${year}`;
+    if (mode === 'all') periodDesc = 'All Logs';
+    else if (mode === 'year') periodDesc = `Annual ${year}`;
+    else if (mode === 'month') periodDesc = `Monthly ${month}/${year}`;
+    else if (mode === 'quarter') periodDesc = `Quarterly ${quarter}/${year}`;
 
     const toDelete = state.auditLogs.filter(log => {
       if (!log.timestamp) return mode === 'all';
@@ -3935,8 +3947,8 @@ window.openClearLogsModal = function() {
     if (toDelete.length === 0) {
       Swal.fire({
         icon: 'info',
-        title: 'ไม่พบข้อมูล Log',
-        text: `ไม่พบข้อมูลบันทึกประวัติในช่วงเวลา ${periodDesc}`,
+        title: 'No Log data found',
+        text: `No audit logs found for period ${periodDesc}`,
         confirmButtonColor: '#0f3d7a'
       });
       return;
@@ -3944,17 +3956,17 @@ window.openClearLogsModal = function() {
 
     const confirmRes = await Swal.fire({
       icon: 'warning',
-      title: `ยืนยันการลบ ${toDelete.length} รายการ?`,
+      title: `Confirm Delete ${toDelete.length} items?`,
       html: `
         <div style="text-align: left; font-size: 0.9rem; line-height: 1.6;">
-          <p>คุณกำลังจะลบข้อมูล Log <strong>${periodDesc}</strong></p>
-          <p>จำนวนที่พบ: <strong style="color: #dc2626; font-size: 1.1rem;">${toDelete.length}</strong> รายการ</p>
-          <p style="color: #ef4444; font-size: 0.85rem;">⚠️ ข้อมูลจะถูกลบออกจาก Local Storage และ Cloud Firestore อย่างถาวร</p>
+          <p>You are about to delete Log data <strong>${periodDesc}</strong></p>
+          <p>Found: <strong style="color: #dc2626; font-size: 1.1rem;">${toDelete.length}</strong> items</p>
+          <p style="color: #ef4444; font-size: 0.85rem;">⚠️ Data will be permanently deleted from Local Storage and Cloud Firestore</p>
         </div>
       `,
       showCancelButton: true,
-      confirmButtonText: 'ยืนยันลบข้อมูล',
-      cancelButtonText: 'ยกเลิก',
+      confirmButtonText: 'Confirm Delete Data',
+      cancelButtonText: 'Cancel',
       confirmButtonColor: '#dc2626'
     });
 
@@ -3971,10 +3983,10 @@ window.openClearLogsModal = function() {
         }
       }
 
-      logAction('CLEAR_LOGS', `Admin ล้างข้อมูล Log ${periodDesc} จำนวน ${toDelete.length} รายการ`);
+      logAction('CLEAR_LOGS', `Admin cleared Log data ${periodDesc} Count ${toDelete.length} items`);
       renderAuditLogs();
       if (window.labAudio) window.labAudio.playWarning();
-      showToast(`ล้างข้อมูล Log ${periodDesc} (${toDelete.length} รายการ) สำเร็จ`, 'success');
+      showToast(`Clear Log Data ${periodDesc} (${toDelete.length} items) successfully`, 'success');
     }
   });
 };
@@ -4035,10 +4047,10 @@ function renderAuditLogs() {
   });
 
   const countBadge = document.getElementById('audit-count-badge');
-  if (countBadge) countBadge.textContent = `${filteredLogs.length} รายการ`;
+  if (countBadge) countBadge.textContent = `${filteredLogs.length} items`;
 
   if (filteredLogs.length === 0) {
-    container.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 24px;">ไม่พบประวัติการทำงานที่ตรงกับเงื่อนไขการค้นหา</td></tr>';
+    container.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 24px;">No activity logs match the search criteria</td></tr>';
     return;
   }
 
@@ -4046,23 +4058,23 @@ function renderAuditLogs() {
     let restoreBtnHtml = '<span style="color: #cbd5e1; font-size: 0.8rem;">-</span>';
     if (log.snapshot && !log.restored) {
       restoreBtnHtml = `
-        <button class="btn btn-sm btn-accent" onclick="restoreFromLog('${log.id}')" style="padding: 4px 10px; font-size: 0.76rem; white-space: nowrap;" title="กู้คืนข้อมูลนี้กลับสู่ระบบ">
-          ♻️ กู้คืนข้อมูล
+        <button class="btn btn-sm btn-accent" onclick="restoreFromLog('${log.id}')" style="padding: 4px 10px; font-size: 0.76rem; white-space: nowrap;" title="Restore this record to the system">
+          ♻️ Restore Data
         </button>
       `;
     } else if (log.snapshot && log.restored) {
       restoreBtnHtml = `
         <span class="badge" style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 0.74rem; padding: 3px 8px;">
-          ✓ กู้คืนแล้ว
+          ✓ Restored
         </span>
       `;
     }
 
     let actionBadgeHtml = `<span class="badge badge-navy">${log.action}</span>`;
     if (log.action === 'LOGIN') {
-      actionBadgeHtml = `<span class="badge" style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0;"><i class="fa-solid fa-right-to-bracket" style="margin-right: 4px;"></i> เข้าสู่ระบบ</span>`;
+      actionBadgeHtml = `<span class="badge" style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0;"><i class="fa-solid fa-right-to-bracket" style="margin-right: 4px;"></i> Sign In</span>`;
     } else if (log.action === 'LOGOUT') {
-      actionBadgeHtml = `<span class="badge" style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1;"><i class="fa-solid fa-right-from-bracket" style="margin-right: 4px;"></i> ออกจากระบบ</span>`;
+      actionBadgeHtml = `<span class="badge" style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1;"><i class="fa-solid fa-right-from-bracket" style="margin-right: 4px;"></i> Sign Out</span>`;
     } else if (log.action.startsWith('CREATE') || log.action === 'SAMPLE_ENTRY' || log.action === 'ADD_USER') {
       actionBadgeHtml = `<span class="badge" style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe;"><i class="fa-solid fa-circle-plus" style="margin-right: 4px;"></i> ${log.action}</span>`;
     } else if (log.action.startsWith('UPDATE')) {
@@ -4075,7 +4087,7 @@ function renderAuditLogs() {
 
     return `
       <tr>
-        <td style="color: #64748b; font-size: 0.82rem; white-space: nowrap;">${new Date(log.timestamp).toLocaleString('th-TH')}</td>
+        <td style="color: #64748b; font-size: 0.82rem; white-space: nowrap;">${new Date(log.timestamp).toLocaleString('en-US')}</td>
         <td><strong>${escapeHtml(log.userName)}</strong></td>
         <td>${actionBadgeHtml}</td>
         <td style="font-size: 0.85rem; line-height: 1.5;">${escapeHtml(log.details)}</td>
@@ -4088,7 +4100,7 @@ function renderAuditLogs() {
 // Restore Function from Audit Trail (Requirement 3)
 window.restoreFromLog = function(logId) {
   if (!state.currentUser || state.currentUser.role !== 'admin') {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์', text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถกู้คืนข้อมูลได้' });
+    Swal.fire({ icon: 'error', title: 'No Permission', text: 'Only administrators (Admin) can restore data' });
     return;
   }
   const log = state.auditLogs.find(l => l.id === logId);
@@ -4097,20 +4109,20 @@ window.restoreFromLog = function(logId) {
   const isProject = log.snapshot.type === 'PROJECT';
 
   Swal.fire({
-    title: 'กู้คืนข้อมูลย้อนหลัง?',
+    title: 'Restore previous data?',
     html: `
       <div style="text-align: left; font-size: 0.88rem; line-height: 1.65;">
-        <p>• <strong>การกระทำเดิม:</strong> ${escapeHtml(log.details)}</p>
-        <p>• <strong>ประเภทข้อมูล:</strong> ${isProject ? 'โปรเจกต์งานวิจัยและข้อมูลทุกแถว' : 'ข้อมูลตัวอย่างแถวเดี่ยว'}</p>
+        <p>• <strong>Previous Action:</strong> ${escapeHtml(log.details)}</p>
+        <p>• <strong>Data Type:</strong> ${isProject ? 'All research projects and data rows' : 'Single sample record'}</p>
         <p style="color: #059669; margin-top: 10px; font-weight: 600;">
-          🛡️ ระบบจะนำข้อมูลนี้กลับคืนสู่ฐานข้อมูลทันที ป้องกันข้อมูลสูญหาย
+          🛡️ The system will restore this snapshot to the database immediately
         </p>
       </div>
     `,
     icon: 'question',
     showCancelButton: true,
-    confirmButtonText: 'ยืนยันกู้คืนข้อมูล',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: 'Confirm Data Restore',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#0f3d7a'
   }).then((res) => {
     if (res.isConfirmed) {
@@ -4121,7 +4133,7 @@ window.restoreFromLog = function(logId) {
         if (window.FirebaseSync && typeof window.FirebaseSync.syncSample === 'function') {
           window.FirebaseSync.syncSample(row);
         }
-        logAction('RESTORE_DATA', `กู้คืนข้อมูล ${row.tank} @ ${row.time}h (โปรเจกต์: ${row.projectId || state.currentProjectId})`);
+        logAction('RESTORE_DATA', `Restore Data ${row.tank} @ ${row.time}h (Project: ${row.projectId || state.currentProjectId})`);
       } else if (log.snapshot.type === 'PROJECT') {
         const proj = log.snapshot.project;
         const samples = log.snapshot.samples || [];
@@ -4140,7 +4152,7 @@ window.restoreFromLog = function(logId) {
           window.FirebaseSync.syncProject(proj);
           samples.forEach(s => window.FirebaseSync.syncSample(s));
         }
-        logAction('RESTORE_DATA', `กู้คืนโปรเจกต์ ${proj.experimentNo} (${proj.batchMediumNo}) พร้อมข้อมูล ${samples.length} แถว`);
+        logAction('RESTORE_DATA', `Restore Project ${proj.experimentNo} (${proj.batchMediumNo}) with data ${samples.length} rows`);
       }
 
       log.restored = true;
@@ -4152,8 +4164,8 @@ window.restoreFromLog = function(logId) {
       renderAllDataViews();
       Swal.fire({
         icon: 'success',
-        title: 'กู้คืนข้อมูลสำเร็จ',
-        text: 'ข้อมูลถูกนำกลับเข้าสู่ระบบเรียบร้อยแล้ว'
+        title: 'Data restored successfully',
+        text: 'Data has been restored to the system'
       });
     }
   });
@@ -4161,8 +4173,8 @@ window.restoreFromLog = function(logId) {
 
 window.testFirebaseConnectionLive = async function() {
   Swal.fire({
-    title: 'กำลังเชื่อมต่อ Firebase...',
-    text: 'กำลังทดสอบ Ping ไปยังโครงการ mpir-fermentlog',
+    title: 'Connecting to Firebase...',
+    text: 'Testing Ping to project mpir-fermentlog',
     allowOutsideClick: false,
     didOpen: () => { Swal.showLoading(); }
   });
@@ -4176,23 +4188,23 @@ window.testFirebaseConnectionLive = async function() {
       await FirebaseSync.deleteDoc('settings', 'ping_test');
       Swal.fire({
         icon: 'success',
-        title: 'เชื่อมต่อ Firebase สำเร็จ!',
+        title: 'Firebase Connected!',
         html: `
           <div style="text-align: left; font-size: 0.9rem; line-height: 1.6;">
-            <p>✅ โครงการ: <strong>mpir-fermentlog</strong></p>
-            <p>✅ ฐานข้อมูล: <strong>Cloud Firestore (Default)</strong></p>
-            <p>✅ สถานะ: <strong>บันทึกและอ่านข้อมูลได้จริง 100%</strong></p>
+            <p>✅ Project: <strong>mpir-fermentlog</strong></p>
+            <p>✅ Database: <strong>Cloud Firestore (Default)</strong></p>
+            <p>✅ Status: <strong>100% read/write verified</strong></p>
           </div>
         `,
         confirmButtonColor: '#0f3d7a'
       });
     } else {
-      throw new Error('ไม่สามารถเขียนเอกสารทดสอบได้');
+      throw new Error('Unable to write test document');
     }
   } catch (err) {
     Swal.fire({
       icon: 'error',
-      title: 'เชื่อมต่อไม่สำเร็จ',
+      title: 'Connection failed',
       text: err.message,
       confirmButtonColor: '#0f3d7a'
     });
@@ -4207,78 +4219,78 @@ window.openChartInfoModal = function(chartKey) {
     brix: {
       title: 'Brix (°Bx) Degradation Profile',
       icon: '📉',
-      axisDesc: 'แกน X: เวลาการหมัก (h) | แกน Y: ค่าความหวาน Brix (°Bx) ครอบคลุม 8 ถังหมัก (PF ถึง D3)',
+      axisDesc: 'X-Axis: Fermentation Time (h) | Y-Axis: Brix (°Bx) across all 8 fermentation vessels (PF to D3)',
       howToRead: [
-        'เส้นกราฟติดตามการสลายตัวของสารละลายน้ำตาล (Brix) ในแต่ละถังหมักตลอด 82 ชั่วโมง',
-        'การหมักที่สมบูรณ์จะต้องเห็นเส้นกราฟลาดเอียงลดลงอย่างต่อเนื่องแบบขั้นบันได (Stepwise Decay) จากถังแรกไปยังถังสุดท้าย',
-        'ถัง F2 ถึง F5 เป็นช่วงที่มีอัตราการลดลงของ Brix ชันที่สุด (Max Consumption Rate) สอดคล้องกับการเปลี่ยนน้ำตาลเป็นเอทานอล',
-        'หากเส้นกราฟของถังใดแบนราบ (Plateau) ที่ระดับความหวานสูง จะเป็นสัญญาณเตือนการเกิดภาวะหมักชะงัก (Stuck Fermentation)'
+        'Curves tracking sugar solution (Brix) depletion in each vessel over 82 hours',
+        'Complete fermentation displays a continuous Stepwise Decay curve from the first vessel to the final vessel',
+        'Tanks F2 to F5 show the steepest Brix decline (Max Consumption Rate), corresponding to rapid sugar-to-ethanol conversion',
+        'If any vessel curve plateaus at a high Brix level, it signals a Stuck Fermentation warning'
       ],
       researchSummary: [
-        'สภาวะ D = 0.022 h⁻¹ แสดงอัตราการใช้น้ำตาลมีประสิทธิภาพสูงสุด โดยค่า Brix ถังสุดท้าย (D3) ลดลงเหลือ 3.2–3.5 °Bx (จากตั้งต้น 18.0 °Bx)',
-        'คิดเป็นอัตราการบริโภคน้ำตาลสูงกว่า 80.5% ก่อนเข้าสู่กระบวนการกลั่นแยกเอทานอล',
-        'ถัง PF (เพาะเชื้อ) มีความหวานลดลงช้าใน 16 ชั่วโมงแรกเนื่องจากเซลล์อยู่ในช่วง Lag/Early Log Phase'
+        'Condition D = 0.022 h⁻¹ demonstrates peak sugar utilization efficiency, reducing final vessel (D3) Brix to 3.2–3.5 °Bx (from initial 18.0 °Bx)',
+        'Represents over 80.5% sugar consumption prior to ethanol distillation',
+        'Tank PF (Pre-fermenter) shows a gradual Brix drop during the first 16 h while cells are in the Lag/Early Log Phase'
       ]
     },
     cells: {
       title: 'Yeast Population & Viability Dynamics',
       icon: '🔬',
-      axisDesc: 'แกน X: เวลาการหมัก (h) | แกน Y1 (ซ้าย): Total Cells (cells/mL) | แกน Y2 (ขวา): % Viability & % Budding',
+      axisDesc: 'X-Axis: Fermentation Time (h) | Y1-Axis (Left): Total Cells (cells/mL) | Y2-Axis (Right): % Viability & % Budding',
       howToRead: [
-        'เส้นสีน้ำเงินแสดงจำนวนเซลล์ยีสต์ทั้งหมด (Total Cells) ที่ตรวจนับด้วยฮีมาไซโตมิเตอร์',
-        'เส้นประสีเขียวแสดงเปอร์เซ็นต์เซลล์มีชีวิต (% Viability) จากการย้อมสี Methylene Blue (เซลล์ตายจะติดสีน้ำเงิน เซลล์เป็นไม่ติดสี)',
-        'เส้นประสีส้มแสดงดัชนีการแตกหน่อ (% Budding) บ่งชี้ความสามารถในการแบ่งเซลล์เจริญเติบโต',
-        'สภาวะหมักต่อเนื่องในอุดมคติ เซลล์ต้องรักษาระดับ Viability สูงกว่า 90% ตลอดกระบวนการ'
+        'Blue line shows Total Yeast Cells counted via Haemacytometer',
+        'Green dashed line shows % Viability via Methylene Blue staining (dead cells stain blue, live cells remain unstained)',
+        'Orange dashed line shows % Budding index, indicating active cell division and growth',
+        'Under ideal continuous fermentation, cells must maintain Viability above 90% throughout the run'
       ],
       researchSummary: [
-        'ยีสต์สายพันธุ์ Angel Lot.260624 มีความทนทานต่อสภาวะเครียดเอทานอลสูงมาก โดยมีความหนาแน่นเซลล์สูงสุด 9.15 × 10⁸ cells/mL ที่ถัง PF @ 46h',
-        'เปอร์เซ็นต์เซลล์มีชีวิต (% Viability) เฉลี่ยสูงถึง 97.4% ตลอดทั้ง 8 ถังหมัก',
-        'แม้ในถัง D3 ที่มีเอทานอลสะสมสูงเกือบ 100 g/L เซลล์ยังคงมี Viability สูงถึง 94.8% โดยไม่เกิดภาวะ Ethanol Toxicity ช็อกตาย'
+        'Yeast strain Angel Lot.260624 exhibits high ethanol stress tolerance, reaching peak cell density of 9.15 × 10⁸ cells/mL in Tank PF @ 46h',
+        'Average Cell Viability reaches 97.4% across all 8 fermentation vessels',
+        'Even in Tank D3 where cumulative ethanol approaches 100 g/L, cells maintain 94.8% Viability without Ethanol Toxicity shock'
       ]
     },
     hplc: {
       title: 'HPLC Sugar Consumption vs Ethanol Production',
       icon: '🧪',
-      axisDesc: 'แกน X: เวลาการหมัก (h) | แกน Y: ความเข้มข้นสารเมแทบอไลต์ (g/L)',
+      axisDesc: 'X-Axis: Fermentation Time (h) | Y-Axis: Metabolite Concentration (g/L)',
       howToRead: [
-        'ติดตามสารเมแทบอไลต์ 5 ชนิดจากโครมาโทกราฟีของเหลวสมรรถนะสูง (HPLC): Sucrose, Glucose, Fructose, Ethanol และ Glycerol',
-        'สังเกตการลดลงอย่างรวดเร็วของน้ำตาลโมเลกุลเดี่ยว (Glucose/Fructose) เทียบกับการพุ่งสูงขึ้นของเอทานอล',
-        'Glycerol เป็นผลพลอยได้ (Byproduct) จาก Osmotic Stress และ Redox Balance ของยีสต์ กราฟควรมีระดับต่ำและคงที่'
+        'Tracks 5 metabolites via High-Performance Liquid Chromatography (HPLC): Sucrose, Glucose, Fructose, Ethanol, and Glycerol',
+        'Observe the rapid depletion of monosaccharides (Glucose/Fructose) against the sharp rise in Ethanol',
+        'Glycerol is a byproduct of yeast Osmotic Stress and Redox Balance; the curve should remain low and stable'
       ],
       researchSummary: [
-        'เอนไซม์ Invertase ของยีสต์ไฮโดรไลซ์ Sucrose เป็น Glucose และ Fructose จนเกือบหมดภายในถัง F2–F3',
-        'ยีสต์ใช้น้ำตาล Glucose เร็วกว่า Fructose อย่างมีนัยสำคัญ (Glucose Repression Mechanism)',
-        'ผลผลิตเอทานอลสะสมสูงสุดในถัง D3 แตะระดับ 99.53 g/L โดยมี Glycerol ควบคุมไว้ไม่เกิน 10.78 g/L แสดงถึงสัดส่วน Ethanol Yield ต่อ Byproduct ที่ยอดเยี่ยม'
+        'Yeast Invertase enzyme hydrolyzes Sucrose into Glucose and Fructose almost completely within Tanks F2–F3',
+        'Yeast consumes Glucose significantly faster than Fructose (Glucose Repression Mechanism)',
+        'Peak cumulative ethanol in Tank D3 reaches 99.53 g/L with Glycerol controlled below 10.78 g/L, demonstrating an excellent Ethanol Yield to Byproduct ratio'
       ]
     },
     custom: {
       title: 'Custom Multi-Axis Comparison Sandbox',
       icon: '📊',
-      axisDesc: 'แกน X: เวลาการหมัก (h) | แกน Y1 (ซ้าย) & แกน Y2 (ขวา): ตัวแปรที่ผู้ใช้เลือกพล็อตแบบกำหนดเอง',
+      axisDesc: 'X-Axis: Fermentation Time (h) | Y1-Axis (Left) & Y2-Axis (Right): User-selected custom variables',
       howToRead: [
-        'เครื่องมือวิเคราะห์สหสัมพันธ์อิสระ รองรับการจับคู่เปรียบเทียบตัวแปรต่างสเกลพร้อมกัน 2 แกน Y',
-        'ใช้ตรวจสอบสมมติฐานทางชีวเคมี เช่น ความสัมพันธ์ระหว่างการลดลงของ Brix กับการเพิ่มขึ้นของ Ethanol หรือผลกระทบของ Cell Viability ต่ออัตราการสร้างเอทานอล',
-        'ช่วยวิเคราะห์หาช่วงเวลาหน่วง (Time Lag) ระหว่างการใช้น้ำตาลกับการสร้างผลผลิตในแต่ละถัง'
+        'Custom correlation analyzer supporting dual Y-axis comparison of multi-scale variables',
+        'Used to verify biochemical hypotheses such as the relationship between Brix decline and Ethanol rise, or the impact of Cell Viability on ethanol production rate',
+        'Helps identify the Time Lag between sugar consumption and product formation in each vessel'
       ],
       researchSummary: [
-        'การวิเคราะห์สหสัมพันธ์คู่ขนานระหว่าง Brix กับ HPLC Ethanol พบค่าสัมประสิทธิ์สหสัมพันธ์เชิงลบสูงมาก (r = -0.982)',
-        'ยืนยันข้อสรุปงานวิจัยว่า การวัดค่า Brix หน้าถังสามารถใช้เป็นตัวชี้วัดเสมือน (Real-time Soft Sensor) สำหรับประมาณการผลผลิตเอทานอลได้อย่างแม่นยำสูง',
-        'ช่วยลดความถี่และภาระงานในการฉีดวิเคราะห์ HPLC ในกระบวนการเดินระบบจริง'
+        'Parallel correlation analysis between Brix and HPLC Ethanol reveals a strong negative correlation coefficient (r = -0.982)',
+        'Confirms the research conclusion that at-line Brix readings serve as a highly accurate Real-time Soft Sensor for estimating ethanol output',
+        'Reduces HPLC injection frequency and workload during routine plant operation'
       ]
     },
     radar: {
       title: 'Multi-Parameter Performance Radar (Best Condition)',
       icon: '🏆',
-      axisDesc: 'เรดาร์ 5 มิติ: Max Ethanol, Yield (Yp/s), Productivity (Qp), Sugar Conversion (%), Cell Viability (%)',
+      axisDesc: '5-Axis Radar: Max Ethanol, Yield (Yp/s), Productivity (Qp), Sugar Conversion (%), Cell Viability (%)',
       howToRead: [
-        'เปรียบเทียบประสิทธิภาพรอบด้านของสภาวะการหมัก (Dilution Rates & Conditions) ข้ามการทดลอง',
-        'รูปหลายเหลี่ยมของแต่ละสภาวะ ยิ่งมีพื้นที่ครอบคลุมกว้างและสมดุลทุกแกน ยิ่งบ่งบอกถึงสภาวะที่เหมาะสมสูงสุด (Pareto Optimal)',
-        'ช่วยให้นักวิจัยมองเห็น Trade-off ระหว่าง Productivity (อัตราการผลิตต่อชั่วโมง) กับ Yield (ผลผลิตต่อหน่วยน้ำตาล)'
+        'Multi-dimensional performance comparison of fermentation conditions and Dilution Rates across trials',
+        'A wider, more balanced polygon across all axes indicates a more optimal operating condition (Pareto Optimal)',
+        'Helps researchers visualize the trade-off between Productivity (output per hour) and Yield (output per unit sugar)'
       ],
       researchSummary: [
-        'สภาวะ Dilution Rate D = 0.022 h⁻¹ (B:C 80:20, 30°C) ได้รับการสรุปเป็น "Best Condition" ของโรงงานมิตรผล',
-        'ให้อัตราผลได้เอทานอล (Yield Yp/s) สูงถึง 0.491 g/g คิดเป็น 96.1% ของขีดจำกัดทฤษฎี Gay-Lussac (0.511 g/g)',
-        'ร่วมกับอัตราการผลิต Productivity (Qp) สูงถึง 2.18 g/L·h และ Sugar Conversion 99.3% เป็นจุดดำเนินงานที่ให้ผลตอบแทนทางเศรษฐศาสตร์สูงสุด'
+        'Dilution Rate D Condition = 0.022 h⁻¹ (B:C 80:20, 30°C) is established as the "Best Condition" of Mitr Phol factory',
+        'Delivers an ethanol yield (Yield Yp/s) of 0.491 g/g, representing 96.1% of the Gay-Lussac theoretical limit (0.511 g/g)',
+        'Combined with high Productivity (Qp) of 2.18 g/L·h and 99.3% Sugar Conversion, representing the most economically optimal operating point'
       ]
     }
   };
@@ -4291,13 +4303,13 @@ window.openChartInfoModal = function(chartKey) {
     html: `
       <div style="text-align: left; font-size: 0.88rem; line-height: 1.65; max-height: 70vh; overflow-y: auto;">
         <div style="background: var(--bg-surface-subtle); padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; border: 1px solid var(--border-subtle);">
-          <strong style="color: var(--mitr-navy-900);">📐 แกนข้อมูล:</strong>
+          <strong style="color: var(--mitr-navy-900);">📐 Data Axes:</strong>
           <span style="color: #475569; font-size: 0.82rem;">${g.axisDesc}</span>
         </div>
 
         <div style="margin-bottom: 16px;">
           <h4 style="color: var(--mitr-navy-800); display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-            <span>📖</span> วิธีการดูกราฟตัวนี้ (How to Read & Interpret)
+            <span>📖</span> How to Read & Interpret This Chart
           </h4>
           <ul style="padding-left: 20px; color: #334155; margin: 0;">
             ${g.howToRead.map(item => `<li style="margin-bottom: 6px;">${item}</li>`).join('')}
@@ -4306,7 +4318,7 @@ window.openChartInfoModal = function(chartKey) {
 
         <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px;">
           <h4 style="color: #166534; display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-            <span>🔬</span> ผลสรุปข้อมูลจากงานวิจัย (Research Findings & Insights)
+            <span>🔬</span> Research Findings & Insights
           </h4>
           <ul style="padding-left: 20px; color: #15803d; margin: 0;">
             ${g.researchSummary.map(item => `<li style="margin-bottom: 6px;">${item}</li>`).join('')}
@@ -4315,7 +4327,7 @@ window.openChartInfoModal = function(chartKey) {
       </div>
     `,
     width: '680px',
-    confirmButtonText: 'รับทราบ (Close)',
+    confirmButtonText: 'Close',
     confirmButtonColor: '#0f3d7a'
   });
 };
@@ -4325,7 +4337,7 @@ window.openChartInfoModal = function(chartKey) {
 // ==========================================================================
 window.exportFullSystemBackup = function(silent = false) {
   if (!state.currentUser || state.currentUser.role !== 'admin') {
-    if (!silent) Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์', text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถส่งออกไฟล์ Backup ได้' });
+    if (!silent) Swal.fire({ icon: 'error', title: 'No Permission', text: 'Only administrators (Admin) can export Backup files' });
     return;
   }
   const factorEl = document.getElementById('setting-haemacytometer-factor');
@@ -4362,14 +4374,14 @@ window.exportFullSystemBackup = function(silent = false) {
 
   if (!silent) {
     window.labAudio.playSuccess();
-    logAction('BACKUP_EXPORT', `ส่งออกไฟล์สำรองข้อมูลระบบทั้งหมด (${state.projects.length} โปรเจกต์, ${state.samples.length} ข้อมูลตัวอย่าง, ${state.auditLogs.length} Data Logs)`);
-    showToast('ดาวน์โหลดไฟล์ Backup เรียบร้อยแล้ว', 'success');
+    logAction('BACKUP_EXPORT', `Exported full system backup (${state.projects.length} projects, ${state.samples.length} Sample data, ${state.auditLogs.length} Data Logs)`);
+    showToast('Backup file downloaded', 'success');
   }
 };
 
 window.triggerImportBackupFile = function() {
   if (!state.currentUser || state.currentUser.role !== 'admin') {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์', text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถนำเข้าไฟล์ Backup ได้' });
+    Swal.fire({ icon: 'error', title: 'No Permission', text: 'Only administrators (Admin) can import Backup files' });
     return;
   }
   const fileInput = document.getElementById('backup-file-input');
@@ -4385,7 +4397,7 @@ window.handleImportBackupFile = function(event) {
     try {
       const rawData = JSON.parse(e.target.result);
       if (!rawData || typeof rawData !== 'object' || !Array.isArray(rawData.projects) || !Array.isArray(rawData.samples)) {
-        throw new Error('โครงสร้างไฟล์ Backup ไม่ถูกต้อง (ขาดข้อมูล projects หรือ samples)');
+        throw new Error('Invalid Backup file structure (missing projects or samples data)');
       }
       const stripUnsafeKeys = (obj) => {
         if (Array.isArray(obj)) return obj.map(stripUnsafeKeys);
@@ -4402,26 +4414,26 @@ window.handleImportBackupFile = function(event) {
       const data = stripUnsafeKeys(rawData);
 
       Swal.fire({
-        title: 'ยืนยันการนำเข้าไฟล์ Backup?',
+        title: 'Confirm Backup File Import?',
         html: `
           <div style="text-align: left; font-size: 0.88rem; line-height: 1.7;">
-            <p>• <strong>เวอร์ชันไฟล์:</strong> ${escapeHtml(data.version || '1.0')}</p>
-            <p>• <strong>วันที่แบคอัพ:</strong> ${data.exportedAt ? new Date(data.exportedAt).toLocaleString('th-TH') : 'ไม่ระบุ'}</p>
-            <p>• <strong>ผู้ส่งออก:</strong> ${escapeHtml(data.exportedBy || 'ไม่ระบุ')}</p>
+            <p>• <strong>File Version:</strong> ${escapeHtml(data.version || '1.0')}</p>
+            <p>• <strong>Backup Date:</strong> ${data.exportedAt ? new Date(data.exportedAt).toLocaleString('en-US') : 'Not specified'}</p>
+            <p>• <strong>Exported By:</strong> ${escapeHtml(data.exportedBy || 'Not specified')}</p>
             <hr style="margin: 8px 0; border: none; border-top: 1px solid #e2e8f0;">
-            <p>• โปรเจกต์ทั้งหมด: <strong>${data.projects.length}</strong> รายการ</p>
-            <p>• ข้อมูลตัวอย่างดิบ: <strong>${data.samples.length}</strong> แถว</p>
-            <p>• ผู้ใช้งาน: <strong>${data.users?.length || 0}</strong> บัญชี</p>
-            <p>• ประวัติ Data Log: <strong>${data.auditLogs?.length || 0}</strong> บันทึก</p>
+            <p>• All Projects: <strong>${data.projects.length}</strong> items</p>
+            <p>• Raw sample data: <strong>${data.samples.length}</strong> rows</p>
+            <p>• User: <strong>${data.users?.length || 0}</strong> Account</p>
+            <p>• Data Log history: <strong>${data.auditLogs?.length || 0}</strong> Save</p>
             <p style="color: #b91c1c; margin-top: 8px;">
-              ⚠️ ฐานข้อมูลปัจจุบันจะถูกอัปเดตด้วยข้อมูลจากไฟล์ Backup นี้
+              ⚠️ The current database will be updated with data from this Backup file
             </p>
           </div>
         `,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'ยืนยันกู้คืนระบบ',
-        cancelButtonText: 'ยกเลิก',
+        confirmButtonText: 'Confirm System Restore',
+        cancelButtonText: 'Cancel',
         confirmButtonColor: '#0f3d7a'
       }).then((res) => {
         if (res.isConfirmed) {
@@ -4448,22 +4460,22 @@ window.handleImportBackupFile = function(event) {
           }
 
           persistState();
-          logAction('RESTORE_BACKUP_IMPORT', `กู้คืนระบบจากไฟล์ Backup (${file.name}): ${state.projects.length} โปรเจกต์, ${state.samples.length} ตัวอย่าง`);
+          logAction('RESTORE_BACKUP_IMPORT', `Restored system from Backup (${file.name}): ${state.projects.length} projects, ${state.samples.length} Sample`);
           window.labAudio.playSuccess();
           renderAllDataViews();
           renderUserManagementTable();
           Swal.fire({
             icon: 'success',
-            title: 'นำเข้าไฟล์สำเร็จ',
-            text: 'กู้คืนฐานข้อมูลระบบจากไฟล์ Backup เรียบร้อยแล้ว'
+            title: 'File imported successfully',
+            text: 'System database restored from Backup file'
           });
         }
       });
     } catch (err) {
       Swal.fire({
         icon: 'error',
-        title: 'ไฟล์ Backup ไม่ถูกต้อง',
-        text: err.message || 'ไม่สามารถอ่านไฟล์ JSON ได้'
+        title: 'Invalid Backup file',
+        text: err.message || 'Unable to read JSON file'
       });
     } finally {
       event.target.value = '';
@@ -4474,29 +4486,29 @@ window.handleImportBackupFile = function(event) {
 
 window.handleClearDataWithBackup = function() {
   if (!state.currentUser || state.currentUser.role !== 'admin') {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์', text: 'เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถล้างข้อมูลระบบได้' });
+    Swal.fire({ icon: 'error', title: 'No Permission', text: 'Only administrators (Admin) can reset system data' });
     return;
   }
 
   Swal.fire({
-    title: 'ล้างข้อมูลระบบ (Clear Data) เพื่อเริ่มใหม่?',
+    title: 'Clear System Data to Start Fresh?',
     html: `
       <div style="text-align: left; font-size: 0.88rem; line-height: 1.7;">
         <p style="color: #b91c1c; font-weight: 700;">
-          ⚠️ การดำเนินการนี้จะล้างข้อมูลงานวิจัยทั้งหมด (โปรเจกต์ และ ผลวิเคราะห์ดิบทุกถัง) เพื่อเริ่มต้นใหม่ ป้องกันข้อมูลเต็ม
+          ⚠️ This action clears all research data (projects and raw analytical results across all vessels) to start fresh and free up storage
         </p>
         <p style="margin-top: 8px;">
-          🛡️ <strong>ระบบจะดาวน์โหลดไฟล์ Backup ออฟไลน์ให้ท่านโดยอัตโนมัติทันที</strong> ก่อนทำการล้างข้อมูล
+          🛡️ <strong>The system will automatically download an offline Backup file immediately</strong> before clearing data
         </p>
         <p style="color: #059669; margin-top: 6px;">
-          ✓ บัญชีผู้ใช้งาน และการตั้งค่าของ Admin ทั้งหมดจะถูกเก็บรักษาไว้คงเดิม
+          ✓ All user accounts and Admin settings will be preserved intact
         </p>
       </div>
     `,
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: 'ดาวน์โหลด Backup และล้างข้อมูลทันที',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: 'Download Backup & Clear Data Now',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#dc2626'
   }).then((res) => {
     if (res.isConfirmed) {
@@ -4519,7 +4531,7 @@ window.handleClearDataWithBackup = function() {
         userId: state.currentUser.uid,
         userName: state.currentUser.displayName,
         action: 'CLEAR_DATA',
-        details: `ล้างข้อมูลระบบเริ่มต้นใหม่ (ล้างโปรเจกต์ ${clearedProjectsCount} รายการ, ข้อมูล ${clearedSamplesCount} แถว โดยดาวน์โหลดไฟล์ Backup ออฟไลน์แล้ว)`
+        details: `Reset system data to start fresh (cleared projects: ${clearedProjectsCount} items, data ${clearedSamplesCount} rows, with offline Backup downloaded)`
       };
       state.auditLogs = [clearLog];
 
@@ -4540,13 +4552,13 @@ window.handleClearDataWithBackup = function() {
 
       Swal.fire({
         icon: 'success',
-        title: 'ล้างข้อมูลระบบสำเร็จ',
+        title: 'System data cleared successfully',
         html: `
           <div style="text-align: left; font-size: 0.9rem;">
-            <p>• ดาวน์โหลดไฟล์ Backup ออฟไลน์เรียบร้อยแล้ว</p>
-            <p>• ล้างข้อมูลโปรเจกต์และข้อมูลตัวอย่างทั้งหมดเรียบร้อย</p>
-            <p>• บัญชีผู้ใช้และการตั้งค่า Admin ยังคงอยู่ครบถ้วน</p>
-            <p style="margin-top: 8px; color: #0f3d7a;"><strong>ท่านสามารถเริ่มสร้างโปรเจกต์ใหม่ได้ทันที</strong></p>
+            <p>• Offline Backup file downloaded</p>
+            <p>• All projects and sample records cleared</p>
+            <p>• User accounts and Admin settings remain intact</p>
+            <p style="margin-top: 8px; color: #0f3d7a;"><strong>You can create a new research project immediately</strong></p>
           </div>
         `
       });
@@ -4585,7 +4597,7 @@ window.generateAutoGanttTimeline = function(force = false) {
   }
 
   const baseDate = p.date || '2022-03-26';
-  const owner = p.ownerName || 'นักวิจัย';
+  const owner = p.ownerName || 'Researcher';
   const dilution = p.conditionParams?.dilutionRateD || 0.022;
   const ratioBC = p.conditionParams?.ratioBC || '80:20';
   const temp = p.conditionParams?.temperature || 30;
@@ -4598,136 +4610,136 @@ window.generateAutoGanttTimeline = function(force = false) {
     {
       id: 'task_' + Date.now() + '_1',
       type: 'task',
-      title: `เตรียมหัวเชื้อและขยายเซลล์ยีสต์ (${seed})`,
+      title: `Seed Preparation & Yeast Propagation (${seed})`,
       tank: 'Seed Lab',
       startHour: 0,
       endHour: 4,
       responsible: owner,
       status: 'completed',
-      criteria: `ความหนาแน่นเซลล์ > 3.0×10⁷ cells/mL, Viability > 95% (${seedPrep})`,
-      notes: 'ละลายเชื้อในน้ำกลั่น ปรับอุณหภูมิ 30°C ให้ออกซิเจนเพียงพอก่อนนำลงถัง PF'
+      criteria: `Cell Density > 3.0×10⁷ cells/mL, Viability > 95% (${seedPrep})`,
+      notes: 'Dissolve yeast in distilled water at 30°C with adequate aeration before inoculating Tank PF'
     },
     {
       id: 'task_' + Date.now() + '_2',
       type: 'task',
-      title: `หมักถังเพาะเชื้อ Pre-fermenter (PF)`,
+      title: `Pre-fermenter (PF) Cultivation`,
       tank: 'PF',
       startHour: 0,
       endHour: 22,
       responsible: owner,
       status: 'completed',
-      criteria: `Brix 18.0 → 11.5 °Bx, ตรวจนับเซลล์เข้าสู่ Log Phase, อาหารหมัก ${culture}`,
-      notes: 'ติดตามการลดลงของ Brix ทุก 4 ชม. ควบคุมอุณหภูมิ 30°C คงที่'
+      criteria: `Brix 18.0 → 11.5 °Bx, cell count enters Log Phase, fermentation medium ${culture}`,
+      notes: 'Monitor Brix reduction every 4 h and maintain constant 30°C temperature'
     },
     {
       id: 'task_' + Date.now() + '_3',
       type: 'task',
-      title: `หมักต่อเนื่อง Cascade ตอนต้น (ถัง F2 – F5)`,
+      title: `Early Cascade Continuous Fermentation (Tanks F2 – F5)`,
       tank: 'F2-F5',
       startHour: 22,
       endHour: 58,
       responsible: owner,
       status: 'completed',
-      criteria: `ควบคุม Dilution Rate D = ${dilution} h⁻¹, สัดส่วน B:C ${ratioBC}, อุณหภูมิ ${temp}°C`,
-      notes: 'ช่วงที่มีอัตราการใช้น้ำตาลสูงสุด (Max Consumption Rate) สังเกตการย่อย Sucrose สมบูรณ์'
+      criteria: `Control Dilution Rate D = ${dilution} h⁻¹, B:C ratio ${ratioBC}, temperature ${temp}°C`,
+      notes: 'Peak sugar consumption phase (Max Consumption Rate) with complete Sucrose hydrolysis'
     },
     {
       id: 'task_' + Date.now() + '_4',
       type: 'task',
-      title: `หมักต่อเนื่อง Cascade ตอนปลาย (ถัง F6 – F7)`,
+      title: `Late Cascade Continuous Fermentation (Tanks F6 – F7)`,
       tank: 'F6-F7',
       startHour: 58,
       endHour: 70,
       responsible: owner,
       status: 'completed',
-      criteria: `น้ำตาลคงเหลือบริโภคเกือบสมบูรณ์ (Brix 4.5 → 3.8 °Bx), สะสม Ethanol > 85 g/L`,
-      notes: 'ยีสต์เริ่มเผชิญความเครียดเอทานอลสูง ตรวจวัด % Viability ให้อยู่เหนือ 92%'
+      criteria: `Residual sugar nearly exhausted (Brix 4.5 → 3.8 °Bx), cumulative Ethanol > 85 g/L`,
+      notes: 'Yeast experiences high ethanol stress; verify % Viability remains above 92%'
     },
     {
       id: 'task_' + Date.now() + '_5',
       type: 'task',
-      title: `เก็บเกี่ยวผลผลิตและถ่ายของเหลวลงถัง Duran D3`,
+      title: `Harvest product and transfer broth into Duran D3 vessel`,
       tank: 'D3',
       startHour: 70,
       endHour: 82,
       responsible: owner,
       status: 'completed',
-      criteria: `ผลผลิตเอทานอลสะสมสูงสุด (เป้าหมาย ≥ 95 g/L), Brix ลดลงเหลือ ≤ 3.5 °Bx`,
-      notes: 'ถ่ายสารละลายหมักเข้าสู่ถัง D3 เพื่อเตรียมเข้าสู่ขั้นตอนกลั่นและสกัดแยก'
+      criteria: `Peak cumulative ethanol output (target ≥ 95 g/L), Brix reduced to ≤ 3.5 °Bx`,
+      notes: 'Transfer fermented broth into Tank D3 in preparation for distillation and recovery'
     },
     {
       id: 'task_' + Date.now() + '_6',
       type: 'task',
-      title: `สรุปผลการทดลองและประเมิน KPI (Yield & Productivity)`,
+      title: `Evaluate Final Results & KPIs (Yield & Productivity)`,
       tank: 'Data Lab',
       startHour: 82,
       endHour: 86,
       responsible: owner,
       status: 'completed',
-      criteria: `คำนวณ Yield Yp/s (เป้าหมาย 0.491 g/g) และวิเคราะห์ HPLC ยืนยันผล`,
-      notes: 'ประมวลผลข้อมูล Sugar Conversion 99.3%, Qp 2.18 g/L·h สำหรับ Scale-up'
+      criteria: `Calculate Yield Yp/s (target 0.491 g/g) and confirm via HPLC analysis`,
+      notes: 'Process 99.3% Sugar Conversion and Qp 2.18 g/L·h metrics for Scale-up'
     },
 
     // 5 Key Milestones
     {
       id: 'ms_' + Date.now() + '_1',
       type: 'milestone',
-      title: `M1: หัวเชื้อพร้อมลงถังหมัก (Inoculation Ready)`,
+      title: `M1: Seed Inoculum Ready (Inoculation Ready)`,
       tank: 'PF',
       startHour: 0,
       endHour: 0,
       responsible: owner,
       status: 'completed',
-      criteria: `Viability ≥ 95%, ละลายเซลล์ ${seedPrep} สมบูรณ์ ปราศจากการปนเปื้อน`,
-      notes: 'เกณฑ์ปล่อยเชื้อผ่านเกณฑ์ GMP แล็บ'
+      criteria: `Viability ≥ 95%, complete cell suspension ${seedPrep} complete, contamination-free`,
+      notes: 'Inoculum meets lab GMP release criteria'
     },
     {
       id: 'ms_' + Date.now() + '_2',
       type: 'milestone',
-      title: `M2: Steady State ถัง PF & เริ่มป้อน Cascade สู่ F2`,
+      title: `M2: Tank PF Steady State & Start Cascade Feed to F2`,
       tank: 'PF / F2',
       startHour: 22,
       endHour: 22,
       responsible: owner,
       status: 'completed',
-      criteria: `Brix ลดลงแตะ 11.5 °Bx และเริ่มเปิดป้อนสารละลายน้ำตาล D = ${dilution} h⁻¹`,
-      notes: 'ระบบก้าวเข้าสู่โหมด Continuous Fermentation'
+      criteria: `Brix drops to 11.5 °Bx and continuous sugar feeding starts at D = ${dilution} h⁻¹`,
+      notes: 'System transitioned into Continuous Fermentation mode'
     },
     {
       id: 'ms_' + Date.now() + '_3',
       type: 'milestone',
-      title: `M3: ตรวจสอบ HPLC กลางน้ำ (Mid-stream Validation)`,
+      title: `M3: Mid-stream HPLC Validation`,
       tank: 'F4',
       startHour: 46,
       endHour: 46,
       responsible: owner,
       status: 'completed',
-      criteria: `Sucrose ย่อยหมด 100%, Ethanol ในถัง F4 ทะลุ 70 g/L, Glycerol < 8 g/L`,
-      notes: 'ยืนยันประสิทธิภาพการใช้น้ำตาลของเอนไซม์ Invertase'
+      criteria: `100% Sucrose hydrolyzed, Tank F4 Ethanol exceeds 70 g/L, Glycerol < 8 g/L`,
+      notes: 'Confirms sugar hydrolysis efficiency of Invertase enzyme'
     },
     {
       id: 'ms_' + Date.now() + '_4',
       type: 'milestone',
-      title: `M4: สิ้นสุดกระบวนการหมักถังสุดท้าย D3 (Harvest Complete)`,
+      title: `M4: Final Vessel D3 Fermentation Complete (Harvest Complete)`,
       tank: 'D3',
       startHour: 82,
       endHour: 82,
       responsible: owner,
       status: 'completed',
-      criteria: `Ethanol สะสมแตะระดับเป้าหมาย 99.5 g/L, Brix คงเหลือ 3.2 °Bx, Sugar Conversion > 99%`,
-      notes: 'ความสำเร็จกระบวนการหมักระดับแล็บสมบูรณ์'
+      criteria: `Cumulative Ethanol reaches target 99.5 g/L, residual Brix 3.2 °Bx, Sugar Conversion > 99%`,
+      notes: 'Lab-scale fermentation completed'
     },
     {
       id: 'ms_' + Date.now() + '_5',
       type: 'milestone',
-      title: `M5: สรุปผลวิจัยและส่งมอบ Best Condition Sign-off`,
+      title: `M5: Final Research Summary & Best Condition Sign-off`,
       tank: 'Lab Admin',
       startHour: 86,
       endHour: 86,
       responsible: owner,
       status: 'completed',
-      criteria: `Yield Yp/s 0.491 g/g (96.1% ของทฤษฎี), Productivity 2.18 g/L·h ได้รับการอนุมัติ`,
-      notes: 'นำผลขึ้นรายงานและเตรียมขยายสู่ Pilot Plant'
+      criteria: `Yield Yp/s 0.491 g/g (96.1% of theoretical), Productivity 2.18 g/L·h approved`,
+      notes: 'Compile report and prepare for Pilot Plant scale-up'
     }
   ];
 
@@ -4739,16 +4751,16 @@ window.generateAutoGanttTimeline = function(force = false) {
 
   if (force) {
     window.labAudio.playSuccess();
-    logAction('AUTO_GENERATE_GANTT', `สร้างไทม์ไลน์และหมุดหมายอัตโนมัติสำหรับโปรเจกต์ ${p.experimentNo} (${p.batchMediumNo})`);
+    logAction('AUTO_GENERATE_GANTT', `Auto-generated timeline and milestones for project ${p.experimentNo} (${p.batchMediumNo})`);
     renderGanttTimeline();
-    showToast('สร้างแผนงานและหมุดหมายอัตโนมัติสำเร็จ', 'success');
+    showToast('Timeline and milestones auto-generated', 'success');
   }
 };
 
 // Toggle Gantt Chart & Milestones on/off for current project (Requirement 1)
 window.toggleGanttActiveState = function(forceEnable = null) {
   if (!canEditCurrentProject()) {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    Swal.fire({ icon: 'error', title: 'No edit permission', text: 'You are not the owner of this research project' });
     return;
   }
   const p = state.projects.find(proj => proj.id === state.currentProjectId);
@@ -4763,9 +4775,9 @@ window.toggleGanttActiveState = function(forceEnable = null) {
     window.FirebaseSync.syncProject(p);
   }
   window.labAudio.playSuccess();
-  logAction('TOGGLE_GANTT_STATUS', `${newEnabled ? 'เปิด' : 'ปิด'}การใช้งาน Gantt Chart สำหรับโปรเจกต์ ${p.experimentNo}`);
+  logAction('TOGGLE_GANTT_STATUS', `${newEnabled ? 'Open' : 'Close'}Gantt Chart for project ${p.experimentNo}`);
   renderGanttTimeline();
-  showToast(`${newEnabled ? 'เปิดใช้งาน' : 'ปิดการใช้งาน'} Gantt Chart & Milestones เรียบร้อย`, newEnabled ? 'success' : 'info');
+  showToast(`${newEnabled ? 'Enable' : 'Disable'} Gantt Chart & Milestones updated`, newEnabled ? 'success' : 'info');
 };
 
 // Render Gantt Timeline & Milestones
@@ -4790,12 +4802,12 @@ window.renderGanttTimeline = function() {
 
   if (statusBadge) {
     if (isGanttEnabled) {
-      statusBadge.textContent = '✓ เปิดใช้งาน';
+      statusBadge.textContent = '✓ Active';
       statusBadge.className = 'badge badge-gold';
       statusBadge.style.background = '';
       statusBadge.style.color = '';
     } else {
-      statusBadge.textContent = '🚫 ปิดใช้งาน';
+      statusBadge.textContent = '🚫 Disabled';
       statusBadge.className = 'badge';
       statusBadge.style.background = '#f1f5f9';
       statusBadge.style.color = '#64748b';
@@ -4805,14 +4817,14 @@ window.renderGanttTimeline = function() {
   if (toggleBtn) {
     if (isGanttEnabled) {
       if (toggleBtnIcon) toggleBtnIcon.textContent = '🚫';
-      if (toggleBtnText) toggleBtnText.textContent = 'ปิดการใช้งานผังนี้';
+      if (toggleBtnText) toggleBtnText.textContent = 'Disable this layout';
       toggleBtn.className = 'btn btn-secondary btn-sm';
-      toggleBtn.title = 'คลิกเพื่อปิดการใช้งาน Gantt Chart สำหรับโปรเจกต์นี้';
+      toggleBtn.title = 'Click to disable Gantt Chart for this project';
     } else {
       if (toggleBtnIcon) toggleBtnIcon.textContent = '⚡';
-      if (toggleBtnText) toggleBtnText.textContent = 'เปิดใช้งานผังนี้';
+      if (toggleBtnText) toggleBtnText.textContent = 'Enable this layout';
       toggleBtn.className = 'btn btn-primary btn-sm';
-      toggleBtn.title = 'คลิกเพื่อเปิดใช้งาน Gantt Chart & Milestones สำหรับโปรเจกต์นี้';
+      toggleBtn.title = 'Click to enable Gantt Chart & Milestones for this project';
     }
   }
 
@@ -4844,22 +4856,22 @@ window.renderGanttTimeline = function() {
   const msSummaryBadge = document.getElementById('gantt-milestone-summary-badge');
   if (msSummaryBadge) {
     const completedCount = milestones.filter(m => m.status === 'completed').length;
-    msSummaryBadge.textContent = `${completedCount}/${milestones.length} หมุดหมายเสร็จสิ้น`;
+    msSummaryBadge.textContent = `${completedCount}/${milestones.length} Milestone Completed`;
   }
 
   if (msGrid) {
     if (milestones.length === 0) {
-      msGrid.innerHTML = '<div style="color: #94a3b8; font-size: 0.85rem; padding: 12px;">ยังไม่มีหมุดหมายในโปรเจกต์นี้</div>';
+      msGrid.innerHTML = '<div style="color: #94a3b8; font-size: 0.85rem; padding: 12px;">No milestones in this project yet</div>';
     } else {
       msGrid.innerHTML = milestones.map(m => {
         let statusClass = 'milestone-pending';
-        let statusBadgeHtml = '<span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 0.72rem;">รอดำเนินการ</span>';
+        let statusBadgeHtml = '<span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 0.72rem;">Pending</span>';
         if (m.status === 'completed') {
           statusClass = 'milestone-completed';
-          statusBadgeHtml = '<span class="badge" style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 0.72rem;">✓ สำเร็จแล้ว</span>';
+          statusBadgeHtml = '<span class="badge" style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 0.72rem;">✓ Completed</span>';
         } else if (m.status === 'in_progress') {
           statusClass = 'milestone-inprogress';
-          statusBadgeHtml = '<span class="badge" style="background: #fffbeb; color: #d97706; border: 1px solid #fde68a; font-size: 0.72rem;">⏳ กำลังดำเนินการ</span>';
+          statusBadgeHtml = '<span class="badge" style="background: #fffbeb; color: #d97706; border: 1px solid #fde68a; font-size: 0.72rem;">⏳ In Progress</span>';
         }
 
         const timeStr = formatGanttDateTime(baseDate, m.startHour || 0);
@@ -4875,7 +4887,7 @@ window.renderGanttTimeline = function() {
                 ${escapeHtml(m.title)}
               </h4>
               <p style="font-size: 0.78rem; color: #475569; margin-bottom: 8px; line-height: 1.45;">
-                <strong>เกณฑ์วัด:</strong> ${escapeHtml(m.criteria || '-')}
+                <strong>Metric:</strong> ${escapeHtml(m.criteria || '-')}
               </p>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #64748b; border-top: 1px dashed #e2e8f0; padding-top: 8px; margin-top: 4px;">
@@ -4901,11 +4913,11 @@ window.renderGanttTimeline = function() {
       let leftPct = Math.min(100, Math.max(0, (startH / maxScale) * 100));
       let widthPct = isMilestone ? 0 : Math.min(100 - leftPct, Math.max(3, (duration / maxScale) * 100));
 
-      let statusBadgeHtml = '<span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 0.7rem;">รอ</span>';
+      let statusBadgeHtml = '<span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 0.7rem;">Pending</span>';
       if (t.status === 'completed') {
-        statusBadgeHtml = '<span class="badge" style="background: #ecfdf5; color: #059669; font-size: 0.7rem;">สำเร็จ</span>';
+        statusBadgeHtml = '<span class="badge" style="background: #ecfdf5; color: #059669; font-size: 0.7rem;">Success</span>';
       } else if (t.status === 'in_progress') {
-        statusBadgeHtml = '<span class="badge" style="background: #fffbeb; color: #d97706; font-size: 0.7rem;">กำลังทำ</span>';
+        statusBadgeHtml = '<span class="badge" style="background: #fffbeb; color: #d97706; font-size: 0.7rem;">In Progress</span>';
       }
 
       let barContentHtml = '';
@@ -4946,25 +4958,25 @@ window.renderGanttTimeline = function() {
   // 3. Render Tasks Detailed Table
   const tbody = document.getElementById('gantt-tasks-tbody');
   const taskCountBadge = document.getElementById('gantt-task-count-badge');
-  if (taskCountBadge) taskCountBadge.textContent = `${tasks.length} รายการ`;
+  if (taskCountBadge) taskCountBadge.textContent = `${tasks.length} items`;
 
   if (tbody) {
     if (tasks.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #94a3b8; padding: 20px;">ไม่พบรายการแผนงาน กรุณากดปุ่ม "สร้างไทม์ไลน์อัตโนมัติ" หรือ "เพิ่มงานใหม่"</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #94a3b8; padding: 20px;">No schedule items found. Click "Auto-generate Timeline" or "Add New Task"</td></tr>';
       return;
     }
 
     tbody.innerHTML = tasks.map((t) => {
       const isMilestone = t.type === 'milestone';
       const typeBadge = isMilestone
-        ? '<span class="badge" style="background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; font-size: 0.72rem;">🚩 หมุดหมาย</span>'
-        : '<span class="badge badge-navy" style="font-size: 0.72rem;">📌 ขั้นตอน</span>';
+        ? '<span class="badge" style="background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; font-size: 0.72rem;">🚩 Milestone</span>'
+        : '<span class="badge badge-navy" style="font-size: 0.72rem;">📌 Steps</span>';
 
-      let statusBadgeHtml = '<span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 0.72rem;">รอดำเนินการ</span>';
+      let statusBadgeHtml = '<span class="badge" style="background: #f1f5f9; color: #64748b; font-size: 0.72rem;">Pending</span>';
       if (t.status === 'completed') {
-        statusBadgeHtml = '<span class="badge" style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 0.72rem;">✓ เสร็จสิ้น</span>';
+        statusBadgeHtml = '<span class="badge" style="background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; font-size: 0.72rem;">✓ Done</span>';
       } else if (t.status === 'in_progress') {
-        statusBadgeHtml = '<span class="badge" style="background: #fffbeb; color: #d97706; border: 1px solid #fde68a; font-size: 0.72rem;">⏳ ดำเนินการ</span>';
+        statusBadgeHtml = '<span class="badge" style="background: #fffbeb; color: #d97706; border: 1px solid #fde68a; font-size: 0.72rem;">⏳ In Progress</span>';
       }
 
       const startH = t.startHour || 0;
@@ -4986,8 +4998,8 @@ window.renderGanttTimeline = function() {
           <td style="font-size: 0.82rem; color: #334155; line-height: 1.4;">${escapeHtml(t.criteria || '-')}</td>
           <td style="text-align: center;">${statusBadgeHtml}</td>
           <td style="text-align: center; white-space: nowrap;">
-            <button class="btn btn-sm btn-secondary" onclick="editGanttTask('${escapeHtml(t.id)}')" style="padding: 3px 6px; font-size: 0.74rem;" title="แก้ไข">✏️</button>
-            <button class="btn btn-sm btn-secondary" onclick="deleteGanttTask('${escapeHtml(t.id)}')" style="padding: 3px 6px; font-size: 0.74rem; color: #ef4444;" title="ลบ">🗑️</button>
+            <button class="btn btn-sm btn-secondary" onclick="editGanttTask('${escapeHtml(t.id)}')" style="padding: 3px 6px; font-size: 0.74rem;" title="Edit">✏️</button>
+            <button class="btn btn-sm btn-secondary" onclick="deleteGanttTask('${escapeHtml(t.id)}')" style="padding: 3px 6px; font-size: 0.74rem; color: #ef4444;" title="Delete">🗑️</button>
           </td>
         </tr>
       `;
@@ -5010,14 +5022,14 @@ window.editGanttTask = function(taskId) {
 
 function openGanttTaskFormModal(task = null) {
   if (!canEditCurrentProject()) {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์แก้ไข', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    Swal.fire({ icon: 'error', title: 'No edit permission', text: 'You are not the owner of this research project' });
     return;
   }
 
   const isEdit = !!task;
   const p = state.projects.find(proj => proj.id === state.currentProjectId);
   const baseDate = p?.date || new Date().toISOString().slice(0, 10);
-  const ownerName = p?.ownerName || (state.currentUser?.displayName || 'นักวิจัย');
+  const ownerName = p?.ownerName || (state.currentUser?.displayName || 'Researcher');
 
   const initialType = task?.type || 'task';
   const initialTitle = task?.title || '';
@@ -5032,80 +5044,80 @@ function openGanttTaskFormModal(task = null) {
   // Smart Presets Templates (11 Fermentation Phases & Key Milestones)
   const SMART_PRESETS = [
     {
-      label: '-- กำหนดเอง (Custom / Manual Entry) --',
+      label: '-- Custom / Manual Entry --',
       type: 'task', tank: 'PF', title: '', startHour: 0, endHour: 22,
       criteria: '', notes: ''
     },
     {
-      label: '⚡ [Phase 1] เตรียมหัวเชื้อและขยายเซลล์ยีสต์ (0–4h)',
-      type: 'task', tank: 'Seed Lab', title: 'เตรียมหัวเชื้อและขยายเซลล์ยีสต์', startHour: 0, endHour: 4,
-      criteria: 'ความหนาแน่นเซลล์ > 3.0×10⁷ cells/mL, Viability > 95%',
-      notes: 'ละลายเชื้อในน้ำกลั่น ปรับอุณหภูมิ 30°C ให้ออกซิเจนเพียงพอก่อนนำลงถัง PF'
+      label: '⚡ [Phase 1] Seed Preparation & Yeast Cell Propagation (0–4h)',
+      type: 'task', tank: 'Seed Lab', title: 'Seed Preparation & Yeast Cell Propagation', startHour: 0, endHour: 4,
+      criteria: 'Cell Density > 3.0×10⁷ cells/mL, Viability > 95%',
+      notes: 'Dissolve yeast in distilled water at 30°C with adequate aeration before inoculating Tank PF'
     },
     {
-      label: '⚡ [Phase 2] หมักถังเพาะเชื้อ Pre-fermenter PF (0–22h)',
-      type: 'task', tank: 'PF', title: 'หมักถังเพาะเชื้อ Pre-fermenter (PF)', startHour: 0, endHour: 22,
-      criteria: 'Brix 18.0 → 11.5 °Bx, ตรวจนับเซลล์เข้าสู่ Log Phase',
-      notes: 'ติดตามการลดลงของ Brix ทุก 4 ชม. ควบคุมอุณหภูมิ 30°C คงที่'
+      label: '⚡ [Phase 2] Pre-fermenter PF Cultivation (0–22h)',
+      type: 'task', tank: 'PF', title: 'Pre-fermenter (PF) Cultivation', startHour: 0, endHour: 22,
+      criteria: 'Brix 18.0 → 11.5 °Bx, cell count enters Log Phase',
+      notes: 'Monitor Brix reduction every 4 h and maintain constant 30°C temperature'
     },
     {
-      label: '⚡ [Phase 3] หมักต่อเนื่อง Cascade ตอนต้น ถัง F2–F5 (22–58h)',
-      type: 'task', tank: 'F2-F5', title: 'หมักต่อเนื่อง Cascade ตอนต้น (ถัง F2 – F5)', startHour: 22, endHour: 58,
-      criteria: 'ควบคุม Dilution Rate D = 0.022 h⁻¹, สัดส่วน B:C 80:20',
-      notes: 'ช่วงที่มีอัตราการใช้น้ำตาลสูงสุด สังเกตการย่อย Sucrose สมบูรณ์'
+      label: '⚡ [Phase 3] Early Cascade Continuous Fermentation Tanks F2–F5 (22–58h)',
+      type: 'task', tank: 'F2-F5', title: 'Early Cascade Continuous Fermentation (Tanks F2 – F5)', startHour: 22, endHour: 58,
+      criteria: 'Control Dilution Rate D = 0.022 h⁻¹, B:C Ratio 80:20',
+      notes: 'Peak sugar consumption phase with complete Sucrose hydrolysis'
     },
     {
-      label: '⚡ [Phase 4] หมักต่อเนื่อง Cascade ตอนปลาย ถัง F6–F7 (58–70h)',
-      type: 'task', tank: 'F6-F7', title: 'หมักต่อเนื่อง Cascade ตอนปลาย (ถัง F6 – F7)', startHour: 58, endHour: 70,
-      criteria: 'น้ำตาลคงเหลือบริโภคเกือบสมบูรณ์ (Brix 4.5 → 3.8 °Bx), สะสม Ethanol > 85 g/L',
-      notes: 'ยีสต์เริ่มเผชิญความเครียดเอทานอลสูง ตรวจวัด % Viability ให้อยู่เหนือ 92%'
+      label: '⚡ [Phase 4] Late Cascade Continuous Fermentation Tanks F6–F7 (58–70h)',
+      type: 'task', tank: 'F6-F7', title: 'Late Cascade Continuous Fermentation (Tanks F6 – F7)', startHour: 58, endHour: 70,
+      criteria: 'Residual sugar nearly exhausted (Brix 4.5 → 3.8 °Bx), cumulative Ethanol > 85 g/L',
+      notes: 'Yeast experiences high ethanol stress; verify % Viability remains above 92%'
     },
     {
-      label: '⚡ [Phase 5] ถ่ายของเหลวลงถังเก็บ Duran D3 (70–82h)',
-      type: 'task', tank: 'D3', title: 'เก็บเกี่ยวผลผลิตและถ่ายของเหลวลงถัง Duran D3', startHour: 70, endHour: 82,
-      criteria: 'ผลผลิตเอทานอลสะสมสูงสุด (เป้าหมาย ≥ 95 g/L), Brix ลดลงเหลือ ≤ 3.5 °Bx',
-      notes: 'ถ่ายสารละลายหมักเข้าสู่ถัง D3 เพื่อเตรียมเข้าสู่ขั้นตอนกลั่นและสกัดแยก'
+      label: '⚡ [Phase 5] Broth Transfer to Harvest Vessel Duran D3 (70–82h)',
+      type: 'task', tank: 'D3', title: 'Harvest product and transfer broth into Duran D3 vessel', startHour: 70, endHour: 82,
+      criteria: 'Peak cumulative ethanol output (target ≥ 95 g/L), Brix reduced to ≤ 3.5 °Bx',
+      notes: 'Transfer fermented broth into Tank D3 in preparation for distillation and recovery'
     },
     {
-      label: '⚡ [Phase 6] สรุปผลการทดลองและประเมิน KPI (82–86h)',
-      type: 'task', tank: 'Data Lab', title: 'สรุปผลการทดลองและประเมิน KPI (Yield & Productivity)', startHour: 82, endHour: 86,
-      criteria: 'คำนวณ Yield Yp/s (เป้าหมาย 0.491 g/g) และวิเคราะห์ HPLC ยืนยันผล',
-      notes: 'ประมวลผลข้อมูล Sugar Conversion 99.3%, Qp 2.18 g/L·h สำหรับ Scale-up'
+      label: '⚡ [Phase 6] Final Evaluation & KPI Assessment (82–86h)',
+      type: 'task', tank: 'Data Lab', title: 'Evaluate Final Results & KPIs (Yield & Productivity)', startHour: 82, endHour: 86,
+      criteria: 'Calculate Yield Yp/s (target 0.491 g/g) and confirm via HPLC analysis',
+      notes: 'Process 99.3% Sugar Conversion and Qp 2.18 g/L·h metrics for Scale-up'
     },
     {
-      label: '🚩 [Milestone M1] Inoculation Ready พร้อมปล่อยเชื้อ (@ 0h)',
-      type: 'milestone', tank: 'PF', title: 'M1: หัวเชื้อพร้อมลงถังหมัก (Inoculation Ready)', startHour: 0, endHour: 0,
-      criteria: 'Viability ≥ 95%, ละลายเซลล์สมบูรณ์ ปราศจากการปนเปื้อน',
-      notes: 'เกณฑ์ปล่อยเชื้อผ่านเกณฑ์ GMP แล็บ'
+      label: '🚩 [Milestone M1] Inoculation Ready (@ 0h)',
+      type: 'milestone', tank: 'PF', title: 'M1: Seed Inoculum Ready (Inoculation Ready)', startHour: 0, endHour: 0,
+      criteria: 'Viability ≥ 95%, complete cell suspension, contamination-free',
+      notes: 'Inoculum meets lab GMP release criteria'
     },
     {
-      label: '🚩 [Milestone M2] Steady State PF & เริ่มป้อน Cascade สู่ F2 (@ 22h)',
-      type: 'milestone', tank: 'PF / F2', title: 'M2: Steady State ถัง PF & เริ่มป้อน Cascade สู่ F2', startHour: 22, endHour: 22,
-      criteria: 'Brix ลดลงแตะ 11.5 °Bx และเริ่มเปิดป้อนสารละลายน้ำตาล D = 0.022 h⁻¹',
-      notes: 'ระบบก้าวเข้าสู่โหมด Continuous Fermentation'
+      label: '🚩 [Milestone M2] Steady State PF & Start Cascade Feed to F2 (@ 22h)',
+      type: 'milestone', tank: 'PF / F2', title: 'M2: Tank PF Steady State & Start Cascade Feed to F2', startHour: 22, endHour: 22,
+      criteria: 'Brix drops to 11.5 °Bx and continuous sugar feeding starts at D = 0.022 h⁻¹',
+      notes: 'System transitioned into Continuous Fermentation mode'
     },
     {
-      label: '🚩 [Milestone M3] ตรวจสอบ HPLC กลางน้ำ Mid-stream (@ 46h)',
-      type: 'milestone', tank: 'F4', title: 'M3: ตรวจสอบ HPLC กลางน้ำ (Mid-stream Validation)', startHour: 46, endHour: 46,
-      criteria: 'Sucrose ย่อยหมด 100%, Ethanol ในถัง F4 ทะลุ 70 g/L, Glycerol < 8 g/L',
-      notes: 'ยืนยันประสิทธิภาพการใช้น้ำตาลของเอนไซม์ Invertase'
+      label: '🚩 [Milestone M3] Mid-stream HPLC Validation (@ 46h)',
+      type: 'milestone', tank: 'F4', title: 'M3: Mid-stream HPLC Validation', startHour: 46, endHour: 46,
+      criteria: '100% Sucrose hydrolyzed, Tank F4 Ethanol exceeds 70 g/L, Glycerol < 8 g/L',
+      notes: 'Confirms sugar hydrolysis efficiency of Invertase enzyme'
     },
     {
-      label: '🚩 [Milestone M4] Harvest Complete สิ้นสุดการหมัก D3 (@ 82h)',
-      type: 'milestone', tank: 'D3', title: 'M4: สิ้นสุดกระบวนการหมักถังสุดท้าย D3 (Harvest Complete)', startHour: 82, endHour: 82,
-      criteria: 'Ethanol สะสมแตะระดับเป้าหมาย 99.5 g/L, Brix คงเหลือ 3.2 °Bx, Sugar Conversion > 99%',
-      notes: 'ความสำเร็จกระบวนการหมักระดับแล็บสมบูรณ์'
+      label: '🚩 [Milestone M4] Harvest Complete in Tank D3 (@ 82h)',
+      type: 'milestone', tank: 'D3', title: 'M4: Final Vessel D3 Fermentation Complete (Harvest Complete)', startHour: 82, endHour: 82,
+      criteria: 'Cumulative Ethanol reaches target 99.5 g/L, residual Brix 3.2 °Bx, Sugar Conversion > 99%',
+      notes: 'Lab-scale fermentation completed'
     },
     {
-      label: '🚩 [Milestone M5] Best Condition Sign-off ส่งมอบผลวิจัย (@ 86h)',
-      type: 'milestone', tank: 'Lab Admin', title: 'M5: สรุปผลวิจัยและส่งมอบ Best Condition Sign-off', startHour: 86, endHour: 86,
-      criteria: 'Yield Yp/s 0.491 g/g (96.1% ของทฤษฎี), Productivity 2.18 g/L·h ได้รับการอนุมัติ',
-      notes: 'นำผลขึ้นรายงานและเตรียมขยายสู่ Pilot Plant'
+      label: '🚩 [Milestone M5] Best Condition Sign-off & Handover (@ 86h)',
+      type: 'milestone', tank: 'Lab Admin', title: 'M5: Final Research Summary & Best Condition Sign-off', startHour: 86, endHour: 86,
+      criteria: 'Yield Yp/s 0.491 g/g (96.1% of theoretical), Productivity 2.18 g/L·h approved',
+      notes: 'Compile report and prepare for Pilot Plant scale-up'
     }
   ];
 
   const tankOptions = [
-    'Seed Lab', 'PF', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'D3', 'F2-F5', 'F6-F7', 'PF / F2', 'Data Lab', 'Lab Admin', 'แล็บรวม'
+    'Seed Lab', 'PF', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'D3', 'F2-F5', 'F6-F7', 'PF / F2', 'Data Lab', 'Lab Admin', 'Shared Lab'
   ];
 
   const userOptions = state.users.map(u => u.displayName);
@@ -5114,14 +5126,14 @@ function openGanttTaskFormModal(task = null) {
   }
 
   Swal.fire({
-    title: isEdit ? '✏️ แก้ไขงาน / หมุดหมาย' : '➕ เพิ่มงาน / หมุดหมายใหม่ (Gantt & Milestone)',
+    title: isEdit ? '✏️ Edit Task / Milestone' : '➕ Add Task / Milestone (Gantt & Milestone)',
     html: `
       <div style="text-align: left; font-size: 0.88rem; max-height: 72vh; overflow-y: auto; padding-right: 4px;">
         
         <!-- Smart Presets Selector -->
         <div style="background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;">
           <label class="form-label" style="color: #92400e; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-            <span>⚡</span> เทมเพลตมาตรฐานแล็บ Mitr Phol (Smart Defaults / Presets):
+            <span>⚡</span> Mitr Phol Standard Lab Template (Smart Defaults / Presets):
           </label>
           <select id="swal-gantt-preset-select" class="form-select" style="background: #ffffff; border-color: #fcd34d;">
             ${SMART_PRESETS.map((p, idx) => `<option value="${idx}">${p.label}</option>`).join('')}
@@ -5131,41 +5143,41 @@ function openGanttTaskFormModal(task = null) {
         <!-- Section 1: Classification & Title -->
         <div class="form-section-card">
           <div class="form-section-header">
-            <span>🏷️</span> หมวดที่ 1: ประเภทและชื่อกิจกรรม
+            <span>🏷️</span> Section 1: Activity Type & Title
           </div>
           <div class="form-grid-2">
             <div class="form-group">
-              <label class="form-label" style="font-weight: 700;">ประเภทรายการ:*</label>
+              <label class="form-label" style="font-weight: 700;">Item Type:*</label>
               <select id="swal-gantt-type" class="form-select">
-                <option value="task" ${initialType === 'task' ? 'selected' : ''}>📌 งาน/ขั้นตอนการหมัก (Task/Phase)</option>
-                <option value="milestone" ${initialType === 'milestone' ? 'selected' : ''}>🚩 หมุดหมายคุณภาพ (Key Milestone)</option>
+                <option value="task" ${initialType === 'task' ? 'selected' : ''}>📌 Fermentation Task / Phase</option>
+                <option value="milestone" ${initialType === 'milestone' ? 'selected' : ''}>🚩 Key Quality Milestone</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" style="font-weight: 700;">ถังหมัก / สเตจที่เกี่ยวข้อง:*</label>
+              <label class="form-label" style="font-weight: 700;">Target Vessel / Stage:*</label>
               <select id="swal-gantt-tank" class="form-select">
                 ${tankOptions.map(t => `<option value="${t}" ${initialTank === t ? 'selected' : ''}>${t}</option>`).join('')}
               </select>
             </div>
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" style="font-weight: 700;">ชื่อกิจกรรม / หมุดหมาย:*</label>
-            <input type="text" id="swal-gantt-title" class="form-input" value="${escapeHtml(initialTitle)}" placeholder="เช่น หมักถังเพาะเชื้อ PF, ตรวจวัด HPLC กลางน้ำ">
+            <label class="form-label" style="font-weight: 700;">Task / Milestone Title:*</label>
+            <input type="text" id="swal-gantt-title" class="form-input" value="${escapeHtml(initialTitle)}" placeholder="e.g. Pre-fermenter PF Cultivation, Mid-stream HPLC Check">
           </div>
         </div>
 
         <!-- Section 2: Timeline Scope & Vessel -->
         <div class="form-section-card">
           <div class="form-section-header">
-            <span>⏱️</span> หมวดที่ 2: ขอบเขตเวลาและคำนวณปฏิทินจริง
+            <span>⏱️</span> Section 2: Timeframe & Calendar Schedule
           </div>
           <div class="form-grid-2">
             <div class="form-group">
-              <label class="form-label" style="font-weight: 700;">เวลาเริ่มต้น (ชม. - Start Hour):*</label>
+              <label class="form-label" style="font-weight: 700;">Start Hour (h):*</label>
               <input type="number" step="0.5" min="0" max="150" id="swal-gantt-starthour" class="form-input" value="${escapeHtml(initialStartH)}">
             </div>
             <div class="form-group" id="swal-gantt-endhour-group" style="${initialType === 'milestone' ? 'display: none;' : ''}">
-              <label class="form-label" style="font-weight: 700;">เวลาสิ้นสุด (ชม. - End Hour):*</label>
+              <label class="form-label" style="font-weight: 700;">End Hour (h):*</label>
               <input type="number" step="0.5" min="0" max="150" id="swal-gantt-endhour" class="form-input" value="${escapeHtml(initialEndH)}">
             </div>
           </div>
@@ -5177,21 +5189,21 @@ function openGanttTaskFormModal(task = null) {
         <!-- Section 3: Responsibility & Progress -->
         <div class="form-section-card">
           <div class="form-section-header">
-            <span>👤</span> หมวดที่ 3: ผู้รับผิดชอบและสถานะความคืบหน้า
+            <span>👤</span> Section 3: Responsible Person & Progress Status
           </div>
           <div class="form-grid-2">
             <div class="form-group">
-              <label class="form-label" style="font-weight: 700;">ผู้รับผิดชอบ (Responsible):*</label>
+              <label class="form-label" style="font-weight: 700;">Responsible Person:*</label>
               <select id="swal-gantt-responsible" class="form-select">
                 ${userOptions.map(u => `<option value="${escapeHtml(u)}" ${initialResponsible === u ? 'selected' : ''}>${escapeHtml(u)}</option>`).join('')}
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label" style="font-weight: 700;">สถานะ (Status):*</label>
+              <label class="form-label" style="font-weight: 700;">Status:*</label>
               <select id="swal-gantt-status" class="form-select">
-                <option value="completed" ${initialStatus === 'completed' ? 'selected' : ''}>✓ เสร็จสิ้น (Completed)</option>
-                <option value="in_progress" ${initialStatus === 'in_progress' ? 'selected' : ''}>⏳ กำลังดำเนินการ (In Progress)</option>
-                <option value="pending" ${initialStatus === 'pending' ? 'selected' : ''}>รอดำเนินการ (Pending)</option>
+                <option value="completed" ${initialStatus === 'completed' ? 'selected' : ''}>✓ Completed</option>
+                <option value="in_progress" ${initialStatus === 'in_progress' ? 'selected' : ''}>⏳ In Progress</option>
+                <option value="pending" ${initialStatus === 'pending' ? 'selected' : ''}>Pending</option>
               </select>
             </div>
           </div>
@@ -5200,15 +5212,15 @@ function openGanttTaskFormModal(task = null) {
         <!-- Section 4: Quality Gate & Technical Notes -->
         <div class="form-section-card" style="margin-bottom: 0;">
           <div class="form-section-header">
-            <span>🎯</span> หมวดที่ 4: เกณฑ์ควบคุมคุณภาพและข้อควรระวัง
+            <span>🎯</span> Section 4: Quality Control Criteria & Precautions
           </div>
           <div class="form-group">
-            <label class="form-label" style="font-weight: 700;">เกณฑ์วัดคุณภาพ / เงื่อนไขความสำเร็จ (Acceptance Criteria):</label>
-            <input type="text" id="swal-gantt-criteria" class="form-input" value="${escapeHtml(initialCriteria)}" placeholder="เช่น Brix 18 → 11.5 °Bx, Ethanol > 95 g/L, Viability ≥ 95%">
+            <label class="form-label" style="font-weight: 700;">Quality Acceptance Criteria:</label>
+            <input type="text" id="swal-gantt-criteria" class="form-input" value="${escapeHtml(initialCriteria)}" placeholder="e.g. Brix 18 → 11.5 °Bx, Ethanol > 95 g/L, Viability ≥ 95%">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" style="font-weight: 700;">หมายเหตุเพิ่มเติม / ข้อควรระวัง (Notes & Precaution):</label>
-            <textarea id="swal-gantt-notes" class="form-input" rows="2" placeholder="ระบุข้อควรระวังหรือขั้นตอนทางเทคนิคเพิ่มเติม">${escapeHtml(initialNotes)}</textarea>
+            <label class="form-label" style="font-weight: 700;">Additional Notes & Precautions:</label>
+            <textarea id="swal-gantt-notes" class="form-input" rows="2" placeholder="Specify additional precautions or technical procedures">${escapeHtml(initialNotes)}</textarea>
           </div>
         </div>
 
@@ -5216,8 +5228,8 @@ function openGanttTaskFormModal(task = null) {
     `,
     width: '680px',
     showCancelButton: true,
-    confirmButtonText: isEdit ? '💾 บันทึกการแก้ไข' : '➕ เพิ่มในแผนงาน',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: isEdit ? '💾 Save Changes' : '➕ Add to Plan',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#0f3d7a',
     didOpen: () => {
       const typeSelect = document.getElementById('swal-gantt-type');
@@ -5240,10 +5252,10 @@ function openGanttTaskFormModal(task = null) {
 
         if (previewEl) {
           if (currentType === 'milestone') {
-            previewEl.innerHTML = `📅 <strong>เวลาประเมินหมุดหมาย:</strong> ${sStr} <span style="color: #64748b;">(@ ${sH}h ของการหมัก)</span>`;
+            previewEl.innerHTML = `📅 <strong>Milestone Evaluation Time:</strong> ${sStr} <span style="color: #64748b;">(@ ${sH}h of fermentation)</span>`;
           } else {
             const dur = Math.max(0, eH - sH);
-            previewEl.innerHTML = `📅 <strong>ช่วงเวลาจริง:</strong> ${sStr} &rarr; ${eStr} <strong style="color: #1e3a8a;">(รวม ${dur} ชม.)</strong>`;
+            previewEl.innerHTML = `📅 <strong>Actual Time Range:</strong> ${sStr} &rarr; ${eStr} <strong style="color: #1e3a8a;">(total ${dur} h)</strong>`;
           }
         }
       }
@@ -5285,11 +5297,11 @@ function openGanttTaskFormModal(task = null) {
       const notes = document.getElementById('swal-gantt-notes').value.trim();
 
       if (!title) {
-        Swal.showValidationMessage('กรุณากรอกชื่อกิจกรรม / หมุดหมาย');
+        Swal.showValidationMessage('Please enter a task or milestone title');
         return false;
       }
       if (type === 'task' && endH <= startH) {
-        Swal.showValidationMessage('เวลาสิ้นสุด (ชม.) ต้องมากกว่าเวลาเริ่มต้น');
+        Swal.showValidationMessage('End hour (h) must be greater than start hour');
         return false;
       }
 
@@ -5300,8 +5312,8 @@ function openGanttTaskFormModal(task = null) {
       const val = res.value;
       if (isEdit) {
         Object.assign(task, val);
-        logAction('UPDATE_GANTT_TASK', `แก้ไขแผนงาน: ${task.title} (${task.tank} @ ${task.startHour}h)`);
-        showToast('แก้ไขข้อมูลเรียบร้อย', 'success');
+        logAction('UPDATE_GANTT_TASK', `Edit Plan: ${task.title} (${task.tank} @ ${task.startHour}h)`);
+        showToast('Data updated successfully', 'success');
       } else {
         const newTask = {
           id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
@@ -5309,8 +5321,8 @@ function openGanttTaskFormModal(task = null) {
         };
         if (!p.ganttTasks) p.ganttTasks = [];
         p.ganttTasks.push(newTask);
-        logAction('ADD_GANTT_TASK', `เพิ่มแผนงานใหม่: ${newTask.title} (${newTask.tank})`);
-        showToast('เพิ่มงานในแผนเรียบร้อย', 'success');
+        logAction('ADD_GANTT_TASK', `Add New Plan Item: ${newTask.title} (${newTask.tank})`);
+        showToast('Task added to schedule', 'success');
       }
 
       persistState();
@@ -5326,7 +5338,7 @@ function openGanttTaskFormModal(task = null) {
 // Delete Gantt Task / Milestone
 window.deleteGanttTask = function(taskId) {
   if (!canEditCurrentProject()) {
-    Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์ลบ', text: 'ท่านไม่ใช่เจ้าของงานวิจัยนี้' });
+    Swal.fire({ icon: 'error', title: 'No permission to delete', text: 'You are not the owner of this research project' });
     return;
   }
 
@@ -5337,12 +5349,12 @@ window.deleteGanttTask = function(taskId) {
   if (!targetTask) return;
 
   Swal.fire({
-    title: `ลบ "${targetTask.title}"?`,
-    text: `ต้องการลบรายการนี้ออกจากผัง Gantt Chart หรือไม่`,
+    title: `Delete "${targetTask.title}"?`,
+    text: `Delete this item from the Gantt Chart?`,
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: 'ยืนยันการลบ',
-    cancelButtonText: 'ยกเลิก',
+    confirmButtonText: 'Confirm Delete',
+    cancelButtonText: 'Cancel',
     confirmButtonColor: '#991b1b'
   }).then((res) => {
     if (res.isConfirmed) {
@@ -5352,9 +5364,9 @@ window.deleteGanttTask = function(taskId) {
         window.FirebaseSync.syncProject(p);
       }
       window.labAudio.playWarning();
-      logAction('DELETE_GANTT_TASK', `ลบรายการ Gantt: ${targetTask.title}`);
+      logAction('DELETE_GANTT_TASK', `Delete Gantt item: ${targetTask.title}`);
       renderGanttTimeline();
-      showToast('ลบรายการเรียบร้อย', 'info');
+      showToast('Entry deleted successfully', 'info');
     }
   });
 };
@@ -5437,7 +5449,7 @@ window.switchMobileTab = function(tabKey) {
     if (backBar) {
       backBar.style.display = 'flex';
       const title = document.getElementById('mobile-subpage-title');
-      if (title) title.textContent = '📑 ข้อมูลดิบรวม (Data Records)';
+      if (title) title.textContent = '📑 Data Records';
     }
     syncDataRecordProjectFilter();
     if (typeof pushAppState === 'function') pushAppState('records');
@@ -5450,7 +5462,7 @@ window.switchMobileTab = function(tabKey) {
     if (backBar) {
       backBar.style.display = 'flex';
       const title = document.getElementById('mobile-subpage-title');
-      if (title) title.textContent = '📊 กราฟและการวิเคราะห์ (Analytics)';
+      if (title) title.textContent = '📊 Kinetics & Analytics';
     }
     renderAnalyticsCharts();
     renderCustomChart();
@@ -5478,7 +5490,7 @@ window.mobileNavigateTo = function(sectionId, titleText) {
 
   if (backBar) {
     backBar.style.display = 'flex';
-    if (titleEl) titleEl.textContent = titleText || 'รายละเอียด';
+    if (titleEl) titleEl.textContent = titleText || 'Details';
   }
 
   if (typeof pushAppState === 'function') pushAppState(sectionId);
@@ -5502,7 +5514,7 @@ window.mobileNavigateTo = function(sectionId, titleText) {
   }
 };
 
-// Open notifications full subpage like corporate car booking system (ระบบจองรถยนต์)
+// Open notifications full subpage like corporate car booking system
 window.openMobileNotificationsPage = function() {
   const homeSec = document.getElementById('mobile-home-view');
   const profileSec = document.getElementById('mobile-profile-view');
@@ -5523,7 +5535,7 @@ window.openMobileNotificationsPage = function() {
 
   if (backBar) {
     backBar.style.display = 'flex';
-    if (titleEl) titleEl.textContent = 'การแจ้งเตือน & ประวัติแล็บ';
+    if (titleEl) titleEl.textContent = 'Notifications & Lab History';
   }
 
   renderMobileNotificationsListPage();
@@ -5546,7 +5558,7 @@ window.renderMobileNotificationsListPage = function() {
     container.innerHTML = `
       <div style="text-align: center; padding: 40px 20px; background: #ffffff; border-radius: 16px; border: 1px solid #f1f5f9; color: #94a3b8; font-size: 0.88rem;">
         <i class="fa-regular fa-bell-slash" style="font-size: 2.2rem; margin-bottom: 10px; opacity: 0.4;"></i>
-        <p style="margin: 0;">ไม่มีรายการแจ้งเตือนในหมวดนี้</p>
+        <p style="margin: 0;">No notifications in this category</p>
       </div>
     `;
     return;
@@ -5557,8 +5569,8 @@ window.renderMobileNotificationsListPage = function() {
     const isWarning = l.action.includes('DELETE') || l.action.includes('RESTORE');
     const iconClass = isWarning ? 'icon-warning' : (isSample ? 'icon-sample' : 'icon-system');
     const iconSymbol = isWarning ? 'fa-triangle-exclamation' : (isSample ? 'fa-flask' : 'fa-gear');
-    const timeFormatted = new Date(l.timestamp).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-    const dateFormatted = new Date(l.timestamp).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+    const timeFormatted = new Date(l.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateFormatted = new Date(l.timestamp).toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
 
     return `
       <div class="mob-notif-item" style="background: #ffffff; border: 1px solid #f1f5f9; border-radius: 14px; padding: 14px; margin-bottom: 10px; display: flex; gap: 12px; box-shadow: 0 1px 4px rgba(15, 23, 42, 0.02);">
@@ -5583,7 +5595,7 @@ window.renderMobileNotificationsListPage = function() {
 window.markAllMobileNotificationsRead = function() {
   const dot = document.getElementById('mobile-notif-dot');
   if (dot) dot.style.display = 'none';
-  showToast('ล้างการแจ้งเตือนทั้งหมดเรียบร้อย', 'info');
+  showToast('All notifications cleared', 'info');
 };
 
 window.handleMobileProjectChange = function(projId) {
@@ -5603,7 +5615,7 @@ window.renderMobileHomeDashboard = function() {
   const mobProjSelect = document.getElementById('mobile-project-select');
   if (mobProjSelect) {
     if (accessible.length === 0) {
-      mobProjSelect.innerHTML = '<option value="">(ยังไม่มีโปรเจกต์)</option>';
+      mobProjSelect.innerHTML = '<option value="">(No Projects yet)</option>';
     } else {
       mobProjSelect.innerHTML = accessible.map(p =>
         `<option value="${escapeHtml(p.id)}" ${p.id === state.currentProjectId ? 'selected' : ''}>${escapeHtml(p.batchMediumNo)} (${escapeHtml(p.experimentNo)})</option>`
@@ -5623,13 +5635,13 @@ window.renderMobileHomeDashboard = function() {
   if (heroCountEl) heroCountEl.textContent = totalCount;
 
   const doneBadge = document.getElementById('mobile-hero-done-badge');
-  if (doneBadge) doneBadge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${completedCount} บันทึกผลแล้ว`;
+  if (doneBadge) doneBadge.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${completedCount} Results Saved`;
 
   const pendingBadge = document.getElementById('mobile-hero-pending-badge');
   if (pendingBadge) {
     pendingBadge.innerHTML = project
-      ? `<i class="fa-regular fa-clock"></i> ${pendingCount > 0 ? pendingCount + ' รอจัดเก็บ' : '8 ถังสมบูรณ์'}`
-      : `<i class="fa-solid fa-folder-plus"></i> พร้อมสร้างโปรเจกต์ใหม่`;
+      ? `<i class="fa-regular fa-clock"></i> ${pendingCount > 0 ? pendingCount + ' Pending Storage' : '8 Tanks Complete'}`
+      : `<i class="fa-solid fa-folder-plus"></i> Ready to create a new Project`;
   }
 
   // 3. Render Cascade 8-Tanks Status Strip
@@ -5659,9 +5671,9 @@ window.renderMobileHomeDashboard = function() {
       recentList.innerHTML = `
         <div style="text-align: center; padding: 24px 16px; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 16px; color: #64748b; font-size: 0.86rem;">
           <i class="fa-solid fa-flask-vial" style="font-size: 2rem; margin-bottom: 8px; color: #2563eb; opacity: 0.7;"></i>
-          <p style="margin-bottom: 12px;">ยังไม่มีโปรเจกต์งานวิจัย กดปุ่มด้านล่างเพื่อเริ่มต้นการทดลองใหม่</p>
+          <p style="margin-bottom: 12px;">No research projects yet. Tap the button below to start a new experiment</p>
           <button type="button" class="btn btn-accent btn-sm" onclick="openNewProjectModal()" style="width: 100%; justify-content: center;">
-            <span>+</span> สร้างโปรเจกต์การทดลองแรก
+            <span>+</span> Create First Research Project
           </button>
         </div>
       `;
@@ -5669,7 +5681,7 @@ window.renderMobileHomeDashboard = function() {
       recentList.innerHTML = `
         <div style="text-align: center; padding: 24px; color: #94a3b8; font-size: 0.85rem;">
           <i class="fa-solid fa-flask" style="font-size: 1.8rem; margin-bottom: 8px; opacity: 0.5;"></i>
-          <p>ยังไม่มีบันทึกตัวอย่างในรอบนี้ แตะปุ่ม + เพื่อบันทึก</p>
+          <p>No sample records in this run yet. Tap + to add a record</p>
         </div>
       `;
     } else {
@@ -5677,7 +5689,7 @@ window.renderMobileHomeDashboard = function() {
       recentList.innerHTML = sorted.map(s => {
         const tankDef = (window.LAB_TANKS || []).find(t => t.id === s.tank) || { label: s.tank, color: '#2563eb' };
         const hasData = s.brix != null || s.ethanol != null || s.cellsPerMl != null;
-        const brixStr = s.brix != null ? `${s.brix} °Bx` : 'ไม่มีค่า Brix';
+        const brixStr = s.brix != null ? `${s.brix} °Bx` : 'No Brix value';
         const ethStr = s.ethanol != null ? ` • EtOH: ${s.ethanol} g/L` : '';
         const sampleKey = escapeHtml(`${s.projectId}_${s.tank}_${s.time}`);
 
@@ -5688,7 +5700,7 @@ window.renderMobileHomeDashboard = function() {
                 ${hasData ? '<i class="fa-solid fa-check"></i>' : ''}
               </div>
               <div class="sample-card-info">
-                <div class="sample-card-title">ถัง ${escapeHtml(s.tank)} (อายุถัง ${escapeHtml(s.time)} ชม.)</div>
+                <div class="sample-card-title">Tank ${escapeHtml(s.tank)} (tank age ${escapeHtml(s.time)} h)</div>
                 <div class="sample-card-sub">${escapeHtml(brixStr)}${escapeHtml(ethStr)}</div>
               </div>
             </div>
@@ -5708,7 +5720,7 @@ window.selectMobileTank = function(tankId) {
   if (select) select.value = tankId;
   renderTankMatrix();
   renderMobileHomeDashboard();
-  mobileNavigateTo('sec-entry', `บันทึกผลแล็บ - ถัง ${tankId}`);
+  mobileNavigateTo('sec-entry', `Lab Results Entry - Tank ${tankId}`);
 };
 
 window.renderMobileProfile = function() {
@@ -5766,7 +5778,7 @@ window.openMobileQuickAddModal = function() {
   const project = state.projects.find(p => p.id === state.currentProjectId);
   const tps = project && project.timepoints ? project.timepoints : [0, 12, 16, 18, 22, 34, 40, 46, 58, 64, 70, 82];
   if (tpSelect) {
-    tpSelect.innerHTML = tps.map(t => `<option value="${t}" ${t === state.selectedTime ? 'selected' : ''}>${t} ชม.</option>`).join('');
+    tpSelect.innerHTML = tps.map(t => `<option value="${t}" ${t === state.selectedTime ? 'selected' : ''}>${t} h</option>`).join('');
     tpSelect.onchange = () => loadMobQuickDataForCurrentSelection();
   }
 
@@ -5884,8 +5896,8 @@ window.saveMobQuickSample = function() {
   if (!canEditCurrentProject()) {
     Swal.fire({
       icon: 'warning',
-      title: 'ไม่มีสิทธิ์แก้ไข',
-      text: 'ท่านไม่มีสิทธิ์แก้ไขข้อมูลในโครงการวิจัยนี้ (ดูได้อย่างเดียว)'
+      title: 'No edit permission',
+      text: 'You do not have permission to edit this research project (Read-Only)'
     });
     return;
   }
@@ -5909,8 +5921,8 @@ window.saveMobQuickSample = function() {
   if (totVal !== null && deadVal !== null && deadVal > totVal) {
     Swal.fire({
       icon: 'error',
-      title: 'ข้อมูลไม่ถูกต้อง',
-      text: 'เซลล์ตาย (Dead) ไม่สามารถมีค่ามากกว่าเซลล์ทั้งหมด (Total) ได้'
+      title: 'Invalid data',
+      text: 'Dead cells cannot exceed Total cells'
     });
     return;
   }
@@ -5964,12 +5976,12 @@ window.saveMobQuickSample = function() {
   if (window.FirebaseSync && typeof window.FirebaseSync.syncSample === 'function') {
     window.FirebaseSync.syncSample(syncedSample);
   }
-  logAction('SAVE_SAMPLE_MOBILE', `บันทึกตัวอย่างด่วน ถัง ${mobQuickSelectedTank} เวลา ${tVal}h [Brix: ${brixVal || '-'}, Sugar: ${sugarConvert !== null ? sugarConvert.toFixed(3) : '-'}, EtOH: ${ethVal || '-'}, Total: ${totalCfu ? formatCfuDisplay(totalCfu) + ' CFU/ml' : '-'}${cdwVal ? ', CDW: ' + cdwVal + ' g/L' : ''}]`);
+  logAction('SAVE_SAMPLE_MOBILE', `Quick Sample Entry - Tank ${mobQuickSelectedTank} Time ${tVal}h [Brix: ${brixVal || '-'}, Sugar: ${sugarConvert !== null ? sugarConvert.toFixed(3) : '-'}, EtOH: ${ethVal || '-'}, Total: ${totalCfu ? formatCfuDisplay(totalCfu) + ' CFU/ml' : '-'}${cdwVal ? ', CDW: ' + cdwVal + ' g/L' : ''}]`);
   if (window.labAudio) window.labAudio.playSuccess();
   closeMobileQuickAddModal();
   renderAllDataViews();
   loadSampleDataForCurrentTank();
-  showToast(`บันทึกตัวอย่างถัง ${mobQuickSelectedTank} เรียบร้อย`, 'success');
+  showToast(`Tank Sample Entry ${mobQuickSelectedTank} successfully`, 'success');
 };
 
 // Sample Detail Sheet (TaskFlow Screen 8)
@@ -5985,7 +5997,7 @@ window.openMobileSampleDetail = function(sampleKey) {
   const content = document.getElementById('mobile-sample-detail-content');
   const modal = document.getElementById('mobile-sample-detail-modal');
 
-  const brixStr = escapeHtml(sample.brix != null ? `${sample.brix} °Bx` : 'ยังไม่มีข้อมูล');
+  const brixStr = escapeHtml(sample.brix != null ? `${sample.brix} °Bx` : 'No data yet');
   const ethStr = escapeHtml(sample.ethanol != null ? `${sample.ethanol} g/L` : '-');
   const viaStr = escapeHtml(sample.viabilityPct != null ? `${sample.viabilityPct}%` : (sample.cellViabilityPercent != null ? `${sample.cellViabilityPercent.toFixed(1)}%` : '-'));
   const sugarStr = escapeHtml(sample.sugarConvert != null ? `${Number(sample.sugarConvert).toFixed(3)} g/L` : '-');
@@ -6003,17 +6015,17 @@ window.openMobileSampleDetail = function(sampleKey) {
         <span style="font-size: 0.82rem; color: #64748b;">${escapeHtml(tankDef.label)}</span>
       </div>
       <h2 style="font-size: 1.3rem; font-weight: 800; color: #0f172a; margin-bottom: 4px;">
-        ตัวอย่างอายุถัง ${escapeHtml(sample.time)} ชม.
+        Tank Age Sample ${escapeHtml(sample.time)} h
       </h2>
       <p style="font-size: 0.78rem; color: #64748b;">
-        อัปเดตล่าสุด: ${sample.updatedAt ? new Date(sample.updatedAt).toLocaleString('th-TH') : '-'}
+        Last Updated: ${sample.updatedAt ? new Date(sample.updatedAt).toLocaleString('en-US') : '-'}
       </p>
     </div>
 
     <!-- Parameter Metrics Grid -->
     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px;">
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px;">
-        <div style="font-size: 0.72rem; color: #64748b;">ค่าความหวาน Brix</div>
+        <div style="font-size: 0.72rem; color: #64748b;">Brix</div>
         <div style="font-size: 1.15rem; font-weight: 800; color: #1e293b; margin-top: 2px;">${brixStr}</div>
       </div>
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px;">
@@ -6021,7 +6033,7 @@ window.openMobileSampleDetail = function(sampleKey) {
         <div style="font-size: 1.15rem; font-weight: 800; color: #1e40af; margin-top: 2px;">${ethStr}</div>
       </div>
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px;">
-        <div style="font-size: 0.72rem; color: #64748b;">ความมีชีวิต (% Viability)</div>
+        <div style="font-size: 0.72rem; color: #64748b;">Cell Viability (%)</div>
         <div style="font-size: 1.15rem; font-weight: 800; color: #059669; margin-top: 2px;">${viaStr}</div>
       </div>
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px;">
@@ -6038,22 +6050,22 @@ window.openMobileSampleDetail = function(sampleKey) {
       </div>
       <div style="font-size: 1.25rem; font-weight: 800; color: #1e3a8a;">${cellStr}</div>
       <div style="margin-top: 8px; font-size: 0.76rem; color: #475569; display: flex; justify-content: space-between;">
-        <span>แตกหน่อ (Budding): <strong>${budStr}</strong></span>
+        <span>Budding: <strong>${budStr}</strong></span>
       </div>
     </div>
 
     <!-- Cell Dry Weight Strip (Attachment 4) -->
     <div style="background: rgba(254, 243, 199, 0.4); border: 1px solid #fde68a; border-radius: 14px; padding: 14px; margin-bottom: 18px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-        <span style="font-size: 0.78rem; font-weight: 700; color: #92400e;">⚖️ น้ำหนักแห้งเซลล์ Cell Dry Weight</span>
-        <span class="badge badge-gold" style="font-size: 0.72rem;">ตู้อบ 2 ซ้ำ</span>
+        <span style="font-size: 0.78rem; font-weight: 700; color: #92400e;">⚖️ Cell Dry Weight (CDW)</span>
+        <span class="badge badge-gold" style="font-size: 0.72rem;">Oven, duplicate</span>
       </div>
       <div style="font-size: 1.25rem; font-weight: 800; color: #92400e;">${cdwStr}</div>
     </div>
 
     <!-- Edit Action Button -->
     <button type="button" class="mobile-primary-btn" onclick="editSampleFromDetail('${tankId}', ${sample.time})">
-      <i class="fa-solid fa-pen-to-square"></i> แก้ไขข้อมูลตัวอย่างนี้
+      <i class="fa-solid fa-pen-to-square"></i> Edit This Sample Record
     </button>
   `;
 
@@ -6073,7 +6085,7 @@ window.editSampleFromDetail = function(tankId, timeVal) {
   const tpSelect = document.getElementById('input-timepoint');
   if (tpSelect) tpSelect.value = timeVal;
   loadSampleDataForCurrentTank();
-  mobileNavigateTo('sec-entry', `บันทึกผลแล็บ - ถัง ${tankId}`);
+  mobileNavigateTo('sec-entry', `Lab Results Entry - Tank ${tankId}`);
 };
 
 // Notifications Modal (TaskFlow Screen 10)
@@ -6113,7 +6125,7 @@ function renderMobileNotificationsList() {
   }
 
   if (logs.length === 0) {
-    container.innerHTML = `<div style="text-align: center; padding: 30px; color: #94a3b8; font-size: 0.85rem;">ไม่มีประวัติการทำงานในหมวดนี้</div>`;
+    container.innerHTML = `<div style="text-align: center; padding: 30px; color: #94a3b8; font-size: 0.85rem;">No activity logs in this category</div>`;
     return;
   }
 
@@ -6122,7 +6134,7 @@ function renderMobileNotificationsList() {
     const isWarning = l.action.includes('DELETE') || l.action.includes('RESTORE');
     const iconClass = isWarning ? 'icon-warning' : (isSample ? 'icon-sample' : 'icon-system');
     const iconSymbol = isWarning ? 'fa-triangle-exclamation' : (isSample ? 'fa-flask' : 'fa-gear');
-    const timeFormatted = new Date(l.timestamp).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    const timeFormatted = new Date(l.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
     return `
       <div class="mob-notif-item">
@@ -6132,7 +6144,7 @@ function renderMobileNotificationsList() {
         <div class="mob-notif-content">
           <div class="mob-notif-title">${escapeHtml(l.action)}</div>
           <div class="mob-notif-desc">${escapeHtml(l.details || '-')}</div>
-          <div class="mob-notif-time">โดย ${escapeHtml(l.userName || 'System')} • ${timeFormatted}</div>
+          <div class="mob-notif-time">by ${escapeHtml(l.userName || 'System')} • ${timeFormatted}</div>
         </div>
       </div>
     `;
@@ -6143,18 +6155,18 @@ function renderMobileNotificationsList() {
 window.mobileShowAccountInfo = function() {
   if (!state.currentUser) return;
   Swal.fire({
-    title: 'ข้อมูลบัญชีผู้ใช้งาน',
+    title: 'User Account Information',
     html: `
       <div style="text-align: left; font-size: 0.9rem; line-height: 1.8;">
-        <p><strong>ชื่อผู้ใช้ (ID):</strong> ${escapeHtml(state.currentUser.username || state.currentUser.uid)}</p>
-        <p><strong>ชื่อ-นามสกุล:</strong> ${escapeHtml(state.currentUser.displayName)}</p>
-        <p><strong>อีเมล:</strong> ${escapeHtml(state.currentUser.email)}</p>
-        <p><strong>บทบาท:</strong> <span class="badge badge-navy">${escapeHtml(state.currentUser.role.toUpperCase())}</span></p>
-        <p><strong>สิทธิ์การเข้าถึง:</strong> ${state.currentUser.role === 'admin' ? 'ผู้ดูแลระบบสูงสุด (Admin) เข้าถึงได้ทุกฟังก์ชัน' : 'นักวิจัย (User) จัดการข้อมูลและเปรียบเทียบเฉพาะงานตนเอง'}</p>
+        <p><strong>Username (ID):</strong> ${escapeHtml(state.currentUser.username || state.currentUser.uid)}</p>
+        <p><strong>Full Name:</strong> ${escapeHtml(state.currentUser.displayName)}</p>
+        <p><strong>Email:</strong> ${escapeHtml(state.currentUser.email)}</p>
+        <p><strong>Role:</strong> <span class="badge badge-navy">${escapeHtml(state.currentUser.role.toUpperCase())}</span></p>
+        <p><strong>Access Role:</strong> ${state.currentUser.role === 'admin' ? 'System Administrator (Admin) — Full Access' : 'Researcher (User) — Manage and compare own research projects'}</p>
       </div>
     `,
     confirmButtonColor: '#0f3d7a',
-    confirmButtonText: 'รับทราบ'
+    confirmButtonText: 'Acknowledge'
   });
 };
 
@@ -6166,11 +6178,11 @@ window.mobileOpenPresentation = function() {
 
 window.mobileOpenAudioSettings = function() {
   Swal.fire({
-    title: 'ตั้งค่าเสียงห้องแล็บ',
-    text: 'เปิดหรือปิดระบบเสียงคลิก Tally และเสียงตอบรับ Multimodal',
+    title: 'Lab Sound Settings',
+    text: 'Enable or disable Tally clicker audio and Multimodal sound feedback',
     showCancelButton: true,
-    confirmButtonText: '🔔 เปิดเสียง',
-    cancelButtonText: '🔕 ปิดเสียง',
+    confirmButtonText: '🔔 Sound On',
+    cancelButtonText: '🔕 Sound Off',
     confirmButtonColor: '#059669',
     cancelButtonColor: '#64748b'
   }).then((res) => {
@@ -6179,10 +6191,10 @@ window.mobileOpenAudioSettings = function() {
         window.labAudio.muted = false;
         window.labAudio.playSuccess();
       }
-      showToast('เปิดระบบเสียงเรียบร้อย', 'success');
+      showToast('Sound enabled', 'success');
     } else if (res.dismiss === Swal.DismissReason.cancel) {
       if (window.labAudio) window.labAudio.muted = true;
-      showToast('ปิดระบบเสียงเรียบร้อย', 'info');
+      showToast('Sound disabled', 'info');
     }
   });
 };

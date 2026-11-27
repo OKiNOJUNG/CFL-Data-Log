@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>Mitr Phol Fermentation Lab Tracker - ระบบวิเคราะห์การหมักชีวภาพ</title>
+  <title>Mitr Phol Fermentation Lab Tracker - Bio-Fermentation Analytics System</title>
 
   <!-- Modern Typography: Prompt & Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,25 +36,25 @@
     <div class="login-card">
       <div class="login-logo"><img src="logo.png" alt="Mitr Phol Logo"></div>
       <h2 style="text-align: center; color: var(--mitr-navy-900); font-weight: 800; margin-bottom: 6px;">
-        เข้าสู่ระบบห้องแล็บ</h2>
+        Lab Login</h2>
       <p style="text-align: center; color: #64748b; font-size: 0.85rem; margin-bottom: 24px;">Mitr Phol Fermentation Lab
         Tracker</p>
 
       <form id="form-login" onsubmit="handleLoginSubmit(event)">
         <div class="form-group">
-          <label class="form-label">ชื่อผู้ใช้งาน (ID / Username) หรือ Email:</label>
+          <label class="form-label">Username (ID) or Email:</label>
           <div style="position: relative;">
             <input type="text" id="login-username" class="form-input" required
-              placeholder="กรอก ID เช่น admin หรือ user" style="padding-left: 36px;" autocomplete="username"
+              placeholder="Enter ID (e.g. admin or user)" style="padding-left: 36px;" autocomplete="username"
               autocapitalize="none" autocorrect="off" spellcheck="false">
             <i class="fa-regular fa-user"
               style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">รหัสผ่าน (Password):</label>
+          <label class="form-label">Password:</label>
           <div style="position: relative;">
-            <input type="password" id="login-password" class="form-input" required placeholder="กรอกรหัสผ่าน"
+            <input type="password" id="login-password" class="form-input" required placeholder="Enter Password"
               style="padding-left: 36px;" autocomplete="current-password">
             <i class="fa-solid fa-lock"
               style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
@@ -62,7 +62,7 @@
         </div>
         <button type="submit" class="btn btn-primary"
           style="width: 100%; margin-top: 10px; border-radius: var(--radius-md); padding: 12px; font-weight: 700;">
-          เข้าสู่ระบบ (Login)
+          Login
         </button>
       </form>
     </div>
@@ -75,15 +75,15 @@
         <div class="brand-logo-icon"><img src="logo.png" alt="Mitr Phol Logo"></div>
         <div class="brand-text">
           <h1>MITR PHOL BIO-FERMENTATION LAB TRACKER</h1>
-          <p>ระบบบันทึกและวิเคราะห์การหมักชีวภาพต่อเนื่อง (Continuous Cascade Tracker)</p>
+          <p>Continuous Cascade Fermentation Tracker & Analytics System</p>
         </div>
       </div>
 
       <!-- Current User Profile, Fullscreen & Logout -->
       <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <button type="button" id="btn-fullscreen-desktop" class="btn btn-sm btn-header-glass"
-          onclick="toggleFullscreen()" title="แสดงเต็มหน้าจอ">
-          <i class="fa-solid fa-expand"></i><span>เต็มหน้าจอ</span>
+          onclick="toggleFullscreen()" title="Fullscreen">
+          <i class="fa-solid fa-expand"></i><span>Full Screen</span>
         </button>
         <div class="user-control-pill">
           <div class="user-avatar" id="current-user-avatar">A</div>
@@ -93,7 +93,7 @@
           </div>
           <button class="btn btn-sm btn-secondary" onclick="handleLogout()"
             style="padding: 4px 10px; font-size: 0.75rem; border-color: rgba(255,255,255,0.3); color: #ffffff; background: rgba(255,255,255,0.1);">
-            ออกจากระบบ
+            Sign Out
           </button>
         </div>
       </div>
@@ -104,25 +104,25 @@
   <nav class="app-nav-tabs">
     <div class="nav-container">
       <button class="tab-btn active" data-target="sec-projects">
-        <span class="tab-icon">📋</span> ข้อมูลตั้งต้น (Experiment Header)
+        <span class="tab-icon">📋</span> Experiment Header
       </button>
       <button class="tab-btn" data-target="sec-entry">
-        <span class="tab-icon">📝</span> บันทึกข้อมูลแล็บ (Lab Entry)
+        <span class="tab-icon">📝</span> Lab Entry
       </button>
       <button class="tab-btn" data-target="sec-data-records">
-        <span class="tab-icon">📑</span> ข้อมูลดิบรวม (Data Record)
+        <span class="tab-icon">📑</span> Data Records
       </button>
       <button class="tab-btn" data-target="sec-analytics">
-        <span class="tab-icon">📊</span> กราฟและการวิเคราะห์
+        <span class="tab-icon">📊</span> Charts and Analysis
       </button>
       <button class="tab-btn" data-target="sec-optimizer">
-        <span class="tab-icon">🏆</span> เปรียบเทียบสภาวะ (Best Condition)
+        <span class="tab-icon">🏆</span> Best Condition
       </button>
       <button class="tab-btn tab-admin-only" id="tab-btn-logs" data-target="sec-logs">
-        <span class="tab-icon">📜</span> ประวัติการทำงาน (Data Log)
+        <span class="tab-icon">📜</span> Data Log
       </button>
       <button class="tab-btn tab-admin-only" id="tab-btn-settings" data-target="sec-settings">
-        <span class="tab-icon">⚙️</span> จัดการผู้ใช้ & ตั้งค่า (Admin)
+        <span class="tab-icon">⚙️</span> Users & Settings (Admin)
       </button>
     </div>
   </nav>
@@ -132,17 +132,17 @@
     <div class="mobile-top-user" onclick="switchMobileTab('profile')">
       <div class="mobile-avatar" id="mobile-top-avatar">-</div>
       <div class="mobile-user-greeting">
-        <div class="mobile-greeting-text">สวัสดี, <span id="mobile-user-name">ผู้ใช้งาน</span> 👋</div>
-        <div class="mobile-greeting-sub">งานวิจัยหมักชีวภาพ 8 ถังต่อเนื่อง</div>
+        <div class="mobile-greeting-text">Hello, <span id="mobile-user-name">Users</span> 👋</div>
+        <div class="mobile-greeting-sub">8-Vessel Continuous Bio-Fermentation Research</div>
       </div>
     </div>
     <div class="mobile-top-actions">
       <button type="button" class="mobile-icon-btn" id="btn-fullscreen-mobile" onclick="toggleFullscreen()"
-        title="แสดงเต็มหน้าจอ">
+        title="Fullscreen">
         <i class="fa-solid fa-expand"></i>
       </button>
       <button type="button" class="mobile-icon-btn" onclick="openMobileNotificationsPage()"
-        title="การแจ้งเตือนและบันทึกประวัติ">
+        title="Notifications & Audit History">
         <i class="fa-regular fa-bell"></i>
         <span class="mobile-badge-dot" id="mobile-notif-dot"></span>
       </button>
@@ -155,9 +155,9 @@
     <!-- Mobile Sub-page Back Header (When navigating into desktop sections on mobile) -->
     <div id="mobile-subpage-back-bar" class="mobile-subpage-back-bar" style="display: none;">
       <button class="mobile-back-btn" onclick="switchMobileTab('home')">
-        <i class="fa-solid fa-arrow-left"></i> กลับหน้าหลัก
+        <i class="fa-solid fa-arrow-left"></i> Back to Home
       </button>
-      <span id="mobile-subpage-title" class="mobile-subpage-title">หัวข้อการทำงาน</span>
+      <span id="mobile-subpage-title" class="mobile-subpage-title">Task Title</span>
     </div>
 
     <!-- ====================================================================
@@ -168,21 +168,21 @@
       <div class="mobile-hero-card">
         <div class="mobile-hero-header">
           <div class="mobile-hero-proj-tag">
-            <i class="fa-solid fa-flask"></i> รอบการหมักปัจจุบัน
+            <i class="fa-solid fa-flask"></i> Current Fermentation Run
           </div>
           <div style="display: flex; align-items: center; gap: 6px;">
             <select id="mobile-project-select" class="mobile-hero-proj-select"
               onchange="handleMobileProjectChange(this.value)">
               <!-- Populated dynamically -->
             </select>
-            <button type="button" class="mobile-hero-new-btn" onclick="openNewProjectModal()" title="สร้างโปรเจกต์ใหม่">
+            <button type="button" class="mobile-hero-new-btn" onclick="openNewProjectModal()" title="Create New Project">
               <i class="fa-solid fa-plus"></i>
             </button>
           </div>
         </div>
         <div class="mobile-hero-title-row">
           <div>
-            <div class="mobile-hero-label">Total Samples (จุดตัวอย่าง)</div>
+            <div class="mobile-hero-label">Total Samples</div>
             <div class="mobile-hero-count" id="mobile-hero-sample-count">0</div>
           </div>
           <div class="mobile-hero-check-circle">
@@ -191,39 +191,39 @@
         </div>
         <div class="mobile-hero-badges-row">
           <span class="mobile-hero-badge badge-done" id="mobile-hero-done-badge">
-            <i class="fa-solid fa-circle-check"></i> 0 บันทึกผลแล้ว
+            <i class="fa-solid fa-circle-check"></i> 0 recorded
           </span>
           <span class="mobile-hero-badge badge-pending" id="mobile-hero-pending-badge">
-            <i class="fa-regular fa-clock"></i> 8 ถัง Cascade พร้อม
+            <i class="fa-regular fa-clock"></i> 8 Tank Cascade with
           </span>
         </div>
       </div>
 
       <!-- 2. Quick Action Grid / Category Tiles (4 items - Screen 3) -->
       <div class="mobile-category-grid">
-        <div class="mobile-cat-tile cat-tile-blue" onclick="mobileNavigateTo('sec-projects', 'ข้อมูลตั้งต้นการทดลอง')">
+        <div class="mobile-cat-tile cat-tile-blue" onclick="mobileNavigateTo('sec-projects', 'Experiment Header')">
           <div class="cat-tile-icon"><i class="fa-solid fa-folder-tree"></i></div>
-          <span class="cat-tile-label">ข้อมูลตั้งต้น</span>
+          <span class="cat-tile-label">Initial Data</span>
         </div>
-        <div class="mobile-cat-tile cat-tile-orange" onclick="mobileNavigateTo('sec-entry', 'บันทึกข้อมูลหน้าแล็บ')">
+        <div class="mobile-cat-tile cat-tile-orange" onclick="mobileNavigateTo('sec-entry', 'Lab Bench Data Entry')">
           <div class="cat-tile-icon"><i class="fa-solid fa-flask-vial"></i></div>
-          <span class="cat-tile-label">บันทึกแล็บ</span>
+          <span class="cat-tile-label">Lab Record</span>
         </div>
-        <div class="mobile-cat-tile cat-tile-cyan" onclick="mobileNavigateTo('sec-analytics', 'กราฟและการวิเคราะห์')">
+        <div class="mobile-cat-tile cat-tile-cyan" onclick="mobileNavigateTo('sec-analytics', 'Charts and Analysis')">
           <div class="cat-tile-icon"><i class="fa-solid fa-chart-line"></i></div>
-          <span class="cat-tile-label">กราฟวิเคราะห์</span>
+          <span class="cat-tile-label">Analysis Chart</span>
         </div>
         <div class="mobile-cat-tile cat-tile-green"
-          onclick="mobileNavigateTo('sec-optimizer', 'เปรียบเทียบสภาวะที่ดีที่สุด')">
+          onclick="mobileNavigateTo('sec-optimizer', 'Best Condition Comparison')">
           <div class="cat-tile-icon"><i class="fa-solid fa-trophy"></i></div>
-          <span class="cat-tile-label">เปรียบเทียบ</span>
+          <span class="cat-tile-label">Compare</span>
         </div>
       </div>
 
       <!-- 3. Cascade 8-Tank Status Strip -->
       <div class="mobile-tanks-strip-card">
         <div class="mobile-sec-header">
-          <h4><i class="fa-solid fa-microscope" style="color: #2563eb; margin-right: 6px;"></i> สถานะ 8 ถังหมักต่อเนื่อง
+          <h4><i class="fa-solid fa-microscope" style="color: #2563eb; margin-right: 6px;"></i> 8-Vessel Cascade Status
           </h4>
           <span class="mobile-sec-sub" id="mobile-tanks-count-label">PF → D3</span>
         </div>
@@ -235,9 +235,9 @@
       <!-- 4. Today / Recent Samples Section (Screen 3 & 5) -->
       <div class="mobile-recent-samples-sec">
         <div class="mobile-sec-header">
-          <h4><i class="fa-solid fa-list-check" style="color: #2563eb; margin-right: 6px;"></i> ตัวอย่างล่าสุดในรอบนี้
+          <h4><i class="fa-solid fa-list-check" style="color: #2563eb; margin-right: 6px;"></i> Latest samples in this run
           </h4>
-          <button class="mobile-link-btn" onclick="switchMobileTab('records')">ดูทั้งหมด</button>
+          <button class="mobile-link-btn" onclick="switchMobileTab('records')">View All</button>
         </div>
         <div id="mobile-home-recent-samples" class="mobile-sample-cards-list">
           <!-- Dynamically rendered sample cards -->
@@ -261,17 +261,17 @@
         <div class="mobile-profile-stats-card">
           <div class="mob-stat-col">
             <div class="mob-stat-val" id="mob-stat-projects">0</div>
-            <div class="mob-stat-label">โปรเจกต์</div>
+            <div class="mob-stat-label">Project</div>
           </div>
           <div class="mob-stat-divider"></div>
           <div class="mob-stat-col">
             <div class="mob-stat-val" id="mob-stat-samples">0</div>
-            <div class="mob-stat-label">ตัวอย่างบันทึก</div>
+            <div class="mob-stat-label">Sample Entry</div>
           </div>
           <div class="mob-stat-divider"></div>
           <div class="mob-stat-col">
             <div class="mob-stat-val">8</div>
-            <div class="mob-stat-label">ถังหมัก</div>
+            <div class="mob-stat-label">Fermenter</div>
           </div>
         </div>
       </div>
@@ -281,8 +281,8 @@
         <div class="mobile-menu-item" onclick="mobileShowAccountInfo()">
           <div class="mob-menu-icon icon-blue"><i class="fa-solid fa-id-card"></i></div>
           <div class="mob-menu-text">
-            <div class="mob-menu-title">ข้อมูลบัญชีและสิทธิ์วิจัย</div>
-            <div class="mob-menu-desc">ดูรายละเอียดบทบาทและสิทธิ์ของคุณ</div>
+            <div class="mob-menu-title">Account Profile & Permissions</div>
+            <div class="mob-menu-desc">View your role and access permissions</div>
           </div>
           <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
         </div>
@@ -290,8 +290,8 @@
         <div class="mobile-menu-item" onclick="openMobileNotificationsPage()">
           <div class="mob-menu-icon icon-purple"><i class="fa-solid fa-bell"></i></div>
           <div class="mob-menu-text">
-            <div class="mob-menu-title">การแจ้งเตือน & ประวัติแล็บ</div>
-            <div class="mob-menu-desc">ประวัติการบันทึก Audit Logs ล่าสุด</div>
+            <div class="mob-menu-title">Notifications & Lab History</div>
+            <div class="mob-menu-desc">Recent Audit Logs</div>
           </div>
           <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
         </div>
@@ -299,28 +299,28 @@
         <div class="mobile-menu-item" onclick="mobileOpenPresentation()">
           <div class="mob-menu-icon icon-gold"><i class="fa-solid fa-file-powerpoint"></i></div>
           <div class="mob-menu-text">
-            <div class="mob-menu-title">สไลด์นำเสนอ</div>
-            <div class="mob-menu-desc">สไลด์สรุปผลสำหรับนำเสนอ</div>
+            <div class="mob-menu-title">Presentation Slides</div>
+            <div class="mob-menu-desc">Executive Presentation Slides</div>
           </div>
           <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
         </div>
 
         <div class="mobile-menu-item admin-only-item" id="mob-menu-admin-logs"
-          onclick="mobileNavigateTo('sec-logs', 'ประวัติการทำงาน (Data Log)')" style="display: none;">
+          onclick="mobileNavigateTo('sec-logs', 'Data Log')" style="display: none;">
           <div class="mob-menu-icon icon-blue"><i class="fa-solid fa-clock-rotate-left"></i></div>
           <div class="mob-menu-text">
-            <div class="mob-menu-title">ประวัติการทำงาน Data Log (Admin)</div>
-            <div class="mob-menu-desc">ตรวจสอบการเข้าออกระบบและการลงข้อมูล</div>
+            <div class="mob-menu-title">Data Log / Audit Trail (Admin)</div>
+            <div class="mob-menu-desc">Audit user logins and data modifications</div>
           </div>
           <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
         </div>
 
         <div class="mobile-menu-item admin-only-item" id="mob-menu-admin-users"
-          onclick="mobileNavigateTo('sec-settings', 'จัดการผู้ใช้และตั้งค่า')" style="display: none;">
+          onclick="mobileNavigateTo('sec-settings', 'User Management and Settings')" style="display: none;">
           <div class="mob-menu-icon icon-green"><i class="fa-solid fa-users-gear"></i></div>
           <div class="mob-menu-text">
-            <div class="mob-menu-title">จัดการผู้ใช้งานแล็บ (Admin)</div>
-            <div class="mob-menu-desc">เพิ่ม/แก้ไขผู้ใช้และรหัสผ่าน</div>
+            <div class="mob-menu-title">Lab User Management (Admin)</div>
+            <div class="mob-menu-desc">Add/edit users and passwords</div>
           </div>
           <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
         </div>
@@ -328,8 +328,8 @@
         <div class="mobile-menu-item" onclick="mobileOpenAudioSettings()">
           <div class="mob-menu-icon icon-cyan"><i class="fa-solid fa-sliders"></i></div>
           <div class="mob-menu-text">
-            <div class="mob-menu-title">ตั้งค่าเสียง & ค่าคงที่แล็บ</div>
-            <div class="mob-menu-desc">เปิด/ปิดเสียงคลิก Tally และค่าคงที่</div>
+            <div class="mob-menu-title">Audio & Lab Constants</div>
+            <div class="mob-menu-desc">Toggle Tally audio click and lab constants</div>
           </div>
           <i class="fa-solid fa-chevron-right mob-menu-arrow"></i>
         </div>
@@ -338,7 +338,7 @@
       <!-- Logout Red Outline Button (Screen 9) - End of Profile Page -->
       <div style="margin-top: 18px; padding: 0 4px; margin-bottom: 24px;">
         <button class="mobile-logout-btn" onclick="handleLogout()">
-          <i class="fa-solid fa-arrow-right-from-bracket"></i> ออกจากระบบ
+          <i class="fa-solid fa-arrow-right-from-bracket"></i> Sign Out
         </button>
       </div>
     </section>
@@ -356,21 +356,21 @@
               <i class="fa-solid fa-bell"></i>
             </div>
             <div>
-              <h3 style="margin: 0; font-size: 1rem; color: #0f172a; font-weight: 800;">การแจ้งเตือน & ประวัติแล็บ</h3>
-              <p style="margin: 0; font-size: 0.74rem; color: #64748b;">บันทึกกิจกรรมและประวัติการทำงานแบบเรียลไทม์</p>
+              <h3 style="margin: 0; font-size: 1rem; color: #0f172a; font-weight: 800;">Notifications & Lab History</h3>
+              <p style="margin: 0; font-size: 0.74rem; color: #64748b;">Real-time activity and audit trail logging</p>
             </div>
           </div>
           <button type="button" class="btn btn-secondary btn-sm" onclick="markAllMobileNotificationsRead()"
             style="font-size: 0.72rem; padding: 4px 8px;">
-            ✓ เคลียร์จุดแจ้ง
+            ✓ Clear Notifications
           </button>
         </div>
 
         <!-- Filter Tabs -->
         <div class="mobile-filter-pills" style="margin-top: 8px;">
-          <button type="button" class="mob-filter-pill active" onclick="filterMobLogs('all', this)">ทั้งหมด</button>
-          <button type="button" class="mob-filter-pill" onclick="filterMobLogs('sample', this)">บันทึกแล็บ</button>
-          <button type="button" class="mob-filter-pill" onclick="filterMobLogs('system', this)">ระบบ</button>
+          <button type="button" class="mob-filter-pill active" onclick="filterMobLogs('all', this)">All</button>
+          <button type="button" class="mob-filter-pill" onclick="filterMobLogs('sample', this)">Lab Record</button>
+          <button type="button" class="mob-filter-pill" onclick="filterMobLogs('system', this)">System</button>
         </div>
       </div>
 
@@ -392,40 +392,40 @@
       <div class="lab-card">
         <div class="lab-card-header">
           <div class="card-title-group">
-            <h2><span>📑</span> ข้อมูลตั้งต้นการทดลอง (Experiment Header)</h2>
-            <p>เลือกงานวิจัยของตนเอง และสามารถแก้ไขรายละเอียดสภาวะการทดลองได้ตามต้องการ</p>
+            <h2><span>📑</span> Experiment Header</h2>
+            <p>Select your research project and edit experimental condition parameters as needed</p>
           </div>
           <div class="header-actions-group">
             <!-- Admin Researcher Filter: Separated to prevent dropdown clutter (Requirement 8) -->
             <div id="admin-researcher-filter-group" class="header-filter-item" style="display: none;">
               <label class="form-label"
-                style="margin-bottom: 0; font-size: 0.82rem; white-space: nowrap;">นักวิจัย:</label>
+                style="margin-bottom: 0; font-size: 0.82rem; white-space: nowrap;">Researcher:</label>
               <select id="admin-researcher-filter" class="form-select" style="min-width: 170px;"
                 onchange="handleAdminResearcherFilterChange()">
-                <option value="ALL">👥 นักวิจัยทุกคน (All)</option>
+                <option value="ALL">👥 All Researchers</option>
               </select>
             </div>
             <div class="header-filter-item">
               <label class="form-label"
-                style="margin-bottom: 0; font-size: 0.82rem; white-space: nowrap;">โปรเจกต์:</label>
+                style="margin-bottom: 0; font-size: 0.82rem; white-space: nowrap;">Project:</label>
               <select id="project-select" class="form-select" style="min-width: 240px;"></select>
             </div>
             <button type="button" class="btn btn-accent btn-sm" onclick="openNewProjectModal()">
-              <span>+</span> สร้างโปรเจกต์ใหม่
+              <span>+</span> Create New Project
             </button>
             <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-edit-header"
               onclick="toggleEditHeaderForm()">
-              <span>✏️</span> แก้ไขข้อมูลตั้งต้น
+              <span>✏️</span> Edit Initial Data
             </button>
             <button type="button" class="btn btn-secondary btn-sm" id="btn-delete-project"
               onclick="deleteCurrentProject()" style="color: #ef4444; border-color: rgba(239,68,68,0.3);"
-              title="ลบโปรเจกต์และข้อมูลทั้งหมดในโปรเจกต์นี้">
-              <span>🗑️</span> ลบโปรเจกต์
+              title="Delete this project and all its sample records">
+              <span>🗑️</span> Delete Project
             </button>
             <button type="button" class="btn btn-primary btn-sm"
-              onclick="navigateToSection('sec-entry', 'บันทึกข้อมูลหน้าแล็บ')"
-              title="ไปขั้นตอนถัดไป: บันทึกผลวิเคราะห์หน้าแล็บ">
-              <span>บันทึกผลแล็บ</span> <i class="fa-solid fa-arrow-right"></i>
+              onclick="navigateToSection('sec-entry', 'Lab Bench Data Entry')"
+              title="Next Step: Lab Sample Entry">
+              <span>Record Lab Results</span> <i class="fa-solid fa-arrow-right"></i>
             </button>
           </div>
         </div>
@@ -440,45 +440,45 @@
             <h3 id="header-exp-no" style="color: var(--mitr-navy-900); font-weight: 700;">-</h3>
             <p style="font-size: 0.85rem; color: #64748b; margin-top: 10px;">Feed culture:</p>
             <p id="header-culture" style="font-weight: 600; color: #334155;">-</p>
-            <p style="font-size: 0.85rem; color: #64748b; margin-top: 10px;">วันที่เริ่มต้น:</p>
+            <p style="font-size: 0.85rem; color: #64748b; margin-top: 10px;">Start Date:</p>
             <p id="header-date" style="font-weight: 600; color: #334155;">-</p>
 
             <!-- New Experiment Initial Fields (Requested by User / Attachment 1 & 4) -->
             <div
               style="margin-top: 14px; padding: 12px; background: #ffffff; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
               <div style="font-size: 0.8rem; font-weight: 700; color: var(--mitr-navy-900); margin-bottom: 6px;">🍯
-                พารามิเตอร์น้ำตาลโมลาส & ปริมาตรหมักเริ่มต้น:</div>
+                Molasses Sugar & Initial Fermentation Volume Parameters:</div>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.82rem;">
                 <div>
-                  <span style="color: #64748b;">น้ำตาลโมลาสขาเข้า:</span>
+                  <span style="color: #64748b;">Inlet molasses sugar:</span>
                   <strong style="color: #1e40af; display: block;" id="header-inlet-sugar">-</strong>
                 </div>
                 <div>
-                  <span style="color: #64748b;">%Brix เริ่มต้น:</span>
+                  <span style="color: #64748b;">Initial %Brix:</span>
                   <strong style="color: #b45309; display: block;" id="header-initial-brix">-</strong>
                 </div>
                 <div>
-                  <span style="color: #64748b;">ปริมาตรที่เตรียม:</span>
+                  <span style="color: #64748b;">Prepared Volume:</span>
                   <strong style="color: #059669; display: block;" id="header-prep-vol">-</strong>
                 </div>
                 <div>
-                  <span style="color: #64748b;">ปริมาตรที่เหลือ:</span>
+                  <span style="color: #64748b;">Remaining Volume:</span>
                   <strong style="color: #475569; display: block;" id="header-remain-vol">-</strong>
                 </div>
               </div>
             </div>
           </div>
           <div>
-            <p style="font-size: 0.85rem; color: #64748b;">สภาวะการทดลอง (Condition):</p>
+            <p style="font-size: 0.85rem; color: #64748b;">Experimental Condition:</p>
             <div style="display: flex; align-items: center; gap: 8px; margin: 4px 0;">
               <span class="badge badge-gold" id="header-condition">-</span>
             </div>
-            <p style="font-size: 0.85rem; color: #64748b; margin-top: 10px;">สายพันธุ์และวิธีเตรียมเชื้อ (Seed & Prep):
+            <p style="font-size: 0.85rem; color: #64748b; margin-top: 10px;">Strain & Seed Preparation (Seed & Prep):
             </p>
             <p id="header-seed" style="font-weight: 600; color: #334155;">-</p>
-            <p style="font-size: 0.85rem; color: #64748b; margin-top: 10px;">นักวิจัยเจ้าของงาน:</p>
+            <p style="font-size: 0.85rem; color: #64748b; margin-top: 10px;">Owner Researcher:</p>
             <p id="header-owner" style="font-weight: 700; color: var(--mitr-navy-700);">-</p>
-            <p style="font-size: 0.85rem; color: #64748b; margin-top: 10px;">จุดเวลาจัดเก็บตัวอย่าง (Sampling
+            <p style="font-size: 0.85rem; color: #64748b; margin-top: 10px;">Sampling Timepoint (Sampling
               Timepoints):</p>
             <div id="header-timepoints-badge-group" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
               <span style="color: #94a3b8; font-size: 0.85rem;">-</span>
@@ -490,7 +490,7 @@
         <div id="header-edit-container"
           style="display: none; background: #ffffff; padding: 22px; border-radius: var(--radius-md); border: 2px solid var(--accent-gold-500); margin-top: 10px;">
           <h3 style="font-size: 1.05rem; color: var(--mitr-navy-900); margin-bottom: 14px;">✏️
-            แก้ไขข้อมูลตั้งต้นการทดลอง (Experiment Header)</h3>
+            Edit Experiment Header</h3>
 
           <div class="form-grid-2">
             <div class="form-group">
@@ -506,20 +506,20 @@
           <!-- New Fields: Molasses Sugar, Initial Brix, Prepared Volume, Remaining Volume -->
           <div class="form-grid-4">
             <div class="form-group">
-              <label class="form-label">ปริมาณน้ำตาลโมลาสขาเข้า (g/L):</label>
+              <label class="form-label">Inlet Molasses Sugar (g/L):</label>
               <input type="number" step="0.1" id="edit-inlet-sugar" class="form-input" placeholder="240.0">
             </div>
             <div class="form-group">
-              <label class="form-label">%Brix เริ่มต้น (%Bx):</label>
+              <label class="form-label">Initial %Brix (%Bx):</label>
               <input type="number" step="0.1" id="edit-initial-brix" class="form-input" placeholder="26.4">
             </div>
             <div class="form-group">
-              <label class="form-label">ปริมาตรที่เตรียม (L):</label>
+              <label class="form-label">Prepared Volume (L):</label>
               <input type="number" step="0.1" id="edit-prep-vol" class="form-input" placeholder="4.0">
             </div>
             <div class="form-group">
-              <label class="form-label">ปริมาตรที่เหลือ (L หรือ mL):</label>
-              <input type="text" id="edit-remain-vol" class="form-input" placeholder="1.5 L หรือ 1500 ml">
+              <label class="form-label">Remaining Volume (L or mL):</label>
+              <input type="text" id="edit-remain-vol" class="form-input" placeholder="1.5 L or 1500 ml">
             </div>
           </div>
 
@@ -529,11 +529,11 @@
               <input type="number" step="0.001" id="edit-d-rate" class="form-input">
             </div>
             <div class="form-group">
-              <label class="form-label">สัดส่วน B:C:</label>
+              <label class="form-label">B:C: Ratio</label>
               <input type="text" id="edit-ratio-bc" class="form-input">
             </div>
             <div class="form-group">
-              <label class="form-label">อุณหภูมิ (°C):</label>
+              <label class="form-label">Temperature (°C):</label>
               <input type="number" id="edit-temp" class="form-input">
             </div>
             <div class="form-group">
@@ -548,7 +548,7 @@
               <input type="text" id="edit-feed-culture" class="form-input">
             </div>
             <div class="form-group">
-              <label class="form-label">วันที่เริ่ม:</label>
+              <label class="form-label">Start Date:</label>
               <input type="date" id="edit-date" class="form-input">
             </div>
           </div>
@@ -565,19 +565,19 @@
           </div>
 
           <div class="form-group" style="margin-top: 10px;">
-            <label class="form-label">จุดเวลาจัดเก็บตัวอย่าง (Sampling Timepoints - ชม. คั่นด้วยจุลภาค เช่น 0, 12, 16,
+            <label class="form-label">Sampling Timepoints (hours, comma-separated, e.g. 0, 12, 16,
               22, 82):</label>
             <input type="text" id="edit-timepoints" class="form-input"
               placeholder="0, 12, 16, 18, 22, 34, 40, 46, 58, 64, 70, 82">
           </div>
 
           <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px;">
-            <button class="btn btn-secondary" onclick="toggleEditHeaderForm(false)">ยกเลิก</button>
-            <button class="btn btn-primary" onclick="saveHeaderEdits()">💾 บันทึกการแก้ไขข้อมูลตั้งต้น</button>
+            <button class="btn btn-secondary" onclick="toggleEditHeaderForm(false)">Cancel</button>
+            <button class="btn btn-primary" onclick="saveHeaderEdits()">💾 Save Header Changes</button>
           </div>
         </div>
 
-        <!-- Feeding Log Record Table (Grounded in Attachment 1 "ตารางบันทึก Feed อาหาร") -->
+        <!-- Feeding Log Record Table (Grounded in Attachment 1 "Feed Log Table") -->
         <div
           style="margin-top: 24px; background: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 18px;">
           <div
@@ -585,14 +585,14 @@
             <div>
               <h3
                 style="font-size: 1rem; color: var(--mitr-navy-900); display: flex; align-items: center; gap: 8px; margin: 0;">
-                <span>📋</span> ตารางบันทึก Feed อาหาร (Continuous Feeding Log)
+                <span>📋</span> Continuous Feeding Log
               </h3>
               <p style="font-size: 0.8rem; color: #64748b; margin-top: 2px; margin-bottom: 0;">
-                บันทึกการป้อนสารละลายอาหารหมัก ปริมาตรเตรียม และปริมาตรคงเหลือจริงตามเวลาปฏิบัติการ
+                Log nutrient medium feeding, prepared volume, and remaining volume by operating time
               </p>
             </div>
             <button class="btn btn-accent btn-sm" onclick="openAddFeedLogModal()">
-              <span>+</span> เพิ่มบันทึก Feed อาหาร
+              <span>+</span> Add Feed Record
             </button>
           </div>
 
@@ -600,14 +600,14 @@
             <table class="data-table" style="font-size: 0.84rem; width: 100%; min-width: 680px;">
               <thead>
                 <tr>
-                  <th style="min-width: 110px;">วันที่ & เวลา</th>
-                  <th style="width: 100px;">อาหาร / ถัง</th>
-                  <th style="width: 100px;">Feed รอบที่</th>
+                  <th style="min-width: 110px;">Date & Time</th>
+                  <th style="width: 100px;">Medium / Tank</th>
+                  <th style="width: 100px;">Feed Round</th>
                   <th style="width: 90px; text-align: center;">Brix (°Bx)</th>
-                  <th style="width: 120px; text-align: right;">ปริมาตรเริ่มต้น</th>
-                  <th style="width: 120px; text-align: right;">ปริมาตรที่เหลือ</th>
-                  <th style="min-width: 140px;">หมายเหตุ (Feed Rate)</th>
-                  <th style="width: 80px; text-align: center;">จัดการ</th>
+                  <th style="width: 120px; text-align: right;">Initial Volume</th>
+                  <th style="width: 120px; text-align: right;">Remaining Volume</th>
+                  <th style="min-width: 140px;">Notes (Feed Rate)</th>
+                  <th style="width: 80px; text-align: center;">Manage</th>
                 </tr>
               </thead>
               <tbody id="feed-log-tbody">
@@ -623,26 +623,26 @@
         <div class="lab-card-header">
           <div class="card-title-group">
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-              <h2 style="margin-bottom: 0;"><span>📊</span> แผนการดำเนินงานและหมุดหมายการทดลอง (Gantt Chart & Key
+              <h2 style="margin-bottom: 0;"><span>📊</span> Operational Schedule & Key Research Milestones (Gantt Chart & Key
                 Milestones)</h2>
               <span id="gantt-status-toggle-badge" class="badge badge-gold" style="font-size: 0.72rem;">✓
-                เปิดใช้งาน</span>
+                Enable</span>
             </div>
-            <p>ไทม์ไลน์กระบวนการหมักแบบต่อเนื่อง 8 ถัง (Cascade Fermentation 0–82h) พร้อมหมุดหมายการควบคุมคุณภาพ</p>
+            <p>8-Vessel Continuous Cascade Fermentation Timeline (0–82h) with quality control milestones</p>
           </div>
           <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
             <button class="btn btn-secondary btn-sm" id="btn-toggle-gantt-active" onclick="toggleGanttActiveState()"
-              title="เปิด/ปิดการใช้งาน Gantt Chart & Milestones สำหรับโปรเจกต์นี้">
+              title="Toggle Gantt Chart & Milestones for this project">
               <span id="btn-toggle-gantt-active-icon">🚫</span> <span
-                id="btn-toggle-gantt-active-text">ปิดการใช้งานผังนี้</span>
+                id="btn-toggle-gantt-active-text">Disable this layout</span>
             </button>
             <div id="gantt-action-buttons-group" style="display: flex; gap: 8px;">
               <button class="btn btn-secondary btn-sm" onclick="generateAutoGanttTimeline(true)"
-                title="ดึงข้อมูลจากข้อมูลตั้งต้นมาสร้างไทม์ไลน์และหมุดหมายใหม่อัตโนมัติ">
-                <span>⚡</span> สร้างไทม์ไลน์อัตโนมัติ
+                title="Auto-generate timeline and milestones from experiment header data">
+                <span>⚡</span> Auto-generate Timeline
               </button>
               <button class="btn btn-primary btn-sm" onclick="openAddGanttTaskModal()">
-                <span>+</span> เพิ่มงาน / หมุดหมาย
+                <span>+</span> Add Task / Milestone
               </button>
             </div>
           </div>
@@ -653,13 +653,13 @@
           style="display: none; background: var(--bg-surface-subtle); border: 2px dashed #cbd5e1; border-radius: var(--radius-md); padding: 36px 20px; text-align: center; margin-top: 8px;">
           <span style="font-size: 2.4rem; display: block; margin-bottom: 10px;">📅</span>
           <h3 style="color: var(--mitr-navy-900); font-size: 1.05rem; font-weight: 700; margin-bottom: 6px;">
-            โปรเจกต์นี้ไม่ได้เปิดใช้งาน Gantt Chart & Milestones</h3>
+            Gantt Chart & Milestones are disabled for this project</h3>
           <p style="color: #64748b; font-size: 0.88rem; max-width: 580px; margin: 0 auto 16px; line-height: 1.6;">
-            งานวิจัยนี้ถูกตั้งค่าให้มีความยืดหยุ่นโดยไม่มีกรอบเวลาตายตัว
-            ท่านสามารถกดเปิดใช้งานได้ตลอดเวลาหากต้องการวางแผนผังดำเนินงานและหมุดหมายคุณภาพ
+            This research project is configured with flexible scheduling and no fixed timeline
+            You can enable this anytime to plan operational schedules and quality milestones
           </p>
           <button class="btn btn-primary btn-sm" onclick="toggleGanttActiveState(true)">
-            <span>⚡</span> เปิดใช้งาน Gantt Chart & Milestones สำหรับโปรเจกต์นี้
+            <span>⚡</span> Enable Gantt Chart & Milestones for this project
           </button>
         </div>
 
@@ -670,10 +670,10 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
               <h3
                 style="font-size: 0.95rem; font-weight: 700; color: var(--mitr-navy-900); display: flex; align-items: center; gap: 8px;">
-                <span>🚩</span> หมุดหมายสำคัญของการทดลอง (Key Research Milestones)
+                <span>🚩</span> Key Research Milestones
               </h3>
               <span id="gantt-milestone-summary-badge" class="badge badge-navy" style="font-size: 0.78rem;">0
-                หมุดหมาย</span>
+                Milestone</span>
             </div>
             <div id="gantt-milestones-grid"
               style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
@@ -688,17 +688,17 @@
               style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
               <h3
                 style="font-size: 0.95rem; font-weight: 700; color: var(--mitr-navy-900); display: flex; align-items: center; gap: 8px;">
-                <span>⏱️</span> ผังเส้นเวลาการหมัก (Continuous Fermentation Timeline 0–82h)
+                <span>⏱️</span> Continuous Fermentation Timeline (0–82h)
               </h3>
               <div style="display: flex; align-items: center; gap: 14px; font-size: 0.78rem; flex-wrap: wrap;">
                 <span style="display: inline-flex; align-items: center; gap: 5px;"><span
-                    style="width: 10px; height: 10px; background: #059669; border-radius: 2px;"></span> เสร็จสิ้น
+                    style="width: 10px; height: 10px; background: #059669; border-radius: 2px;"></span> Done
                   (Completed)</span>
                 <span style="display: inline-flex; align-items: center; gap: 5px;"><span
-                    style="width: 10px; height: 10px; background: #d97706; border-radius: 2px;"></span> กำลังดำเนินการ
+                    style="width: 10px; height: 10px; background: #d97706; border-radius: 2px;"></span> In Progress
                   (In Progress)</span>
                 <span style="display: inline-flex; align-items: center; gap: 5px;"><span
-                    style="width: 10px; height: 10px; background: #64748b; border-radius: 2px;"></span> รอดำเนินการ
+                    style="width: 10px; height: 10px; background: #64748b; border-radius: 2px;"></span> Pending
                   (Pending)</span>
               </div>
             </div>
@@ -709,8 +709,8 @@
                 <!-- Time Scale Axis Header (340px Activity Column to show full text) -->
                 <div
                   style="display: grid; grid-template-columns: 340px 105px 1fr 75px; gap: 14px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; font-size: 0.78rem; font-weight: 700; color: #475569;">
-                  <div>กิจกรรม / ขั้นตอน</div>
-                  <div>ระยะเวลา</div>
+                  <div>Activity / Step</div>
+                  <div>Duration</div>
                   <div style="display: flex; justify-content: space-between; position: relative; padding: 0 4px;">
                     <span>0h</span>
                     <span>12h</span>
@@ -721,7 +721,7 @@
                     <span>70h</span>
                     <span>82h</span>
                   </div>
-                  <div style="text-align: right;">สถานะ</div>
+                  <div style="text-align: right;">Status</div>
                 </div>
 
                 <!-- Gantt Bars Container -->
@@ -732,7 +732,7 @@
             </div>
             <div class="mobile-swipe-hint"
               style="display: none; font-size: 0.74rem; color: #64748b; margin-top: 6px; text-align: right;"><i
-                class="fa-solid fa-arrows-left-right"></i> เลื่อนแนวนอนเพื่อดูผังเวลาทั้งหมด</div>
+                class="fa-solid fa-arrows-left-right"></i> Scroll horizontally to view full timeline</div>
           </div>
 
           <!-- Task & Milestone Detailed Table -->
@@ -740,24 +740,24 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
               <h3
                 style="font-size: 0.95rem; font-weight: 700; color: var(--mitr-navy-900); display: flex; align-items: center; gap: 8px;">
-                <span>📋</span> รายการกิจกรรมและเกณฑ์ควบคุมคุณภาพ (Task Breakdown & Acceptance Criteria)
+                <span>📋</span> Task Breakdown & Quality Acceptance Criteria
               </h3>
-              <span id="gantt-task-count-badge" class="badge badge-gold" style="font-size: 0.78rem;">0 รายการ</span>
+              <span id="gantt-task-count-badge" class="badge badge-gold" style="font-size: 0.78rem;">0 items</span>
             </div>
 
             <div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
               <table class="data-table" style="font-size: 0.85rem; width: 100%; min-width: 820px;">
                 <thead>
                   <tr>
-                    <th style="width: 80px; text-align: center;">ประเภท</th>
-                    <th style="min-width: 180px;">กิจกรรม / หมุดหมาย</th>
-                    <th style="width: 110px;">ถัง / สเตจ</th>
-                    <th style="width: 100px;">ชั่วโมง (h)</th>
-                    <th style="min-width: 140px;">วันที่ & เวลา</th>
-                    <th style="min-width: 140px;">ผู้รับผิดชอบ</th>
-                    <th style="min-width: 220px;">เกณฑ์ควบคุมคุณภาพ / เงื่อนไขความสำเร็จ</th>
-                    <th style="width: 120px; text-align: center;">สถานะ</th>
-                    <th style="width: 90px; text-align: center;">จัดการ</th>
+                    <th style="width: 80px; text-align: center;">Type</th>
+                    <th style="min-width: 180px;">Activity / Milestone</th>
+                    <th style="width: 110px;">Tank / Stage</th>
+                    <th style="width: 100px;">Hours (h)</th>
+                    <th style="min-width: 140px;">Date & Time</th>
+                    <th style="min-width: 140px;">Assignee</th>
+                    <th style="min-width: 220px;">Quality Control / Acceptance Criteria</th>
+                    <th style="width: 120px; text-align: center;">Status</th>
+                    <th style="width: 90px; text-align: center;">Manage</th>
                   </tr>
                 </thead>
                 <tbody id="gantt-tasks-tbody">
@@ -777,33 +777,33 @@
       <div class="lab-card">
         <div class="lab-card-header">
           <div class="card-title-group">
-            <h2><span>🧪</span> บันทึกผลวิเคราะห์หน้าแล็บ (Lab Sample Entry)</h2>
-            <p>เลือกถังหมักและจุดเวลาเพื่อบันทึกค่า Brix, การนับเซลล์จุลทรรศน์ และผลฉีด HPLC</p>
+            <h2><span>🧪</span> Lab Sample Entry</h2>
+            <p>Select fermentation vessel and timepoint to log Brix, microscopic cell count, and HPLC results</p>
           </div>
           <div class="header-actions-group">
             <div class="header-filter-item">
               <label
-                style="font-size: 0.85rem; font-weight: 700; color: var(--mitr-navy-800); white-space: nowrap;">เวลาอายุถัง:</label>
+                style="font-size: 0.85rem; font-weight: 700; color: var(--mitr-navy-800); white-space: nowrap;">Tank Age:</label>
               <select id="input-timepoint" class="form-select" style="min-width: 100px;"></select>
               <button type="button" class="btn btn-secondary btn-sm" onclick="openAddCustomTimepointModal()"
                 style="white-space: nowrap; padding: 6px 10px; font-size: 0.78rem;"
-                title="เพิ่มจุดเวลาจัดเก็บตัวอย่างใหม่">
-                <span>+</span> เพิ่มเวลา
+                title="Add New Sampling Timepoint">
+                <span>+</span> Add Time
               </button>
             </div>
             <button type="button" class="btn btn-accent action-save" onclick="saveCurrentSample()">
-              <span>💾</span> บันทึกผลตัวอย่าง
+              <span>💾</span> Save Sample Results
             </button>
             <button type="button" class="btn btn-primary btn-sm"
-              onclick="navigateToSection('sec-data-records', 'ข้อมูลดิบรวม (Data Records)')"
-              title="ดูตารางข้อมูลดิบทั้งหมดที่บันทึกไว้">
-              <span>ดูข้อมูลดิบรวม</span> <i class="fa-solid fa-arrow-right"></i>
+              onclick="navigateToSection('sec-data-records', 'Data Records')"
+              title="View all recorded raw data tables">
+              <span>View All Raw Data</span> <i class="fa-solid fa-arrow-right"></i>
             </button>
           </div>
         </div>
 
         <!-- 8-Tank Matrix Selector (PF, F2, F3, F4, F5, F6, F7, D3) -->
-        <label class="form-label">เลือกถังหมักเป้าหมาย (8 Cascade Vessels):</label>
+        <label class="form-label">Select Target Vessel (8 Cascade Vessels):</label>
         <div id="tank-matrix-container" class="tank-selector-matrix"></div>
 
         <div
@@ -814,17 +814,17 @@
             style="background: var(--bg-surface-subtle); padding: 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
               <h3 style="font-size: 1rem; color: var(--mitr-navy-800); display: flex; align-items: center; gap: 6px;">
-                <span>🍯</span> ค่าความหวาน Brix (°Bx)
+                <span>🍯</span> Brix (°Bx)
               </h3>
               <span class="badge badge-navy">Refractometer</span>
             </div>
             <div class="form-group">
               <label class="form-label">Brix (°Bx):</label>
-              <input type="number" step="0.1" id="input-brix" class="form-input" placeholder="เช่น 18.0 หรือ 8.5">
+              <input type="number" step="0.1" id="input-brix" class="form-input" placeholder="e.g. 18.0 or 8.5">
               <div id="brix-validation-alert" class="inline-alert"></div>
             </div>
             <p style="font-size: 0.78rem; color: #64748b; margin-top: 8px;">
-              💡 <em>ถัง PF เริ่มต้นประมาณ 18-20 °Bx และลดลงเหลือ 8-9 °Bx เมื่อน้ำตาลถูกใช้อย่างสมบูรณ์</em>
+              💡 <em>Tank PF starts around 18-20 °Bx and drops to 8-9 °Bx as sugar is consumed</em>
             </p>
           </div>
 
@@ -833,7 +833,7 @@
             style="background: var(--bg-surface-subtle); padding: 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
               <h3 style="font-size: 1rem; color: var(--mitr-navy-800); display: flex; align-items: center; gap: 6px;">
-                <span>💧</span> ผลวิเคราะห์ฉีด HPLC (g/L)
+                <span>💧</span> HPLC Analysis Results (g/L)
               </h3>
               <span class="badge badge-gold">Auto Sugar Convert</span>
             </div>
@@ -855,19 +855,19 @@
 
             <!-- Auto-computed Sugar convert (ADR-0004) -->
             <div class="form-group">
-              <label class="form-label">Sugar Convert (Total Sugar g/L) [คำนวณอัตโนมัติ]:</label>
+              <label class="form-label">Sugar Convert (Total Sugar g/L) [Auto-calculated]:</label>
               <input type="number" step="0.001" id="input-sugar-convert" class="form-input computed-highlight" readonly
-                placeholder="ผลรวม 3 น้ำตาล">
+                placeholder="Sum of 3 Sugars">
             </div>
 
             <div class="form-grid-2" style="margin-top: 6px;">
               <div class="form-group">
                 <label class="form-label">Ethanol (g/L):</label>
-                <input type="number" step="0.01" id="input-ethanol" class="form-input" placeholder="เช่น 99.53">
+                <input type="number" step="0.01" id="input-ethanol" class="form-input" placeholder="e.g. 99.53">
               </div>
               <div class="form-group">
                 <label class="form-label">Glycerol (g/L):</label>
-                <input type="number" step="0.01" id="input-glycerol" class="form-input" placeholder="เช่น 10.77">
+                <input type="number" step="0.01" id="input-glycerol" class="form-input" placeholder="e.g. 10.77">
               </div>
             </div>
           </div>
@@ -880,11 +880,11 @@
             style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
             <div>
               <h3 style="font-size: 1.1rem; color: var(--mitr-navy-900); display: flex; align-items: center; gap: 8px;">
-                <span>🔬</span> นับเซลล์ยีสต์ด้วย Haemacytometer (5 ช่อง × 4 ซีรีส์ - CFU/ml & CDW)
+                <span>🔬</span> Haemacytometer Yeast Cell Count (5 Squares × 4 Series - CFU/ml & CDW)
               </h3>
               <p style="font-size: 0.8rem; color: #64748b;">
-                สูตร: <strong>(ผลรวม 5 ช่อง) × เท่าการเจือจาง × 250,000</strong> = CFU/ml (คำนวณแยก Total, Budding, Dead
-                และ % อัตราส่วน)
+                Formula: <strong>(Sum of 5 Squares) × Dilution Factor × 250,000</strong> = CFU/ml (Calculated for Total, Budding, Dead
+                and % ratio)
               </p>
             </div>
 
@@ -892,10 +892,10 @@
             <div
               style="display: flex; gap: 6px; background: var(--bg-surface-subtle); padding: 4px; border-radius: var(--radius-md);">
               <button class="btn btn-sm btn-secondary mode-toggle-btn active" data-mode="numpad">
-                ⌨️ Quick Numpad (พิมพ์เลข)
+                ⌨️ Quick Numpad
               </button>
               <button class="btn btn-sm btn-secondary mode-toggle-btn" data-mode="tally">
-                🔘 Tally Clicker (กดนับใต้กล้อง)
+                🔘 Tally Clicker (Microscope Counter)
               </button>
             </div>
           </div>
@@ -903,11 +903,11 @@
           <!-- Dilution Factor -->
           <div
             style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px; background: #f8fafc; padding: 10px 14px; border-radius: var(--radius-sm); flex-wrap: wrap;">
-            <label style="font-size: 0.85rem; font-weight: 700; color: var(--mitr-navy-800);">เท่าการเจือจาง (Dilution
+            <label style="font-size: 0.85rem; font-weight: 700; color: var(--mitr-navy-800);">Dilution Factor (Dilution
               Factor):</label>
             <input type="number" id="input-dilution-factor" value="10" class="form-input"
               style="width: 90px; text-align: center;">
-            <span style="font-size: 0.82rem; color: #64748b;">เท่า (อ้างอิง Form Count Haemacytometer Attachment
+            <span style="font-size: 0.82rem; color: #64748b;">x (Ref. Haemacytometer Count Form Attachment
               2)</span>
           </div>
 
@@ -917,14 +917,14 @@
               <table class="haemacytometer-table">
                 <thead>
                   <tr>
-                    <th style="min-width: 150px;">ซีรีส์การนับ (Series)</th>
-                    <th class="square-col-header">ช่อง 1</th>
-                    <th class="square-col-header">ช่อง 2</th>
-                    <th class="square-col-header">ช่อง 3</th>
-                    <th class="square-col-header">ช่อง 4</th>
-                    <th class="square-col-header">ช่อง 5</th>
-                    <th style="min-width: 80px; text-align: center;">รวม 5 ช่อง</th>
-                    <th style="min-width: 140px; text-align: right;">ดัชนีชีวภาพ (CFU/ml & %)</th>
+                    <th style="min-width: 150px;">Count Series</th>
+                    <th class="square-col-header">Square 1</th>
+                    <th class="square-col-header">Square 2</th>
+                    <th class="square-col-header">Square 3</th>
+                    <th class="square-col-header">Square 4</th>
+                    <th class="square-col-header">Square 5</th>
+                    <th style="min-width: 80px; text-align: center;">Total of 5 squares</th>
+                    <th style="min-width: 140px; text-align: right;">Biological Indices (CFU/ml & %)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -935,7 +935,7 @@
                         <span class="series-dot dot-navy">●</span>
                         <div>
                           <strong>1. Total Cells</strong>
-                          <div class="series-sub">เซลล์ทั้งหมด (ติดสี+ไม่ติดสี)</div>
+                          <div class="series-sub">Total Cells (Stained + Unstained)</div>
                         </div>
                       </div>
                     </td>
@@ -961,7 +961,7 @@
                         <span class="series-dot dot-gold">●</span>
                         <div>
                           <strong>2. Cell Budding</strong>
-                          <div class="series-sub">เซลล์แตกหน่อ</div>
+                          <div class="series-sub">Budding Cells</div>
                         </div>
                       </div>
                     </td>
@@ -987,7 +987,7 @@
                         <span class="series-dot dot-danger">●</span>
                         <div>
                           <strong>3. Cell Death</strong>
-                          <div class="series-sub">เซลล์ตาย (ย้อมติดสี)</div>
+                          <div class="series-sub">Dead Cells (Stained)</div>
                         </div>
                       </div>
                     </td>
@@ -1005,21 +1005,21 @@
                     <td class="rate-cell" id="rate-row-dead" style="color: #059669; font-weight: 700;">-</td>
                   </tr>
 
-                  <!-- Series 4: Cell Dry Weight (ค่าน้ำหนักแห้งเซลล์ยีสต์ g/L - Attachment 4) -->
+                  <!-- Series 4: Cell Dry Weight (Yeast Cell Dry Weight g/L - Attachment 4) -->
                   <tr style="background: rgba(254, 243, 199, 0.25);">
                     <td>
                       <div class="series-title-cell">
                         <span class="series-dot" style="color: #92400e;">●</span>
                         <div>
                           <strong style="color: #92400e;">4. Cell Dry Weight</strong>
-                          <div class="series-sub">น้ำหนักแห้งเซลล์ (g/L) • 2 หลอดซ้ำ Before/After</div>
+                          <div class="series-sub">Cell Dry Weight (g/L) • 2 Duplicate Tubes Before/After</div>
                         </div>
                       </div>
                     </td>
                     <td colspan="5" style="text-align: center;">
                       <button type="button" class="btn btn-secondary btn-sm" onclick="openCDWModal()"
                         style="font-size: 0.8rem; padding: 6px 12px; background: #ffffff; border-color: #f59e0b; color: #92400e; font-weight: 700;">
-                        ⚖️ บันทึกน้ำหนักชั่ง 2 ซ้ำ (Before/After ตู้อบ)
+                        ⚖️ Duplicate Weighing Log (Before/After Oven Drying)
                       </button>
                     </td>
                     <td class="sum-cell" id="sum-row-cdw" style="font-size: 0.85rem; color: #64748b; font-weight: 600;">
@@ -1043,20 +1043,20 @@
             <div
               style="text-align: center; max-width: 420px; margin: 0 auto; background: var(--bg-surface-subtle); padding: 24px; border-radius: var(--radius-xl); border: 2px solid var(--border-subtle);">
               <span id="tally-current-series-name" style="font-size: 0.9rem; font-weight: 700; color: #64748b;">Total
-                Cells (ทุกเซลล์)</span>
+                Cells (All Cells)</span>
               <div id="tally-big-number"
                 style="font-size: 4rem; font-weight: 800; color: var(--mitr-navy-900); margin: 8px 0;">0</div>
 
               <div class="tally-action-cluster">
                 <button id="btn-tally-add" class="btn-tally-giant">
-                  <span>+</span> เคาะนับเซลล์
+                  <span>+</span> Cell Counter
                 </button>
                 <button id="btn-tally-sub" class="btn-tally-decrement">
-                  - ลด
+                  - decrease
                 </button>
               </div>
-              <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 12px;">🔊 มีเสียงคลิกสังเคราะห์ (Multimodal
-                Audio Click) ทุกครั้งที่เคาะนับ</p>
+              <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 12px;">🔊 Synthesized Audio Click (Multimodal
+                Audio Click) on every tally tap</p>
             </div>
           </div>
 
@@ -1078,7 +1078,7 @@
               <h4 id="calc-dead-kpi" style="font-size: 1.15rem; color: #dc2626; font-weight: 800;">-</h4>
             </div>
             <div>
-              <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">ความมีชีวิต (% Viability):</span>
+              <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">Cell Viability (%):</span>
               <h4 id="calc-viability-pct" style="font-size: 1.15rem; color: #059669; font-weight: 800;">-</h4>
             </div>
             <div>
@@ -1099,15 +1099,15 @@
       <div class="lab-card">
         <div class="lab-card-header">
           <div class="card-title-group">
-            <h2><span>📑</span> ตารางข้อมูลดิบรวมทุกถังหมัก (Unified Data Record)</h2>
-            <p>รวมผลการวิเคราะห์ทั้งหมด (Brix, HPLC, นับเซลล์) ของถังหมักทั้ง 8 ใบ เพื่อตรวจเช็คภาพรวม
-              ตรวจสอบความถูกต้อง และแก้ไขข้อมูล</p>
+            <h2><span>📑</span> Unified Data Record (All Vessels)</h2>
+            <p>Consolidated analytical results (Brix, HPLC, Cell Count) across all 8 fermentation vessels
+              Verify accuracy and edit records</p>
           </div>
           <div class="header-actions-group">
             <!-- Project Filter Dropdown (Requirement 2 & 5) -->
             <div class="header-filter-item">
               <label
-                style="font-size: 0.82rem; font-weight: 700; color: var(--mitr-navy-800); white-space: nowrap; margin-bottom: 0; line-height: 1;">โปรเจกต์:</label>
+                style="font-size: 0.82rem; font-weight: 700; color: var(--mitr-navy-800); white-space: nowrap; margin-bottom: 0; line-height: 1;">Project:</label>
               <select id="data-record-project-filter" class="form-select" style="min-width: 220px;"
                 onchange="handleDataRecordProjectChange()"></select>
             </div>
@@ -1115,10 +1115,10 @@
             <!-- Tank Filter (Requirement 5) -->
             <div class="header-filter-item">
               <label
-                style="font-size: 0.82rem; font-weight: 700; color: var(--mitr-navy-800); white-space: nowrap; margin-bottom: 0; line-height: 1;">ถังหมัก:</label>
+                style="font-size: 0.82rem; font-weight: 700; color: var(--mitr-navy-800); white-space: nowrap; margin-bottom: 0; line-height: 1;">Fermenter:</label>
               <select id="data-record-tank-filter" class="form-select" style="min-width: 90px;"
                 onchange="renderDataRecordTable()">
-                <option value="ALL">ทุกถัง</option>
+                <option value="ALL">All Tanks</option>
                 <option value="PF">PF</option>
                 <option value="F2">F2</option>
                 <option value="F3">F3</option>
@@ -1133,11 +1133,11 @@
             <!-- Timepoint Filter -->
             <div class="header-filter-item">
               <label
-                style="font-size: 0.82rem; font-weight: 700; color: var(--mitr-navy-800); white-space: nowrap; margin-bottom: 0; line-height: 1;">เวลา
+                style="font-size: 0.82rem; font-weight: 700; color: var(--mitr-navy-800); white-space: nowrap; margin-bottom: 0; line-height: 1;">Time
                 (h):</label>
               <select id="data-record-time-filter" class="form-select" style="min-width: 95px;"
                 onchange="renderDataRecordTable()">
-                <option value="ALL">ทุกเวลา</option>
+                <option value="ALL">All Times</option>
                 <option value="0">0 h</option>
                 <option value="12">12 h</option>
                 <option value="16">16 h</option>
@@ -1154,12 +1154,12 @@
             </div>
 
             <button type="button" class="btn btn-secondary btn-sm" onclick="exportDataRecordCSV()">
-              <span>📥</span> ส่งออก CSV
+              <span>📥</span> Export CSV
             </button>
             <button type="button" class="btn btn-primary btn-sm"
-              onclick="navigateToSection('sec-analytics', 'กราฟและการวิเคราะห์')"
-              title="ไปหน้าวิเคราะห์กราฟจลนพลศาสตร์">
-              <span>วิเคราะห์กราฟ</span> <i class="fa-solid fa-arrow-right"></i>
+              onclick="navigateToSection('sec-analytics', 'Charts and Analysis')"
+              title="Go to Fermentation Kinetics Charts">
+              <span>Analyze Chart</span> <i class="fa-solid fa-arrow-right"></i>
             </button>
           </div>
         </div>
@@ -1170,14 +1170,14 @@
           <div style="flex: 1; min-width: 220px;">
             <input type="text" id="data-record-search-input" class="form-input"
               style="padding: 8px 12px; font-size: 0.88rem;"
-              placeholder="🔍 พิมพ์เพื่อค้นหาตัวอย่าง (เช่น ค้นหาค่า Brix, Ethanol, Sugars, หรือ ถัง)..."
+              placeholder="🔍 Search samples (e.g. Brix, Ethanol, Sugars, or Vessel)..."
               oninput="renderDataRecordTable()">
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
-            <span style="font-size: 0.8rem; color: #64748b;">ผลการค้นหา:</span>
-            <span class="badge badge-navy" id="data-record-count-badge">0 รายการ</span>
+            <span style="font-size: 0.8rem; color: #64748b;">Search Results:</span>
+            <span class="badge badge-navy" id="data-record-count-badge">0 items</span>
             <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 0.75rem;"
-              onclick="resetDataRecordFilters()">ล้างตัวกรอง & จัดเรียงใหม่</button>
+              onclick="resetDataRecordFilters()">Reset Filters & Sorting</button>
           </div>
         </div>
 
@@ -1185,41 +1185,41 @@
           <table class="lab-table" id="data-record-unified-table">
             <thead>
               <tr>
-                <th class="sortable-th" onclick="handleDataRecordSort('tank')" title="คลิกเพื่อจัดเรียงตามถัง">ถัง <span
+                <th class="sortable-th" onclick="handleDataRecordSort('tank')" title="Click to sort by Vessel">Tank <span
                     class="sort-icon" id="sort-icon-tank">⇅</span></th>
-                <th class="sortable-th" onclick="handleDataRecordSort('time')" title="คลิกเพื่อจัดเรียงตามเวลา">เวลา (h)
+                <th class="sortable-th" onclick="handleDataRecordSort('time')" title="Click to sort by Time">Time (h)
                   <span class="sort-icon" id="sort-icon-time">⇅</span>
                 </th>
-                <th class="sortable-th" onclick="handleDataRecordSort('brix')" title="คลิกเพื่อจัดเรียงตามค่า Brix">Brix
+                <th class="sortable-th" onclick="handleDataRecordSort('brix')" title="Click to sort by Brix">Brix
                   (°Bx) <span class="sort-icon" id="sort-icon-brix">⇅</span></th>
                 <th class="sortable-th" onclick="handleDataRecordSort('sugarConvert')"
-                  title="คลิกเพื่อจัดเรียงตาม Sugar Convert">Sugar Convert (g/L) <span class="sort-icon"
+                  title="Click to sort by Sugar Convert">Sugar Convert (g/L) <span class="sort-icon"
                     id="sort-icon-sugarConvert">⇅</span></th>
-                <th class="sortable-th" onclick="handleDataRecordSort('sucrose')" title="คลิกเพื่อจัดเรียงตาม Sucrose">
+                <th class="sortable-th" onclick="handleDataRecordSort('sucrose')" title="Click to sort by Sucrose">
                   Sucrose <span class="sort-icon" id="sort-icon-sucrose">⇅</span></th>
-                <th class="sortable-th" onclick="handleDataRecordSort('glucose')" title="คลิกเพื่อจัดเรียงตาม Glucose">
+                <th class="sortable-th" onclick="handleDataRecordSort('glucose')" title="Click to sort by Glucose">
                   Glucose <span class="sort-icon" id="sort-icon-glucose">⇅</span></th>
                 <th class="sortable-th" onclick="handleDataRecordSort('fructose')"
-                  title="คลิกเพื่อจัดเรียงตาม Fructose">Fructose <span class="sort-icon"
+                  title="Click to sort by Fructose">Fructose <span class="sort-icon"
                     id="sort-icon-fructose">⇅</span></th>
-                <th class="sortable-th" onclick="handleDataRecordSort('ethanol')" title="คลิกเพื่อจัดเรียงตาม Ethanol">
+                <th class="sortable-th" onclick="handleDataRecordSort('ethanol')" title="Click to sort by Ethanol">
                   Ethanol (g/L) <span class="sort-icon" id="sort-icon-ethanol">⇅</span></th>
                 <th class="sortable-th" onclick="handleDataRecordSort('glycerol')"
-                  title="คลิกเพื่อจัดเรียงตาม Glycerol">Glycerol (g/L) <span class="sort-icon"
+                  title="Click to sort by Glycerol">Glycerol (g/L) <span class="sort-icon"
                     id="sort-icon-glycerol">⇅</span></th>
                 <th class="sortable-th" onclick="handleDataRecordSort('cellCount')"
-                  title="คลิกเพื่อจัดเรียงตาม Total Cells">Total Cells (CFU/ml) <span class="sort-icon"
+                  title="Click to sort by Total Cells">Total Cells (CFU/ml) <span class="sort-icon"
                     id="sort-icon-cellCount">⇅</span></th>
                 <th class="sortable-th" onclick="handleDataRecordSort('buddingPct')"
-                  title="คลิกเพื่อจัดเรียงตาม % Budding">% Budding <span class="sort-icon"
+                  title="Click to sort by % Budding">% Budding <span class="sort-icon"
                     id="sort-icon-buddingPct">⇅</span></th>
                 <th class="sortable-th" onclick="handleDataRecordSort('viabilityPct')"
-                  title="คลิกเพื่อจัดเรียงตาม % Viability">% Viability <span class="sort-icon"
+                  title="Click to sort by % Viability">% Viability <span class="sort-icon"
                     id="sort-icon-viabilityPct">⇅</span></th>
                 <th class="sortable-th" onclick="handleDataRecordSort('cellDryWeight')"
-                  title="คลิกเพื่อจัดเรียงตาม Cell Dry Weight">CDW (g/L) <span class="sort-icon"
+                  title="Click to sort by Cell Dry Weight">CDW (g/L) <span class="sort-icon"
                     id="sort-icon-cellDryWeight">⇅</span></th>
-                <th style="text-align: center;">การดำเนินการ</th>
+                <th style="text-align: center;">Actions</th>
               </tr>
             </thead>
             <tbody id="data-record-tbody">
@@ -1237,17 +1237,17 @@
       <div class="lab-card">
         <div class="lab-card-header">
           <div class="card-title-group">
-            <h2><span>📈</span> กราฟจลนพลศาสตร์การหมัก (Fermentation Kinetics Visualizer)</h2>
-            <p>วิเคราะห์เปรียบเทียบการลดลงของ Brix, การเติบโตของยีสต์ และผลผลิตเอทานอลตลอด 8 ถัง</p>
+            <h2><span>📈</span> Fermentation Kinetics Visualizer</h2>
+            <p>Comparative analysis of Brix decline, yeast growth, and ethanol output across all 8 vessels</p>
           </div>
           <div class="header-actions-group">
             <button type="button" class="btn btn-accent" id="btn-open-presentation">
-              <span>📽️</span> สไลด์นำเสนอ (Presentation Deck)
+              <span>📽️</span> Presentation Deck
             </button>
             <button type="button" class="btn btn-primary btn-sm"
-              onclick="navigateToSection('sec-optimizer', 'เปรียบเทียบสภาวะที่ดีที่สุด')"
-              title="ไปหน้าเปรียบเทียบสภาวะที่ดีที่สุด">
-              <span>เปรียบเทียบสภาวะ</span> <i class="fa-solid fa-arrow-right"></i>
+              onclick="navigateToSection('sec-optimizer', 'Best Condition Comparison')"
+              title="Go to Best Condition Comparison">
+              <span>Compare Conditions</span> <i class="fa-solid fa-arrow-right"></i>
             </button>
           </div>
         </div>
@@ -1260,7 +1260,7 @@
               <div style="display: flex; align-items: center; gap: 8px;">
                 <h4 style="color: var(--mitr-navy-900); margin: 0;">Brix (°Bx) Degradation Profile</h4>
                 <button class="chart-info-btn" onclick="openChartInfoModal('brix')"
-                  title="วิธีการดูกราฟและผลสรุปงานวิจัย">ℹ️</button>
+                  title="Chart Interpretation & Research Summary">ℹ️</button>
               </div>
               <button class="btn btn-sm btn-secondary"
                 onclick="downloadChartPNG('brix', 'MitrPhol_Brix_Profile')">PNG</button>
@@ -1277,7 +1277,7 @@
               <div style="display: flex; align-items: center; gap: 8px;">
                 <h4 style="color: var(--mitr-navy-900); margin: 0;">Yeast Population (CFU/ml)</h4>
                 <button class="chart-info-btn" onclick="openChartInfoModal('cells')"
-                  title="วิธีการดูกราฟและผลสรุปงานวิจัย">ℹ️</button>
+                  title="Chart Interpretation & Research Summary">ℹ️</button>
               </div>
               <button class="btn btn-sm btn-secondary"
                 onclick="downloadChartPNG('cells', 'MitrPhol_Yeast_Cells')">PNG</button>
@@ -1295,7 +1295,7 @@
             <div style="display: flex; align-items: center; gap: 8px;">
               <h4 style="color: var(--mitr-navy-900); margin: 0;">HPLC Sugar Consumption vs Ethanol Production</h4>
               <button class="chart-info-btn" onclick="openChartInfoModal('hplc')"
-                title="วิธีการดูกราฟและผลสรุปงานวิจัย">ℹ️</button>
+                title="Chart Interpretation & Research Summary">ℹ️</button>
             </div>
             <button class="btn btn-sm btn-secondary" onclick="downloadChartPNG('hplc', 'MitrPhol_HPLC_Kinetics')">
               PNG
@@ -1313,17 +1313,17 @@
             style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
             <div>
               <h3 style="color: var(--mitr-navy-900); display: flex; align-items: center; gap: 8px; margin: 0;">
-                <span>🔬</span> กราฟเปรียบเทียบกำหนดเอง (Custom Multi-Axis Comparison Chart)
+                <span>🔬</span> Custom Multi-Axis Comparison Chart
                 <button class="chart-info-btn" onclick="openChartInfoModal('custom')"
-                  title="วิธีการดูกราฟและผลสรุปงานวิจัย">ℹ️</button>
+                  title="Chart Interpretation & Research Summary">ℹ️</button>
               </h3>
               <p style="font-size: 0.85rem; color: #64748b;">
-                เลือกถังหมักและตัวแปรที่ต้องการนำมาพล็อตร่วมกันในกราฟเดียว (เช่น Brix ถัง PF เทียบกับ Yeast Cells และ
+                Select vessels and parameters to plot together on a single chart (e.g. Tank PF Brix vs. Yeast Cells and
                 Ethanol)
               </p>
             </div>
             <div style="display: flex; gap: 8px;">
-              <button class="btn btn-secondary btn-sm" onclick="clearCustomChart()">ล้างเส้นกราฟ</button>
+              <button class="btn btn-secondary btn-sm" onclick="clearCustomChart()">Clear Chart Lines</button>
               <button class="btn btn-secondary btn-sm"
                 onclick="downloadChartPNG('custom', 'MitrPhol_Custom_Comparison')">
                 PNG
@@ -1335,7 +1335,7 @@
           <div class="form-grid-4"
             style="background: var(--bg-surface-subtle); padding: 14px; border-radius: var(--radius-md); margin-bottom: 14px;">
             <div class="form-group">
-              <label class="form-label">ถังหมัก (Tank):</label>
+              <label class="form-label">Tank:</label>
               <select id="custom-tank-select" class="form-select">
                 <option value="PF">PF</option>
                 <option value="F2">F2</option>
@@ -1348,7 +1348,7 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">ตัวแปร (Metric):</label>
+              <label class="form-label">Metric:</label>
               <select id="custom-metric-select" class="form-select">
                 <option value="brix">Brix (°Bx)</option>
                 <option value="cellCount">Yeast Cell (CFU/ml)</option>
@@ -1359,15 +1359,15 @@
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">แกนค่า Y (Axis):</label>
+              <label class="form-label">Y Axis:</label>
               <select id="custom-axis-select" class="form-select">
-                <option value="y">แกนซ้าย Y1 (หลัก)</option>
-                <option value="y1">แกนขวา Y2 (รอง)</option>
+                <option value="y">Left Axis Y1 (Primary)</option>
+                <option value="y1">Right Axis Y2 (Secondary)</option>
               </select>
             </div>
             <div class="form-group" style="justify-content: flex-end;">
               <button class="btn btn-primary" onclick="addCustomSeries()" style="height: 42px;">
-                <span>+</span> เพิ่มเส้นข้อมูล
+                <span>+</span> Add Data Series
               </button>
             </div>
           </div>
@@ -1391,19 +1391,19 @@
       <div class="lab-card">
         <div class="lab-card-header">
           <div class="card-title-group">
-            <h2><span>🏆</span> วิเคราะห์เปรียบเทียบหา Condition ที่ดีที่สุด (Optimization Dashboard)</h2>
-            <p>เปรียบเทียบตัวแปรอัตราการเจือจาง (D) และ %FS ภายในชุดการทดลองของนักวิจัยแต่ละท่าน
-              เพื่อหาประสิทธิภาพสูงสุด</p>
+            <h2><span>🏆</span> Optimization Dashboard (Best Condition Comparison)</h2>
+            <p>Compare dilution rate (D) and %FS parameters within each researcher experiment set
+              for peak fermentation efficiency</p>
           </div>
           <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
             <div id="optimizer-admin-filter-group" style="display: none; align-items: center; gap: 6px;">
-              <label class="form-label" style="margin: 0; font-size: 0.8rem; font-weight: 600;">มุมมอง Admin:</label>
+              <label class="form-label" style="margin: 0; font-size: 0.8rem; font-weight: 600;">Admin View:</label>
               <select id="optimizer-admin-researcher-filter" class="form-select" onchange="renderOptimizerView()"
                 style="font-size: 0.82rem; padding: 5px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
-                <option value="ALL">🌐 ทุกคน (เปรียบเทียบและเชื่อมโยงข้อมูลระหว่างบุคคล)</option>
+                <option value="ALL">🌐 All Researchers (Cross-Researcher Comparison)</option>
               </select>
             </div>
-            <span class="badge badge-navy" id="optimizer-researcher-scope-badge">เฉพาะงานวิจัยของตนเอง</span>
+            <span class="badge badge-navy" id="optimizer-researcher-scope-badge">Own research only</span>
           </div>
         </div>
 
@@ -1412,13 +1412,13 @@
           style="display: none; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 2px solid #f59e0b; border-radius: var(--radius-lg); padding: 22px; margin-bottom: 24px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; box-shadow: var(--shadow-gold-glow);">
           <div>
             <span class="badge badge-best-condition" style="font-size: 0.85rem; padding: 6px 14px;">
-              🏆 สภาวะที่ดีที่สุด (BEST CONDITION)
+              🏆 BEST CONDITION
             </span>
             <h2 id="optimizer-winner-title" style="font-size: 1.5rem; color: #92400e; margin: 10px 0 4px;">-</h2>
             <p id="optimizer-winner-desc" style="color: #78350f; font-size: 0.9rem; line-height: 1.6;">-</p>
           </div>
           <button class="btn btn-accent" id="btn-optimizer-winner-details" onclick="viewConditionDetails('')">
-            ดูบทวิเคราะห์ฉบับเต็ม
+            View Full Analysis
           </button>
         </div>
 
@@ -1427,14 +1427,14 @@
           <table class="lab-table">
             <thead>
               <tr>
-                <th>อันดับ / สภาวะ</th>
+                <th>Rank / Condition</th>
                 <th>Dilution Rate D (h⁻¹)</th>
                 <th>Max Ethanol</th>
                 <th>Ethanol Yield (Yp/s)</th>
                 <th>Productivity (Qp)</th>
                 <th>Sugar Conversion</th>
                 <th>Cell Viability</th>
-                <th>การดำเนินการ</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="optimizer-ranking-tbody"></tbody>
@@ -1446,10 +1446,10 @@
           style="background: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <h4 style="color: var(--mitr-navy-900); margin: 0;">Radar Benchmark: เปรียบเทียบ 5 ดัชนีชี้วัดข้ามสภาวะ
+              <h4 style="color: var(--mitr-navy-900); margin: 0;">Radar Benchmark: 5-KPI Cross-Condition Comparison
               </h4>
               <button class="chart-info-btn" onclick="openChartInfoModal('radar')"
-                title="วิธีการดูกราฟและผลสรุปงานวิจัย">ℹ️</button>
+                title="Chart Interpretation & Research Summary">ℹ️</button>
             </div>
           </div>
           <div style="height: 380px; position: relative;">
@@ -1466,9 +1466,9 @@
       <div class="lab-card">
         <div class="lab-card-header">
           <div class="card-title-group">
-            <h2><span>📜</span> บันทึกการทำงานและตรวจสอบย้อนกลับ (Data Log / Audit Trail)</h2>
-            <p>บันทึกประวัติการสร้างและแก้ไขข้อมูลของนักวิจัยทุกคน พร้อมระบบกู้คืนข้อมูล (Restore)
-              และคัดกรองข้อมูลละเอียด</p>
+            <h2><span>📜</span> Data Log / Audit Trail</h2>
+            <p>Audit log of data creation and edits across all researchers with point-in-time Restore
+              and filter records in detail</p>
           </div>
           <span class="badge badge-navy">100% Traceability & Recoverable</span>
         </div>
@@ -1479,37 +1479,37 @@
           <div
             style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: flex-end;">
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">👤 นักวิจัย:</label>
+              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">👤 Researcher:</label>
               <select id="audit-filter-user" class="form-select" onchange="renderAuditLogs()">
-                <option value="ALL">ทุกคน (All)</option>
+                <option value="ALL">All</option>
               </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">📅 วันที่ระบุ:</label>
+              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">📅 Specific Date:</label>
               <input type="date" id="audit-filter-date" class="form-input" onchange="renderAuditLogs()">
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">🗓️ เดือน:</label>
+              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">🗓️ Month:</label>
               <select id="audit-filter-month" class="form-select" onchange="renderAuditLogs()">
-                <option value="ALL">ทุกเดือน (All Months)</option>
-                <option value="1">มกราคม (Jan)</option>
-                <option value="2">กุมภาพันธ์ (Feb)</option>
-                <option value="3">มีนาคม (Mar)</option>
-                <option value="4">เมษายน (Apr)</option>
-                <option value="5">พฤษภาคม (May)</option>
-                <option value="6">มิถุนายน (Jun)</option>
-                <option value="7">กรกฎาคม (Jul)</option>
-                <option value="8">สิงหาคม (Aug)</option>
-                <option value="9">กันยายน (Sep)</option>
-                <option value="10">ตุลาคม (Oct)</option>
-                <option value="11">พฤศจิกายน (Nov)</option>
-                <option value="12">ธันวาคม (Dec)</option>
+                <option value="ALL">All Months</option>
+                <option value="1">January (Jan)</option>
+                <option value="2">February (Feb)</option>
+                <option value="3">March (Mar)</option>
+                <option value="4">April (Apr)</option>
+                <option value="5">May (May)</option>
+                <option value="6">June (Jun)</option>
+                <option value="7">July (Jul)</option>
+                <option value="8">August (Aug)</option>
+                <option value="9">September (Sep)</option>
+                <option value="10">October (Oct)</option>
+                <option value="11">November (Nov)</option>
+                <option value="12">December (Dec)</option>
               </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">📆 ปี:</label>
+              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">📆 Year:</label>
               <select id="audit-filter-year" class="form-select" onchange="renderAuditLogs()">
-                <option value="ALL">ทุกปี (All Years)</option>
+                <option value="ALL">All Years</option>
                 <option value="2022">2022</option>
                 <option value="2023">2023</option>
                 <option value="2024">2024</option>
@@ -1518,52 +1518,52 @@
               </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">📊 ไตรมาส:</label>
+              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">📊 Quarter:</label>
               <select id="audit-filter-quarter" class="form-select" onchange="renderAuditLogs()">
-                <option value="ALL">ทุกไตรมาส (All)</option>
-                <option value="Q1">Q1 (ม.ค. - มี.ค.)</option>
-                <option value="Q2">Q2 (เม.ย. - มิ.ย.)</option>
-                <option value="Q3">Q3 (ก.ค. - ก.ย.)</option>
-                <option value="Q4">Q4 (ต.ค. - ธ.ค.)</option>
+                <option value="ALL">All Quarters</option>
+                <option value="Q1">Q1 (Jan - Mar)</option>
+                <option value="Q2">Q2 (Apr - Jun)</option>
+                <option value="Q3">Q3 (Jul - Sep)</option>
+                <option value="Q4">Q4 (Oct - Dec)</option>
               </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">⚡ การกระทำ:</label>
+              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">⚡ Action:</label>
               <select id="audit-filter-action" class="form-select" onchange="renderAuditLogs()">
-                <option value="ALL">ทุกการกระทำ (All Actions)</option>
-                <option value="LOGIN">เข้าสู่ระบบ (Login)</option>
-                <option value="LOGOUT">ออกจากระบบ (Logout)</option>
-                <option value="CREATE_PROJECT">สร้างโปรเจกต์</option>
-                <option value="UPDATE_PROJECT_HEADER">แก้ไขข้อมูลตั้งต้น</option>
-                <option value="DELETE_PROJECT">ลบโปรเจกต์</option>
-                <option value="SAMPLE_ENTRY">บันทึกหน้าแล็บ</option>
-                <option value="UPDATE_SAMPLE">แก้ไขข้อมูลแล็บ</option>
-                <option value="HPLC_ENTRY">บันทึก HPLC</option>
-                <option value="CDW_ENTRY">บันทึก CDW</option>
-                <option value="UPDATE_DATA_RECORD">แก้ไขข้อมูลแถว</option>
-                <option value="DELETE_DATA_RECORD">ลบข้อมูลแถว</option>
-                <option value="RESTORE_DATA">กู้คืนข้อมูล</option>
-                <option value="ADD_USER">เพิ่มผู้ใช้</option>
-                <option value="UPDATE_USER">แก้ไขผู้ใช้</option>
-                <option value="DELETE_USER">ลบผู้ใช้</option>
-                <option value="CLEAR_DATA">ล้างข้อมูลระบบ</option>
-                <option value="BACKUP_EXPORT">ส่งออก Backup</option>
-                <option value="RESTORE_BACKUP_IMPORT">นำเข้า Backup</option>
+                <option value="ALL">All Actions</option>
+                <option value="LOGIN">Login</option>
+                <option value="LOGOUT">Logout</option>
+                <option value="CREATE_PROJECT">Create Project</option>
+                <option value="UPDATE_PROJECT_HEADER">Edit Initial Data</option>
+                <option value="DELETE_PROJECT">Delete Project</option>
+                <option value="SAMPLE_ENTRY">Lab Bench Entry</option>
+                <option value="UPDATE_SAMPLE">Edit Lab Data</option>
+                <option value="HPLC_ENTRY">Record HPLC</option>
+                <option value="CDW_ENTRY">Record CDW</option>
+                <option value="UPDATE_DATA_RECORD">Edit Row Data</option>
+                <option value="DELETE_DATA_RECORD">Delete Row</option>
+                <option value="RESTORE_DATA">Restore Data</option>
+                <option value="ADD_USER">Add User</option>
+                <option value="UPDATE_USER">Edit User</option>
+                <option value="DELETE_USER">Delete User</option>
+                <option value="CLEAR_DATA">Clear System Data</option>
+                <option value="BACKUP_EXPORT">Export Backup</option>
+                <option value="RESTORE_BACKUP_IMPORT">Import Backup</option>
               </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">🔍 ค้นหารายละเอียด:</label>
-              <input type="text" id="audit-filter-search" class="form-input" placeholder="พิมพ์คำค้นหา..."
+              <label class="form-label" style="font-size: 0.8rem; margin-bottom: 4px;">🔍 Search details:</label>
+              <input type="text" id="audit-filter-search" class="form-input" placeholder="Type to search..."
                 oninput="renderAuditLogs()">
             </div>
             <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
-              <span class="badge badge-navy" id="audit-count-badge">0 รายการ</span>
+              <span class="badge badge-navy" id="audit-count-badge">0 items</span>
               <button class="btn btn-secondary btn-sm" onclick="resetAuditLogFilters()"
-                style="padding: 7px 12px; font-size: 0.8rem;">ล้างตัวกรอง</button>
+                style="padding: 7px 12px; font-size: 0.8rem;">Clear Filters</button>
               <button class="btn btn-secondary btn-sm" onclick="openClearLogsModal()"
                 style="padding: 7px 12px; font-size: 0.8rem; color: #ef4444; border-color: rgba(239,68,68,0.4);"
-                title="ล้างข้อมูล Log ตามระยะเวลา (รายเดือน/ไตรมาส/ปี)">
-                <i class="fa-solid fa-trash-can" style="margin-right: 4px;"></i> ล้างข้อมูล Log
+                title="Clear Log Entries by Period (Monthly / Quarterly / Yearly)">
+                <i class="fa-solid fa-trash-can" style="margin-right: 4px;"></i> Clear Log Data
               </button>
             </div>
           </div>
@@ -1573,11 +1573,11 @@
           <table class="lab-table">
             <thead>
               <tr>
-                <th style="width: 170px;">วัน-เวลา (Timestamp)</th>
-                <th style="width: 190px;">นักวิจัย (Researcher)</th>
-                <th style="width: 150px;">การกระทำ (Action)</th>
-                <th>รายละเอียดข้อมูล (Changes & Parameters)</th>
-                <th style="width: 130px; text-align: center;">กู้คืนข้อมูล (Restore)</th>
+                <th style="width: 170px;">Timestamp</th>
+                <th style="width: 190px;">Researcher</th>
+                <th style="width: 150px;">Action</th>
+                <th>Changes & Parameters</th>
+                <th style="width: 130px; text-align: center;">Restore</th>
               </tr>
             </thead>
             <tbody id="audit-log-tbody"></tbody>
@@ -1593,12 +1593,12 @@
       <div class="lab-card">
         <div class="lab-card-header">
           <div class="card-title-group">
-            <h2><span>⚙️</span> จัดการผู้ใช้งานและตั้งค่าระบบ (User Management & Lab Config)</h2>
-            <p>เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถเพิ่ม ลบ หรือแก้ไขรหัสผ่านผู้ใช้งาน และตั้งค่าห้องปฏิบัติการได้
+            <h2><span>⚙️</span> User Management & Lab Config</h2>
+            <p>Only administrators (Admin) can add, remove, or change user passwords and configure laboratory settings
             </p>
           </div>
           <button class="btn btn-accent btn-sm" onclick="openAddUserModal()">
-            <span>+</span> เพิ่มผู้ใช้งานใหม่
+            <span>+</span> Add New User
           </button>
         </div>
 
@@ -1609,28 +1609,28 @@
             <div>
               <h3
                 style="font-size: 1.05rem; color: var(--mitr-navy-900); display: flex; align-items: center; gap: 8px; margin: 0;">
-                <span>💾</span> สำรองและกู้คืนฐานข้อมูลระบบ (System Backup, Restore & Reset)
+                <span>💾</span> System Backup, Restore & Reset
               </h3>
               <p style="font-size: 0.85rem; color: #64748b; margin-top: 4px; margin-bottom: 0;">
-                จัดการแบคอัพข้อมูลทั้งหมดของทุกงานวิจัย, ข้อมูลดิบทุกถัง, Data Log, บัญชีผู้ใช้ และการตั้งค่าของ Admin
-                ออกเป็นไฟล์ออฟไลน์ หรือนำเข้ากู้คืนระบบ
+                Manage full backups of all research projects, raw vessel data, Data Logs, user accounts, and Admin settings
+                to an offline file or import to restore the system
               </p>
             </div>
             <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
               <button class="btn btn-secondary btn-sm" onclick="exportFullSystemBackup()"
-                title="ดาวน์โหลดฐานข้อมูลทั้งหมดเป็นไฟล์ JSON">
-                <span>📥</span> ส่งออกไฟล์ Backup (JSON)
+                title="Download full system database as JSON">
+                <span>📥</span> Export Backup (JSON)
               </button>
               <button class="btn btn-accent btn-sm" onclick="triggerImportBackupFile()"
-                title="นำเข้าไฟล์ Backup กู้คืนระบบ">
-                <span>📤</span> นำเข้าไฟล์ Backup (Restore)
+                title="Import Backup File to Restore System">
+                <span>📤</span> Import Backup (Restore)
               </button>
               <input type="file" id="backup-file-input" accept=".json" style="display: none;"
                 onchange="handleImportBackupFile(event)">
               <button class="btn btn-sm" onclick="handleClearDataWithBackup()"
                 style="background: #dc2626; color: #ffffff; border: 1px solid #b91c1c;"
-                title="ล้างข้อมูลดิบและโปรเจกต์ทั้งหมดเพื่อเริ่มใหม่ โดยดาวน์โหลด Backup ออฟไลน์ให้อัตโนมัติ">
-                <span>🧹</span> Clear Data (เริ่มใหม่)
+                title="Clear all raw data and projects to start fresh with an automatic offline Backup download">
+                <span>🧹</span> Clear Data (Start Over)
               </button>
             </div>
           </div>
@@ -1639,17 +1639,17 @@
         <!-- User Management CRUD Table -->
         <div style="margin-bottom: 24px;">
           <h3 style="font-size: 1.05rem; color: var(--mitr-navy-900); margin-bottom: 12px;">👥
-            รายชื่อนักวิจัยและสิทธิ์การใช้งาน (User Accounts)</h3>
+            Researcher Accounts & Permissions (User Accounts)</h3>
           <div class="lab-data-table-wrapper">
             <table class="lab-table">
               <thead>
                 <tr>
-                  <th>ชื่อผู้ใช้ (Username)</th>
-                  <th>ชื่อ-นามสกุล</th>
-                  <th>อีเมล (Email)</th>
-                  <th>บทบาท (Role)</th>
-                  <th>รหัสผ่าน (Password)</th>
-                  <th>การดำเนินการ</th>
+                  <th>Username</th>
+                  <th>Full Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Password</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="user-management-tbody">
@@ -1661,11 +1661,11 @@
 
         <div class="form-grid-2">
           <div style="background: var(--bg-surface-subtle); padding: 20px; border-radius: var(--radius-md);">
-            <h3 style="font-size: 1rem; color: var(--mitr-navy-800); margin-bottom: 10px;">🔥 สถานะการเชื่อมต่อ Firebase
+            <h3 style="font-size: 1rem; color: var(--mitr-navy-800); margin-bottom: 10px;">🔥 Firebase Connection Status
               Cloud Database</h3>
             <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 14px;">
-              ระบบเชื่อมต่อกับ <strong>Google Cloud Firestore (Production Ready)</strong> แบบ Real-time
-              พร้อมระบบสำรองอัตโนมัติ
+              System connected to <strong>Google Cloud Firestore (Production Ready)</strong> in Real-time
+              with automatic backup
             </p>
             <div class="form-group">
               <label class="form-label">Firebase Project ID:</label>
@@ -1676,23 +1676,23 @@
               <input type="text" class="form-input" value="https://okinojung.github.io/CFL-Data-Log/" readonly>
             </div>
             <button class="btn btn-secondary btn-sm" onclick="testFirebaseConnectionLive()">
-              <i class="fa-solid fa-arrows-rotate"></i> ทดสอบการเชื่อมต่อ (Ping Firestore Live)
+              <i class="fa-solid fa-arrows-rotate"></i> Test Connection (Ping Firestore Live)
             </button>
           </div>
 
           <div style="background: var(--bg-surface-subtle); padding: 20px; border-radius: var(--radius-md);">
-            <h3 style="font-size: 1rem; color: var(--mitr-navy-800); margin-bottom: 10px;">🧪 ค่าคงที่ห้องปฏิบัติการ
+            <h3 style="font-size: 1rem; color: var(--mitr-navy-800); margin-bottom: 10px;">🧪 Laboratory Constants
               (Lab Constants)</h3>
             <div class="form-group">
               <label class="form-label">Haemacytometer Multiplication Factor (ADR-0001):</label>
               <input type="number" class="form-input" value="250000" id="setting-haemacytometer-factor">
             </div>
             <div class="form-group">
-              <label class="form-label">น้ำตาล Sugar Convert Calculation:</label>
+              <label class="form-label">Sugar Convert Calculation:</label>
               <input type="text" class="form-input" value="Sucrose + Glucose + Fructose" readonly>
             </div>
-            <button class="btn btn-primary btn-sm" onclick="showToast('บันทึกการตั้งค่าห้องแล็บเรียบร้อย', 'success')">
-              บันทึกการตั้งค่า
+            <button class="btn btn-primary btn-sm" onclick="showToast('Laboratory settings saved', 'success')">
+              Save Settings
             </button>
           </div>
         </div>
@@ -1712,9 +1712,9 @@
           <span style="font-size: 1.4rem;">⚖️</span>
           <div>
             <h3 style="margin: 0; font-size: 1.1rem; color: var(--mitr-navy-900);">
-              คำนวณและบันทึกค่าน้ำหนักแห้งเซลล์ยีสต์ Cell Dry Weight (CDW)</h3>
-            <p style="margin: 0; font-size: 0.78rem; color: #64748b;">อ้างอิง "แบบฟอร์มบันทึกน้ำหนักแห้งเซลล์" (Cell Dry
-              Weight) • ตัวอย่าง <span id="cdw-modal-target-sample" style="font-weight: 700; color: #1e40af;">PF @
+              Calculate and save Yeast Cell Dry Weight (CDW)</h3>
+            <p style="margin: 0; font-size: 0.78rem; color: #64748b;">Reference "Cell Dry Weight Recording Form" (Cell Dry
+              Weight) • Sample <span id="cdw-modal-target-sample" style="font-weight: 700; color: #1e40af;">PF @
                 82h</span></p>
           </div>
         </div>
@@ -1727,12 +1727,12 @@
         <div
           style="background: rgba(254, 243, 199, 0.45); border: 1px solid #fde68a; border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 18px; font-size: 0.82rem; color: #92400e;">
           <div style="font-weight: 700; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-            <span>🔬</span> สูตรการคำนวณ:
-            <code>CDW (g/L) = (1000 × น้ำหนักแห้งเฉลี่ย (g)) / ปริมาตรตัวอย่าง (1 mL)</code>
+            <span>🔬</span> Calculation Formula:
+            <code>CDW (g/L) = (1000 × Mean Dry Weight (g)) / Sample Volume (1 mL)</code>
           </div>
-          <div>วิธีการ: ชั่งน้ำหนักหลอดเปล่าก่อน 2 รอบ (Before) จำนวน 2 หลอด (2 ซ้ำ) &rarr; ดูดตัวอย่าง 1 mL
-            ปั่นเหวี่ยงเอาน้ำหมักทิ้งเหลือแต่เซลล์ &rarr; อบแห้งในตู้อบ &rarr; นำมาชั่งน้ำหนักหลังอบ 2 รอบ (After)
-            &rarr; หาผลต่างน้ำหนักเซลล์แห้งแต่ละหลอด เฉลี่ย 2 ซ้ำ แล้วคำนวณเป็น g/L</div>
+          <div>Method: Weigh 2 empty tubes (2 replicates) twice (Before) &rarr; Pipette 1 mL sample
+            Centrifuge and discard supernatant, retaining cell pellet &rarr; Dry in oven &rarr; Weigh twice after drying (After)
+            &rarr; Calculate dry cell weight difference per tube, average 2 replicates, and convert to g/L</div>
         </div>
 
         <!-- 2-Tube Grid Inputs -->
@@ -1742,35 +1742,35 @@
             style="background: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
             <div
               style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 2px solid #bfdbfe; padding-bottom: 6px;">
-              <strong style="color: #1e40af; font-size: 0.92rem;">🧪 หลอดที่ 1 (ซ้ำที่ 1)</strong>
-              <span id="cdw-tube1-net-badge" class="badge badge-navy" style="font-size: 0.75rem;">สุทธิ: 0.0000 g</span>
+              <strong style="color: #1e40af; font-size: 0.92rem;">🧪 Tube 1 (Replicate 1)</strong>
+              <span id="cdw-tube1-net-badge" class="badge badge-navy" style="font-size: 0.75rem;">Net: 0.0000 g</span>
             </div>
 
-            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 4px;">Before ชั่งก่อนอบ
+            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 4px;">Before - weighed before drying
               (g):</div>
             <div class="form-grid-2" style="gap: 8px;">
               <div class="form-group">
-                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 1</label>
+                <label class="form-label" style="font-size: 0.72rem;">Replicate 1</label>
                 <input type="number" step="0.0001" id="cdw-tube1-before1" class="form-input" placeholder="1.1130"
                   oninput="calcCDWFromInputs()">
               </div>
               <div class="form-group">
-                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 2</label>
+                <label class="form-label" style="font-size: 0.72rem;">Replicate 2</label>
                 <input type="number" step="0.0001" id="cdw-tube1-before2" class="form-input" placeholder="1.1132"
                   oninput="calcCDWFromInputs()">
               </div>
             </div>
 
-            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin: 8px 0 4px;">After ชั่งหลังตู้อบ
+            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin: 8px 0 4px;">After - weighed after oven
               (g):</div>
             <div class="form-grid-2" style="gap: 8px;">
               <div class="form-group">
-                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 1</label>
+                <label class="form-label" style="font-size: 0.72rem;">Replicate 1</label>
                 <input type="number" step="0.0001" id="cdw-tube1-after1" class="form-input" placeholder="1.1152"
                   oninput="calcCDWFromInputs()">
               </div>
               <div class="form-group">
-                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 2</label>
+                <label class="form-label" style="font-size: 0.72rem;">Replicate 2</label>
                 <input type="number" step="0.0001" id="cdw-tube1-after2" class="form-input" placeholder="1.1153"
                   oninput="calcCDWFromInputs()">
               </div>
@@ -1782,35 +1782,35 @@
             style="background: #ffffff; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
             <div
               style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 2px solid #fde68a; padding-bottom: 6px;">
-              <strong style="color: #b45309; font-size: 0.92rem;">🧪 หลอดที่ 2 (ซ้ำที่ 2)</strong>
-              <span id="cdw-tube2-net-badge" class="badge badge-gold" style="font-size: 0.75rem;">สุทธิ: 0.0000 g</span>
+              <strong style="color: #b45309; font-size: 0.92rem;">🧪 Tube 2 (Replicate 2)</strong>
+              <span id="cdw-tube2-net-badge" class="badge badge-gold" style="font-size: 0.75rem;">Net: 0.0000 g</span>
             </div>
 
-            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 4px;">Before ชั่งก่อนอบ
+            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 4px;">Before - weighed before drying
               (g):</div>
             <div class="form-grid-2" style="gap: 8px;">
               <div class="form-group">
-                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 1</label>
+                <label class="form-label" style="font-size: 0.72rem;">Replicate 1</label>
                 <input type="number" step="0.0001" id="cdw-tube2-before1" class="form-input" placeholder="1.1175"
                   oninput="calcCDWFromInputs()">
               </div>
               <div class="form-group">
-                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 2</label>
+                <label class="form-label" style="font-size: 0.72rem;">Replicate 2</label>
                 <input type="number" step="0.0001" id="cdw-tube2-before2" class="form-input" placeholder="1.1174"
                   oninput="calcCDWFromInputs()">
               </div>
             </div>
 
-            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin: 8px 0 4px;">After ชั่งหลังตู้อบ
+            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin: 8px 0 4px;">After - weighed after oven
               (g):</div>
             <div class="form-grid-2" style="gap: 8px;">
               <div class="form-group">
-                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 1</label>
+                <label class="form-label" style="font-size: 0.72rem;">Replicate 1</label>
                 <input type="number" step="0.0001" id="cdw-tube2-after1" class="form-input" placeholder="1.1192"
                   oninput="calcCDWFromInputs()">
               </div>
               <div class="form-group">
-                <label class="form-label" style="font-size: 0.72rem;">ครั้งที่ 2</label>
+                <label class="form-label" style="font-size: 0.72rem;">Replicate 2</label>
                 <input type="number" step="0.0001" id="cdw-tube2-after2" class="form-input" placeholder="1.1193"
                   oninput="calcCDWFromInputs()">
               </div>
@@ -1822,13 +1822,13 @@
         <div
           style="margin-top: 18px; padding: 16px; background: linear-gradient(135deg, rgba(239, 246, 255, 0.8), rgba(254, 243, 199, 0.6)); border: 1px solid #bfdbfe; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
           <div>
-            <label style="font-size: 0.75rem; color: #64748b; font-weight: 700; display: block;">ปริมาตรตัวอย่าง
+            <label style="font-size: 0.75rem; color: #64748b; font-weight: 700; display: block;">Sample Volume
               (mL):</label>
             <input type="number" step="0.1" id="cdw-sample-vol" value="1.0" class="form-input"
               style="width: 80px; text-align: center; height: 34px;" oninput="calcCDWFromInputs()">
           </div>
           <div>
-            <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">น้ำหนักแห้งเฉลี่ย 2 ซ้ำ:</span>
+            <span style="font-size: 0.75rem; color: #64748b; font-weight: 600;">Mean Dry Weight (2 Replicates):</span>
             <div id="cdw-avg-net-display" style="font-size: 1.15rem; font-weight: 700; color: #1e3a8a;">0.0000 g</div>
           </div>
           <div>
@@ -1839,9 +1839,9 @@
 
         <!-- Modal Actions (Option 2: Laboratory Production Mode) -->
         <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 20px; gap: 10px;">
-          <button type="button" class="btn btn-secondary" onclick="closeCDWModal()">ยกเลิก</button>
+          <button type="button" class="btn btn-secondary" onclick="closeCDWModal()">Cancel</button>
           <button type="button" class="btn btn-primary" onclick="saveCDWToCurrentSample()">
-            💾 บันทึกค่า CDW ลงตัวอย่าง
+            💾 Save CDW to Sample
           </button>
         </div>
       </div>
@@ -1857,8 +1857,8 @@
         style="display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-bottom: 1px solid var(--border-subtle); background: #f8fafc; border-top-left-radius: var(--radius-lg); border-top-right-radius: var(--radius-lg);">
         <div style="display: flex; align-items: center; gap: 10px;">
           <span style="font-size: 1.3rem;">📋</span>
-          <h3 id="feed-log-modal-title" style="margin: 0; font-size: 1.1rem; color: var(--mitr-navy-900);">บันทึก Feed
-            อาหาร (Feeding Log)</h3>
+          <h3 id="feed-log-modal-title" style="margin: 0; font-size: 1.1rem; color: var(--mitr-navy-900);">Record Feed
+            Feeding Log</h3>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" onclick="closeAddFeedLogModal()"
           style="border-radius: 50%; width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">&times;</button>
@@ -1869,46 +1869,46 @@
 
         <div class="form-grid-2">
           <div class="form-group">
-            <label class="form-label">วันที่ & เวลา:</label>
-            <input type="text" id="feed-log-datetime" class="form-input" placeholder="เช่น 1/09/26 08:00">
+            <label class="form-label">Date & Time:</label>
+            <input type="text" id="feed-log-datetime" class="form-input" placeholder="e.g. 1/09/26 08:00">
           </div>
           <div class="form-group">
-            <label class="form-label">อาหาร / ถัง:</label>
-            <input type="text" id="feed-log-medium" class="form-input" placeholder="เช่น BF.1, BF.2 90:10, B.1">
+            <label class="form-label">Medium / Tank:</label>
+            <input type="text" id="feed-log-medium" class="form-input" placeholder="e.g. BF.1, BF.2 90:10, B.1">
           </div>
         </div>
 
         <div class="form-grid-2">
           <div class="form-group">
-            <label class="form-label">Feed รอบที่:</label>
-            <input type="text" id="feed-log-no" class="form-input" placeholder="เช่น Feed 1, Feed 2">
+            <label class="form-label">Feed Round:</label>
+            <input type="text" id="feed-log-no" class="form-input" placeholder="e.g. Feed 1, Feed 2">
           </div>
           <div class="form-group">
             <label class="form-label">Brix (°Bx):</label>
-            <input type="number" step="0.1" id="feed-log-brix" class="form-input" placeholder="เช่น 17.1">
+            <input type="number" step="0.1" id="feed-log-brix" class="form-input" placeholder="e.g. 17.1">
           </div>
         </div>
 
         <div class="form-grid-2">
           <div class="form-group">
-            <label class="form-label">ปริมาตรเริ่มต้น:</label>
-            <input type="text" id="feed-log-initial-vol" class="form-input" placeholder="เช่น 4 L หรือ 2 L">
+            <label class="form-label">Initial Volume:</label>
+            <input type="text" id="feed-log-initial-vol" class="form-input" placeholder="e.g. 4 L or 2 L">
           </div>
           <div class="form-group">
-            <label class="form-label">ปริมาตรที่เหลือ:</label>
-            <input type="text" id="feed-log-remain-vol" class="form-input" placeholder="เช่น 1,500 mL หรือ 980 mL">
+            <label class="form-label">Remaining Volume:</label>
+            <input type="text" id="feed-log-remain-vol" class="form-input" placeholder="e.g. 1,500 mL or 980 mL">
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">หมายเหตุ (เช่น Feed Rate):</label>
-          <input type="text" id="feed-log-remarks" class="form-input" placeholder="เช่น 200 mL/h">
+          <label class="form-label">Notes (e.g. Feed Rate):</label>
+          <input type="text" id="feed-log-remarks" class="form-input" placeholder="e.g. 200 mL/h">
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-          <button type="button" class="btn btn-secondary" onclick="closeAddFeedLogModal()">ยกเลิก</button>
+          <button type="button" class="btn btn-secondary" onclick="closeAddFeedLogModal()">Cancel</button>
           <button type="button" class="btn btn-primary" onclick="saveFeedLogEntry()">
-            💾 บันทึกรายการ Feed
+            💾 Save Feed Entry
           </button>
         </div>
       </div>
@@ -1922,14 +1922,14 @@
     <div class="mobile-modal-sheet">
       <div class="mobile-sheet-header">
         <button class="mobile-sheet-close" onclick="closeMobileQuickAddModal()">&times;</button>
-        <h3><i class="fa-solid fa-flask" style="color: #2563eb; margin-right: 6px;"></i> บันทึกข้อมูลตัวอย่าง</h3>
+        <h3><i class="fa-solid fa-flask" style="color: #2563eb; margin-right: 6px;"></i> Save Sample Data</h3>
         <div style="width: 24px;"></div>
       </div>
 
       <div class="mobile-sheet-body">
         <!-- Tank Selection Pills (PF, F2..F7, D3) -->
         <div class="form-group">
-          <label class="form-label" style="font-weight: 700; color: #1e293b;">เลือกถังหมักเป้าหมาย *</label>
+          <label class="form-label" style="font-weight: 700; color: #1e293b;">Select Target Vessel *</label>
           <div class="mobile-tank-pills" id="mob-quick-tank-pills">
             <!-- Populated dynamically: PF, F2, F3, F4, F5, F6, F7, D3 -->
           </div>
@@ -1938,16 +1938,16 @@
         <!-- Timepoint & Brix -->
         <div class="form-grid-2" style="margin-top: 10px;">
           <div class="form-group">
-            <label class="form-label" style="font-weight: 700;">จุดเวลาอายุถัง (ชม.) *</label>
+            <label class="form-label" style="font-weight: 700;">Vessel Age Timepoint (h) *</label>
             <div style="display: flex; gap: 6px;">
               <select id="mob-quick-timepoint" class="form-select" style="flex: 1;"></select>
               <button type="button" class="btn btn-secondary btn-sm" onclick="openAddCustomTimepointModal()">+
-                เพิ่ม</button>
+                Add</button>
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label" style="font-weight: 700;">ค่าความหวาน Brix (°Bx) *</label>
-            <input type="number" step="0.1" id="mob-quick-brix" class="form-input" placeholder="เช่น 12.5">
+            <label class="form-label" style="font-weight: 700;">Brix (°Bx) *</label>
+            <input type="number" step="0.1" id="mob-quick-brix" class="form-input" placeholder="e.g. 12.5">
           </div>
         </div>
 
@@ -1955,7 +1955,7 @@
         <div class="mobile-sheet-card" style="margin-top: 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1e293b;">
-              <i class="fa-solid fa-microscope" style="color: #2563eb;"></i> นับเซลล์ยีสต์ (รวม 5 ช่อง)
+              <i class="fa-solid fa-microscope" style="color: #2563eb;"></i> Yeast Cell Count (Sum of 5 Squares)
             </label>
             <span id="mob-quick-cell-calc-badge" class="badge badge-navy" style="font-size: 0.72rem;">0 CFU/ml</span>
           </div>
@@ -1978,9 +1978,9 @@
           </div>
           <div
             style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 0.75rem; color: #64748b; flex-wrap: wrap; gap: 4px;">
-            <span>เจือจาง: <input type="number" id="mob-quick-dilution" value="10"
+            <span>Dilution: <input type="number" id="mob-quick-dilution" value="10"
                 style="width: 48px; text-align: center; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px;"
-                oninput="calcMobQuickCells()"> เท่า</span>
+                oninput="calcMobQuickCells()"> x</span>
             <span id="mob-quick-budding-badge" style="font-weight: 600; color: #b45309;">Budding: -</span>
             <span id="mob-quick-viability-badge" style="font-weight: 600; color: #059669;">% Viability: -</span>
           </div>
@@ -1991,16 +1991,16 @@
           style="margin-top: 12px; background: rgba(254, 243, 199, 0.35); border-color: #fde68a;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #92400e;">
-              <i class="fa-solid fa-weight-scale" style="color: #d97706;"></i> น้ำหนักแห้ง Cell Dry Weight (g/L)
+              <i class="fa-solid fa-weight-scale" style="color: #d97706;"></i> Cell Dry Weight (g/L)
             </label>
-            <span class="badge badge-gold" style="font-size: 0.72rem;">2 หลอดซ้ำ</span>
+            <span class="badge badge-gold" style="font-size: 0.72rem;">2 replicate tubes</span>
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="number" step="0.01" id="mob-quick-cdw" class="form-input" placeholder="เช่น 2.45"
+            <input type="number" step="0.01" id="mob-quick-cdw" class="form-input" placeholder="e.g. 2.45"
               style="flex: 1;">
             <button type="button" class="btn btn-secondary btn-sm" onclick="openCDWModal()"
               style="font-size: 0.75rem; white-space: nowrap; padding: 6px 10px; background: #ffffff;">
-              ⚖️ ชั่ง 2 ซ้ำ
+              ⚖️ Weighed in duplicate
             </button>
           </div>
         </div>
@@ -2009,7 +2009,7 @@
         <div class="mobile-sheet-card" style="margin-top: 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #1e293b;">
-              <i class="fa-solid fa-vial" style="color: #d97706;"></i> ผลฉีด HPLC (g/L)
+              <i class="fa-solid fa-vial" style="color: #d97706;"></i> HPLC Results (g/L)
             </label>
             <span class="badge badge-gold" style="font-size: 0.72rem;">Auto Convert</span>
           </div>
@@ -2034,16 +2034,16 @@
             <div class="form-group" style="margin-bottom: 0;">
               <label class="form-label" style="font-size: 0.72rem; color: #1e40af; font-weight: 700;">Ethanol
                 (g/L)</label>
-              <input type="number" step="0.01" id="mob-quick-ethanol" class="form-input" placeholder="เช่น 99.53">
+              <input type="number" step="0.01" id="mob-quick-ethanol" class="form-input" placeholder="e.g. 99.53">
             </div>
             <div class="form-group" style="margin-bottom: 0;">
               <label class="form-label" style="font-size: 0.72rem;">Glycerol (g/L)</label>
-              <input type="number" step="0.01" id="mob-quick-glycerol" class="form-input" placeholder="เช่น 10.77">
+              <input type="number" step="0.01" id="mob-quick-glycerol" class="form-input" placeholder="e.g. 10.77">
             </div>
           </div>
           <div
             style="margin-top: 8px; font-size: 0.78rem; color: #475569; display: flex; justify-content: space-between;">
-            <span>น้ำตาลรวม Sugar Convert:</span>
+            <span>Total Sugar Convert:</span>
             <strong id="mob-quick-sugar-convert-display" style="color: #2563eb;">0.000 g/L</strong>
           </div>
         </div>
@@ -2051,7 +2051,7 @@
         <!-- Save Button (Large Blue Rounded) -->
         <button type="button" class="mobile-primary-btn" onclick="saveMobQuickSample()"
           style="margin-top: 18px; width: 100%;">
-          <i class="fa-solid fa-check"></i> บันทึกข้อมูลตัวอย่าง
+          <i class="fa-solid fa-check"></i> Save Sample Data
         </button>
       </div>
     </div>
@@ -2064,15 +2064,15 @@
     <div class="mobile-modal-sheet" style="height: 85vh;">
       <div class="mobile-sheet-header">
         <button class="mobile-sheet-close" onclick="closeMobileNotificationsModal()">&times;</button>
-        <h3><i class="fa-solid fa-bell" style="color: #2563eb; margin-right: 6px;"></i> การแจ้งเตือน & ประวัติแล็บ</h3>
+        <h3><i class="fa-solid fa-bell" style="color: #2563eb; margin-right: 6px;"></i> Notifications & Lab History</h3>
         <div style="width: 24px;"></div>
       </div>
 
       <!-- Filter Tabs (Screen 10) -->
       <div class="mobile-filter-pills" style="margin-bottom: 12px;">
-        <button class="mob-filter-pill active" onclick="filterMobLogs('all', this)">ทั้งหมด</button>
-        <button class="mob-filter-pill" onclick="filterMobLogs('sample', this)">บันทึกแล็บ</button>
-        <button class="mob-filter-pill" onclick="filterMobLogs('system', this)">ระบบ</button>
+        <button class="mob-filter-pill active" onclick="filterMobLogs('all', this)">All</button>
+        <button class="mob-filter-pill" onclick="filterMobLogs('sample', this)">Lab Record</button>
+        <button class="mob-filter-pill" onclick="filterMobLogs('system', this)">System</button>
       </div>
 
       <div id="mobile-notifications-list" class="mobile-notifications-list">
@@ -2088,7 +2088,7 @@
     <div class="mobile-modal-sheet">
       <div class="mobile-sheet-header">
         <button class="mobile-sheet-close" onclick="closeMobileSampleDetail()">&times;</button>
-        <h3>รายละเอียดตัวอย่าง</h3>
+        <h3>Sample Details</h3>
         <div style="width: 24px;"></div>
       </div>
       <div id="mobile-sample-detail-content" class="mobile-sheet-body">
@@ -2103,28 +2103,28 @@
   <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
     <button class="mob-nav-item active" id="btn-mob-nav-home" onclick="switchMobileTab('home')">
       <i class="fa-solid fa-house mob-nav-icon"></i>
-      <span class="mob-nav-label">หน้าหลัก</span>
+      <span class="mob-nav-label">Home</span>
     </button>
 
     <button class="mob-nav-item" id="btn-mob-nav-records" onclick="switchMobileTab('records')">
       <i class="fa-solid fa-list-check mob-nav-icon"></i>
-      <span class="mob-nav-label">ข้อมูลดิบ</span>
+      <span class="mob-nav-label">Raw Data</span>
     </button>
 
     <!-- Floating Center Add Button (Screen 3, 5, 6, 7, 9) -->
     <button class="mob-nav-fab" id="btn-mob-nav-add" onclick="openMobileQuickAddModal()"
-      title="บันทึกข้อมูลตัวอย่างด่วน">
+      title="Quick Sample Entry">
       <i class="fa-solid fa-plus"></i>
     </button>
 
     <button class="mob-nav-item" id="btn-mob-nav-charts" onclick="switchMobileTab('charts')">
       <i class="fa-solid fa-chart-line mob-nav-icon"></i>
-      <span class="mob-nav-label">กราฟ & ผัง</span>
+      <span class="mob-nav-label">Charts & Diagrams</span>
     </button>
 
     <button class="mob-nav-item" id="btn-mob-nav-profile" onclick="switchMobileTab('profile')">
       <i class="fa-solid fa-user mob-nav-icon"></i>
-      <span class="mob-nav-label">โปรไฟล์</span>
+      <span class="mob-nav-label">Profile</span>
     </button>
   </nav>
 
@@ -2136,12 +2136,12 @@
       <div class="slide-header">
         <div style="display: flex; align-items: center; gap: 10px;">
           <span style="font-size: 1.4rem;">📊</span>
-          <strong>สไลด์นำเสนอ (Presentation Deck)</strong>
+          <strong>Presentation Deck</strong>
           <span class="badge badge-gold" id="slide-counter-badge">Slide 1 of 6</span>
         </div>
         <button type="button" id="btn-close-presentation" onclick="closePresentationModal()"
           style="background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.3); border-radius: 50%; width: 36px; height: 36px; color: #ffffff; font-size: 1.4rem; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;"
-          title="ปิดสไลด์นำเสนอ">&times;</button>
+          title="Close Presentation">&times;</button>
       </div>
 
       <div class="slide-body" id="slide-inner-content">
@@ -2150,15 +2150,15 @@
 
       <div class="slide-footer">
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button type="button" class="btn btn-secondary" id="btn-prev-slide">◀ สไลด์ก่อนหน้า</button>
-          <button type="button" class="btn btn-primary" id="btn-next-slide">สไลด์ถัดไป ▶</button>
+          <button type="button" class="btn btn-secondary" id="btn-prev-slide">◀ Previous Slide</button>
+          <button type="button" class="btn btn-primary" id="btn-next-slide">Next Slide ▶</button>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button type="button" class="btn btn-secondary" onclick="closePresentationModal()" style="font-weight: 600;">
-            <i class="fa-solid fa-xmark"></i> ปิดสไลด์
+            <i class="fa-solid fa-xmark"></i> Close Slides
           </button>
           <button type="button" class="btn btn-accent" id="btn-export-pdf">
-            <span>🖨️</span> พิมพ์ / Export PDF
+            <span>🖨️</span> Print / Export PDF
           </button>
         </div>
       </div>
@@ -2345,7 +2345,7 @@
         closePresentationModal();
         const presClosed = presModal && presModal.style.display === 'none' && !presModal.classList.contains('open');
         if (presOpen && presClosed && state.totalSlides === 6) {
-          ok('Presentation Modal (สไลด์นำเสนอ): Open, Close, and 6-Slide Deck (with new features slide) verified');
+          ok('Presentation Modal: Open, Close, and 6-Slide Deck (with new features slide) verified');
         } else {
           fail('Presentation Modal', 'Could not open, close, or 6 slides mismatch');
         }
